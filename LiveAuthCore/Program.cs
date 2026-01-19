@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Claims;
 using LiveAuthCore.Auth;
 using LiveAuthCore.Data;
 using LiveAuthCore.Entities;
@@ -81,18 +82,35 @@ builder.Services
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
+            // 🔐 Signature
             ValidateIssuerSigningKey = true,
             IssuerSigningKey =
                 new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
 
+            // 🔥 MUST MATCH TOKEN CONTENTS
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidIssuer = "LiveAuth",
 
             ValidateAudience = true,
-            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidAudience = "LiveAuthUsers",
 
+            // ⏱ Lifetime
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(1)
+            ClockSkew = TimeSpan.FromMinutes(1),
+
+            // 🔥 CRITICAL FIXES
+            RoleClaimType = ClaimTypes.Role,
+            NameClaimType = "userId"
+        };
+
+        // Optional but VERY useful for debugging
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = ctx =>
+            {
+                Console.WriteLine($"JWT auth failed: {ctx.Exception.Message}");
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -157,21 +175,17 @@ app.UseExceptionHandler(errorApp =>
     {
         var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
 
-        if (exception is UnauthorizedAccessException)
-        {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        }
-        else
-        {
-            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        }
+        context.Response.StatusCode =
+            exception is UnauthorizedAccessException
+                ? StatusCodes.Status401Unauthorized
+                : StatusCodes.Status500InternalServerError;
 
         context.Response.ContentType = "application/json";
         await context.Response.WriteAsync("""
-                                          {
-                                              "error": "Unauthorized or invalid token"
-                                          }
-                                          """);
+        {
+            "error": "Unauthorized or invalid token"
+        }
+        """);
     });
 });
 
