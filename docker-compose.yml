@@ -1,0 +1,64 @@
+version: "3.9"
+
+networks:
+  liveauth:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+
+services:
+
+  # -------------------------
+  # Reverse Proxy / TLS
+  # -------------------------
+  caddy:
+    image: caddy:2.8
+    container_name: liveauth-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./LiveAuthWeb:/srv
+    networks:
+      - liveauth
+
+  # -------------------------
+  # LiveAuth API (.NET)
+  # -------------------------
+  liveauth-api:
+    build:
+      context: ./LiveAuthCore
+      dockerfile: Dockerfile
+    container_name: liveauth-api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Default: Host=postgres;Database=liveauth;Username=liveauth;Password=liveauth
+    depends_on:
+      - postgres
+    networks:
+      - liveauth
+
+  # -------------------------
+  # PostgreSQL
+  # -------------------------
+  postgres:
+    image: postgres:16
+    container_name: liveauth-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: liveauth
+      POSTGRES_USER: liveauth
+      POSTGRES_PASSWORD: liveauth
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - liveauth
