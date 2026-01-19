@@ -1,0 +1,12 @@
+{
+  email admin@liveauth.app
+}
+
+liveauth.app {
+  root * /srv
+  file_server
+}
+
+api.liveauth.app {
+  reverse_proxy liveauth-api:8080
+}
