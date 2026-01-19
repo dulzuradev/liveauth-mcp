@@ -118,7 +118,7 @@ export interface CreateSubscriptionInvoiceResponse {
 
 @Injectable({ providedIn: 'root' })
 export class DeveloperProjectsService {
-    private baseUrl = 'http://localhost:5166';
+    private baseUrl = 'https://api.liveauth.app';
 
   constructor(private http: HttpClient, private devAuth: DevAuthService) {}
 
