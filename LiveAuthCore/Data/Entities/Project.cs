@@ -45,8 +45,7 @@ public class Project
     public DateTime? ProPaidUntil { get; set; } 
     // UTC timestamp when Pro expires
     
-    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
-
+    public byte[] RowVersion { get; set; } = Guid.NewGuid().ToByteArray();
     
 }
 
