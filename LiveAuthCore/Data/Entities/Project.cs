@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json;
 
 namespace LiveAuthCore.Data.Entities;
 
@@ -13,7 +12,7 @@ public class Project
 
     public string Name { get; set; } = string.Empty;
 
-    public string PublicKey { get; set; } = string.Empty;   // unique index
+    public string PublicKey { get; set; } = string.Empty;
     public string SecretKeyHash { get; set; } = string.Empty;
 
     public bool IsActive { get; set; } = true;
@@ -28,9 +27,8 @@ public class Project
     public string? WebhookUrl { get; set; }
     public string? WebhookSecret { get; set; }
 
-    public string Environment { get; set; } = "TEST"; // TEST or LIVE
+    public string Environment { get; set; } = "TEST";
 
-    // Persisted via ValueConverter
     public List<string> AllowedDomains { get; set; } = new();
 
     public int SatsPerLogin { get; set; } = 21;
@@ -41,17 +39,12 @@ public class Project
     public int MonthlyAuthCount { get; set; }
     public DateTime MonthlyAuthPeriodStart { get; set; }
 
-    public string Plan { get; set; } = "free"; 
-    // free | pro (string keeps it flexible for v2)
+    public string Plan { get; set; } = "free";
+    public DateTime? ProPaidUntil { get; set; }
 
-    public DateTime? ProPaidUntil { get; set; } 
-    // UTC timestamp when Pro expires
-
-    // 🔑 CRITICAL FIX — EF MUST NOT TREAT THIS AS DB-GENERATED
-    [Required]
+    // ✅ FIX: nullable disables EF concurrency + RETURNING
     [Column(TypeName = "BLOB")]
-    [DatabaseGenerated(DatabaseGeneratedOption.None)]
-    public byte[] RowVersion { get; set; } = Guid.NewGuid().ToByteArray();
+    public byte[]? RowVersion { get; set; } = Guid.NewGuid().ToByteArray();
 }
 
 public static class ProjectExtensions
@@ -66,6 +59,6 @@ public static class ProjectExtensions
 
 public static class SubscriptionPricing
 {
-    public const long ProMonthlySats = 100_000; // example: 100k sats
+    public const long ProMonthlySats = 100_000;
     public static readonly TimeSpan ProDuration = TimeSpan.FromDays(30);
 }
