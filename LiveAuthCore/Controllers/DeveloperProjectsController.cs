@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text.Json;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
@@ -43,18 +44,15 @@ public class DeveloperProjectsController : ControllerBase
     /// </summary>
     private Guid GetDeveloperIdOrThrow()
     {
-        var idClaim = User.Claims.SingleOrDefault(c => c.Type == "userId")?.Value;
-        if (string.IsNullOrWhiteSpace(idClaim))
-            throw new UnauthorizedAccessException("Missing userId claim.");
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                  ?? User.FindFirstValue("sub");
 
-        if (Guid.TryParse(idClaim, out var guid))
-            return guid;
+        if (!Guid.TryParse(sub, out var devId))
+            throw new UnauthorizedAccessException("Invalid developer identity");
 
-        if (IsAdmin())
-            return Guid.Empty;
-
-        throw new UnauthorizedAccessException("Invalid userId claim.");
+        return devId;
     }
+
 
     // ✅ Create project (owner inferred from JWT)
     [HttpPost]
