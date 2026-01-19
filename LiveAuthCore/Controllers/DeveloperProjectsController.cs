@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Text.Json;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Models;
@@ -8,9 +7,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.JsonWebTokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using JwtRegisteredClaimNames = System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames;
 
 namespace LiveAuthCore.Controllers;
@@ -46,12 +42,12 @@ public class DeveloperProjectsController : ControllerBase
     /// Developer tokens use GUID userId. Admin tokens may use "admin" or non-GUID.
     /// For Admin we don't enforce ownership, so we allow non-GUID.
     /// </summary>
-
     protected Guid GetDeveloperIdOrThrow()
     {
+        // Prefer explicit developer id, fall back to common JWT subject/user id claims.
         var claim =
             User.FindFirst("developer_id") ??
-            User.FindFirst("userId") ?? // ✅ THIS FIX
+            User.FindFirst("userId") ??
             User.FindFirst(ClaimTypes.NameIdentifier) ??
             User.FindFirst(JwtRegisteredClaimNames.Sub);
 
@@ -61,27 +57,48 @@ public class DeveloperProjectsController : ControllerBase
         return devId;
     }
 
+    /// <summary>
+    /// Ensures the Developer row exists for the current JWT.
+    /// - For Admins: returns null (no ownership enforcement).
+    /// - For Developers: creates row if missing (first live run).
+    /// </summary>
+    private async Task<Developer?> GetOrCreateDeveloperAsync(Guid devId, CancellationToken ct = default)
+    {
+        // Admins are allowed through the controller but may not have a GUID identity.
+        // If they do have a GUID, they can behave like a developer; otherwise skip.
+        // Here we assume devId is a GUID already (caller uses GetDeveloperIdOrThrow()).
+        var dev = await _db.Developers.SingleOrDefaultAsync(d => d.Id == devId, ct);
+        if (dev != null) return dev;
+
+        // Auto-provision developer on first successful JWT usage
+        dev = new Developer
+        {
+            Id = devId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        // Optional: populate Email if your Developer entity has it.
+        // This compiles even if Email doesn't exist if you comment it in/out.
+        // var email = User.FindFirst(JwtRegisteredClaimNames.Email)?.Value
+        //            ?? User.FindFirst(ClaimTypes.Email)?.Value;
+        // if (!string.IsNullOrWhiteSpace(email))
+        //     dev.Email = email;
+
+        _db.Developers.Add(dev);
+        await _db.SaveChangesAsync(ct);
+
+        return dev;
+    }
 
     // ✅ Create project (owner inferred from JWT)
     [HttpPost]
-    public async Task<ActionResult<CreateProjectResponse>> CreateProject([FromBody] CreateProjectRequest req)
+    public async Task<ActionResult<CreateProjectResponse>> CreateProject([FromBody] CreateProjectRequest req, CancellationToken ct)
     {
         var devId = GetDeveloperIdOrThrow();
+        var dev = await GetOrCreateDeveloperAsync(devId, ct);
 
-        var dev = await _db.Developers.SingleOrDefaultAsync(d => d.Id == devId);
-
-        if (dev == null)
-        {
-            dev = new Developer
-            {
-                Id = devId,
-                CreatedAt = DateTime.UtcNow
-                // Optional: Email = User.FindFirst(JwtRegisteredClaimNames.Email)?.Value
-            };
-
-            _db.Developers.Add(dev);
-            await _db.SaveChangesAsync();
-        }
+        // If somehow null (shouldn't happen with GUID devId), treat as unauthorized
+        if (dev == null) return Unauthorized("Developer not found.");
 
         var (pub, sec, secHash) = _keys.GenerateKeys();
 
@@ -94,7 +111,7 @@ public class DeveloperProjectsController : ControllerBase
         };
 
         _db.Projects.Add(project);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
 
         return Ok(new CreateProjectResponse
         {
@@ -106,9 +123,15 @@ public class DeveloperProjectsController : ControllerBase
 
     // ✅ List projects for current developer
     [HttpGet]
-    public async Task<ActionResult<ListProjectsResponse>> ListProjects()
+    public async Task<ActionResult<ListProjectsResponse>> ListProjects(CancellationToken ct)
     {
         var devId = GetDeveloperIdOrThrow();
+
+        // Auto-provision developer on first request so LIST doesn't 401 on a brand new account
+        if (!IsAdmin())
+        {
+            await GetOrCreateDeveloperAsync(devId, ct);
+        }
 
         var query = _db.Projects
             .Where(p => IsAdmin() || p.DeveloperId == devId)
@@ -130,18 +153,18 @@ public class DeveloperProjectsController : ControllerBase
                 ProPaidUntil = p.ProPaidUntil,
                 MonthlyAuthPeriodStart = p.MonthlyAuthPeriodStart
             })
-            .ToListAsync();
+            .ToListAsync(ct);
 
         return Ok(new ListProjectsResponse { Projects = projects });
     }
 
     // ✅ Rotate secret (owner-only unless admin)
     [HttpPost("{projectId:guid}/rotate-secret")]
-    public async Task<ActionResult<RotateSecretResponse>> RotateSecret(Guid projectId)
+    public async Task<ActionResult<RotateSecretResponse>> RotateSecret(Guid projectId, CancellationToken ct)
     {
         var devId = GetDeveloperIdOrThrow();
 
-        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId && p.IsActive);
+        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId && p.IsActive, ct);
         if (project == null) return NotFound("Project not found.");
 
         if (!IsAdmin() && project.DeveloperId != devId)
@@ -150,7 +173,7 @@ public class DeveloperProjectsController : ControllerBase
         var (newSecret, newHash) = _keys.GenerateNewSecret();
         project.SecretKeyHash = newHash;
 
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
 
         return Ok(new RotateSecretResponse
         {
@@ -162,31 +185,19 @@ public class DeveloperProjectsController : ControllerBase
     }
 
     // ✅ Update project status (Active / Paused)
-    // PATCH /api/dev/projects/{projectId}/status
     [HttpPatch("{projectId:guid}/status")]
-    public async Task<IActionResult> UpdateStatus(Guid projectId, [FromBody] UpdateProjectStatusRequest request)
+    public async Task<IActionResult> UpdateStatus(Guid projectId, [FromBody] UpdateProjectStatusRequest request, CancellationToken ct)
     {
         var devId = GetDeveloperIdOrThrow();
 
-        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId);
+        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return NotFound("Project not found.");
-        
+
         var now = DateTime.UtcNow;
-        if (project.Plan == "pro" &&
-            project.ProPaidUntil.HasValue &&
-            project.ProPaidUntil.Value > now)
-        {
-            if (project.ProPaidUntil == null || project.ProPaidUntil < DateTime.UtcNow)
-            {
-                return StatusCode(StatusCodes.Status402PaymentRequired, new
-                {
-                    error = "pro_required",
-                    message = "An active Pro subscription is required to enable LIVE mode."
-                });
-            }
-        }
-        
-        if (_billingService.IsInGracePeriod(project, DateTime.UtcNow))
+
+        // NOTE: Your original logic had redundant checks; preserved behavior but simplified the intent:
+        // LIVE mode restrictions handled elsewhere; here we only gate based on grace period if needed.
+        if (_billingService.IsInGracePeriod(project, now))
         {
             return StatusCode(StatusCodes.Status402PaymentRequired, new
             {
@@ -200,20 +211,20 @@ public class DeveloperProjectsController : ControllerBase
 
         project.IsActive = request.Active;
 
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return NoContent();
     }
 
     // ✅ Get project settings
     [HttpGet("{projectId}/settings")]
-    public async Task<ActionResult<ProjectSettingsResponse>> GetSettings(string projectId)
+    public async Task<ActionResult<ProjectSettingsResponse>> GetSettings(string projectId, CancellationToken ct)
     {
         var devId = GetDeveloperIdOrThrow();
 
         if (!Guid.TryParse(projectId, out var projectGuid))
             return BadRequest("Invalid project id.");
 
-        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectGuid);
+        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectGuid, ct);
         if (project == null) return NotFound("Project not found.");
 
         if (!IsAdmin() && project.DeveloperId != devId)
@@ -231,31 +242,23 @@ public class DeveloperProjectsController : ControllerBase
 
     // ✅ Update project settings
     [HttpPut("{projectId}/settings")]
-    public async Task<IActionResult> UpdateSettings(
-        string projectId,
-        [FromBody] UpdateProjectSettingsRequest request)
+    public async Task<IActionResult> UpdateSettings(string projectId, [FromBody] UpdateProjectSettingsRequest request, CancellationToken ct)
     {
         var devId = GetDeveloperIdOrThrow();
 
         if (!Guid.TryParse(projectId, out var projectGuid))
             return BadRequest("Invalid project id.");
 
-        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectGuid);
+        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectGuid, ct);
         if (project == null) return NotFound("Project not found.");
 
         if (!IsAdmin() && project.DeveloperId != devId)
             return Forbid("Not your project.");
 
-        // 🔹 Webhook URL
         project.WebhookUrl = request.WebhookUrl;
-
-        // 🔹 Sats per login
         project.SatsPerLogin = request.SatsPerLogin <= 0 ? 0 : request.SatsPerLogin;
-
-        // 🔹 Max auths per IP / hour
         project.MaxAuthsPerIpPerHour = request.MaxAuthsPerIpPerHour <= 0 ? 0 : request.MaxAuthsPerIpPerHour;
 
-        // 🔹 Allowed domains
         var cleanedDomains = (request.AllowedDomains ?? new List<string>())
             .Select(d => d.Trim())
             .Where(d => !string.IsNullOrWhiteSpace(d))
@@ -263,23 +266,19 @@ public class DeveloperProjectsController : ControllerBase
             .ToList();
 
         project.AllowedDomains = cleanedDomains;
-        
         project.AllowDemoAuth = request.AllowDemoAuth;
 
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
         return NoContent();
     }
 
     // ✅ Get analytics
-    // GET /api/dev/projects/{projectId}/analytics?windowHours=24
     [HttpGet("{projectId:guid}/analytics")]
-    public async Task<ActionResult<AnalyticsSummary>> GetAnalytics(
-        Guid projectId,
-        [FromQuery] int windowHours = 24)
+    public async Task<ActionResult<AnalyticsSummary>> GetAnalytics(Guid projectId, [FromQuery] int windowHours = 24, CancellationToken ct = default)
     {
         var devId = GetDeveloperIdOrThrow();
 
-        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId);
+        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return NotFound("Project not found.");
         if (!IsAdmin() && project.DeveloperId != devId)
             return Forbid("Not your project.");
@@ -292,43 +291,39 @@ public class DeveloperProjectsController : ControllerBase
 
         var totalAuths = await eventsQuery.CountAsync(e =>
             e.EventType == AuthEventType.LoginRequested ||
-            e.EventType == AuthEventType.CaptchaRequested);
+            e.EventType == AuthEventType.CaptchaRequested, ct);
 
         var successAuths = await eventsQuery.CountAsync(e =>
             e.EventType == AuthEventType.LoginSucceeded ||
-            e.EventType == AuthEventType.CaptchaPassed);
+            e.EventType == AuthEventType.CaptchaPassed, ct);
 
         var failedAuths = await eventsQuery.CountAsync(e =>
             e.EventType == AuthEventType.LoginFailed ||
-            e.EventType == AuthEventType.CaptchaFailed);
+            e.EventType == AuthEventType.CaptchaFailed, ct);
 
         var satsPaid = await eventsQuery
             .Where(e => e.SatsPaid.HasValue)
-            .SumAsync(e => (long?)e.SatsPaid) ?? 0L;
+            .SumAsync(e => (long?)e.SatsPaid, ct) ?? 0L;
 
-        var rateLimitHits = await eventsQuery.CountAsync(e => e.EventType == AuthEventType.RateLimitHit);
+        var rateLimitHits = await eventsQuery.CountAsync(e => e.EventType == AuthEventType.RateLimitHit, ct);
 
         return Ok(new AnalyticsSummary
         {
             TotalAuths24h = totalAuths,
             Success24h = successAuths,
-            Failed24h = failedAuths,     // if your model uses Failed24h instead, rename this line accordingly
+            Failed24h = failedAuths,
             SatsPaid24h = satsPaid,
             RateLimitHits24h = rateLimitHits
         });
     }
 
     // ✅ Get logs
-    // GET /api/dev/projects/{projectId}/logs?limit=50&windowHours=24
     [HttpGet("{projectId:guid}/logs")]
-    public async Task<ActionResult<IReadOnlyList<LogEntry>>> GetLogs(
-        Guid projectId,
-        [FromQuery] int limit = 50,
-        [FromQuery] int windowHours = 24)
+    public async Task<ActionResult<IReadOnlyList<LogEntry>>> GetLogs(Guid projectId, [FromQuery] int limit = 50, [FromQuery] int windowHours = 24, CancellationToken ct = default)
     {
         var devId = GetDeveloperIdOrThrow();
 
-        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId);
+        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return NotFound("Project not found.");
         if (!IsAdmin() && project.DeveloperId != devId)
             return Forbid("Not your project.");
@@ -341,7 +336,7 @@ public class DeveloperProjectsController : ControllerBase
             .Where(e => e.ProjectId == projectId && e.CreatedAt >= cutoff)
             .OrderByDescending(e => e.CreatedAt)
             .Take(limit)
-            .ToListAsync();
+            .ToListAsync(ct);
 
         var logs = events.Select(e =>
         {
@@ -378,7 +373,6 @@ public class DeveloperProjectsController : ControllerBase
         return Ok(logs);
     }
 
-    // POST /api/dev/projects/{projectId}/test-webhook
     [HttpPost("{projectId:guid}/test-webhook")]
     public async Task<IActionResult> TestWebhook(Guid projectId, CancellationToken ct)
     {
@@ -406,13 +400,12 @@ public class DeveloperProjectsController : ControllerBase
         return Accepted();
     }
 
-    // GET /api/dev/projects/{projectId}/keys
     [HttpGet("{projectId:guid}/keys")]
-    public async Task<ActionResult<ListProjectApiKeysResponse>> ListApiKeys(Guid projectId)
+    public async Task<ActionResult<ListProjectApiKeysResponse>> ListApiKeys(Guid projectId, CancellationToken ct)
     {
         var devId = GetDeveloperIdOrThrow();
 
-        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId);
+        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return NotFound("Project not found.");
 
         if (!IsAdmin() && project.DeveloperId != devId)
@@ -430,20 +423,17 @@ public class DeveloperProjectsController : ControllerBase
                 LastUsedAt = k.LastUsedAt,
                 IsActive = k.IsActive
             })
-            .ToListAsync();
+            .ToListAsync(ct);
 
         return Ok(new ListProjectApiKeysResponse { Keys = keys });
     }
 
-    // POST /api/dev/projects/{projectId}/keys
     [HttpPost("{projectId:guid}/keys")]
-    public async Task<ActionResult<CreateApiKeyResponse>> CreateApiKey(
-        Guid projectId,
-        [FromBody] CreateApiKeyRequest request)
+    public async Task<ActionResult<CreateApiKeyResponse>> CreateApiKey(Guid projectId, [FromBody] CreateApiKeyRequest request, CancellationToken ct)
     {
         var devId = GetDeveloperIdOrThrow();
 
-        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId);
+        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return NotFound("Project not found.");
         if (!IsAdmin() && project.DeveloperId != devId)
             return Forbid("Not your project.");
@@ -459,15 +449,14 @@ public class DeveloperProjectsController : ControllerBase
         });
     }
 
-    // POST /api/dev/projects/{projectId}/keys/{keyId}/revoke
     [HttpPost("{projectId:guid}/keys/{keyId:guid}/revoke")]
-    public async Task<IActionResult> RevokeApiKey(Guid projectId, Guid keyId)
+    public async Task<IActionResult> RevokeApiKey(Guid projectId, Guid keyId, CancellationToken ct)
     {
         var devId = GetDeveloperIdOrThrow();
 
         var key = await _db.ProjectApiKeys
             .Include(k => k.Project)
-            .SingleOrDefaultAsync(k => k.Id == keyId && k.ProjectId == projectId);
+            .SingleOrDefaultAsync(k => k.Id == keyId && k.ProjectId == projectId, ct);
 
         if (key == null) return NotFound("API key not found.");
 
@@ -475,23 +464,19 @@ public class DeveloperProjectsController : ControllerBase
             return Forbid("Not your project.");
 
         key.IsActive = false;
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
 
         return NoContent();
     }
 
-    // PATCH /api/dev/projects/{projectId}/keys/{keyId}
     [HttpPatch("{projectId:guid}/keys/{keyId:guid}")]
-    public async Task<IActionResult> UpdateApiKeyLabel(
-        Guid projectId,
-        Guid keyId,
-        [FromBody] UpdateApiKeyLabelRequest request)
+    public async Task<IActionResult> UpdateApiKeyLabel(Guid projectId, Guid keyId, [FromBody] UpdateApiKeyLabelRequest request, CancellationToken ct)
     {
         var devId = GetDeveloperIdOrThrow();
 
         var key = await _db.ProjectApiKeys
             .Include(k => k.Project)
-            .SingleOrDefaultAsync(k => k.Id == keyId && k.ProjectId == projectId);
+            .SingleOrDefaultAsync(k => k.Id == keyId && k.ProjectId == projectId, ct);
 
         if (key == null) return NotFound("API key not found.");
 
@@ -503,17 +488,13 @@ public class DeveloperProjectsController : ControllerBase
             return BadRequest("Label cannot be empty.");
 
         key.Label = newLabel;
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
 
         return NoContent();
     }
 
-    // GET /api/dev/projects/{projectId}/webhooks?limit=50
     [HttpGet("{projectId:guid}/webhooks")]
-    public async Task<ActionResult<ListWebhookEventsResponse>> GetWebhookEvents(
-        Guid projectId,
-        [FromQuery] int limit = 50,
-        CancellationToken ct = default)
+    public async Task<ActionResult<ListWebhookEventsResponse>> GetWebhookEvents(Guid projectId, [FromQuery] int limit = 50, CancellationToken ct = default)
     {
         var devId = GetDeveloperIdOrThrow();
 
@@ -523,7 +504,6 @@ public class DeveloperProjectsController : ControllerBase
         if (!IsAdmin() && project.DeveloperId != devId)
             return Forbid("Not your project.");
 
-        // NOTE: Do not log LoginRequested here; this endpoint is "view webhooks"
         limit = Math.Clamp(limit, 1, 200);
 
         var events = await _db.WebhookEvents
@@ -546,12 +526,8 @@ public class DeveloperProjectsController : ControllerBase
         return Ok(new ListWebhookEventsResponse { Events = events });
     }
 
-    // POST /api/dev/projects/{projectId}/webhooks/{eventId}/replay
     [HttpPost("{projectId:guid}/webhooks/{eventId:guid}/replay")]
-    public async Task<IActionResult> ReplayWebhook(
-        Guid projectId,
-        Guid eventId,
-        CancellationToken ct)
+    public async Task<IActionResult> ReplayWebhook(Guid projectId, Guid eventId, CancellationToken ct)
     {
         var devId = GetDeveloperIdOrThrow();
 
@@ -574,16 +550,12 @@ public class DeveloperProjectsController : ControllerBase
         return NoContent();
     }
 
-    // ✅ Update project environment (TEST / LIVE)
-    // PATCH /api/dev/projects/{projectId}/environment
     [HttpPatch("{projectId:guid}/environment")]
-    public async Task<IActionResult> UpdateEnvironment(
-        Guid projectId,
-        [FromBody] UpdateProjectEnvironmentRequest request)
+    public async Task<IActionResult> UpdateEnvironment(Guid projectId, [FromBody] UpdateProjectEnvironmentRequest request, CancellationToken ct)
     {
         var devId = GetDeveloperIdOrThrow();
 
-        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId);
+        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null)
             return NotFound("Project not found.");
 
@@ -623,9 +595,8 @@ public class DeveloperProjectsController : ControllerBase
         }
 
         project.Environment = env;
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(ct);
 
         return NoContent();
     }
-
 }
