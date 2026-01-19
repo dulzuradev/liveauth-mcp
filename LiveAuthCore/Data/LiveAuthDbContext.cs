@@ -34,7 +34,7 @@ public class LiveAuthDbContext : DbContext
         // This can cause EF to believe there are pending model changes when applying targeted migrations.
         // Suppress the PendingModelChangesWarning so that `dotnet ef database update` can run specific migrations
         // without requiring a full model snapshot alignment.
-        optionsBuilder.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+        // optionsBuilder.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
