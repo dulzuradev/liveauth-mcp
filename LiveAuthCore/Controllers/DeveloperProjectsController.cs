@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace LiveAuthCore.Controllers;
 
@@ -42,17 +43,18 @@ public class DeveloperProjectsController : ControllerBase
     /// Developer tokens use GUID userId. Admin tokens may use "admin" or non-GUID.
     /// For Admin we don't enforce ownership, so we allow non-GUID.
     /// </summary>
-    private Guid GetDeveloperIdOrThrow()
+    protected Guid GetDeveloperIdOrThrow()
     {
-        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                  ?? User.FindFirstValue("sub");
+        var claim =
+            User.FindFirst("developer_id") ??
+            User.FindFirst(ClaimTypes.NameIdentifier) ??
+            User.FindFirst(JwtRegisteredClaimNames.Sub);
 
-        if (!Guid.TryParse(sub, out var devId))
-            throw new UnauthorizedAccessException("Invalid developer identity");
+        if (claim == null || !Guid.TryParse(claim.Value, out var devId))
+            throw new UnauthorizedAccessException("Developer ID missing from token");
 
         return devId;
     }
-
 
     // ✅ Create project (owner inferred from JWT)
     [HttpPost]
