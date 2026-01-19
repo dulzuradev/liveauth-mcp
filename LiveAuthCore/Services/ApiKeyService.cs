@@ -42,7 +42,7 @@ public class ApiKeyService
     }
 
     // ---------------------------------------------------------------------
-    // CREATE PROJECT API KEY (v2)
+    // CREATE PROJECT API KEY
     // ---------------------------------------------------------------------
 
     public async Task<(ProjectApiKey apiKey, string secret)> CreateApiKeyForProjectAsync(
@@ -74,7 +74,7 @@ public class ApiKeyService
     }
 
     // ---------------------------------------------------------------------
-    // SECRET KEY AUTH (SERVER-SIDE, v1 + v2)
+    // SECRET KEY AUTH (SERVER-SIDE)
     // ---------------------------------------------------------------------
 
     public async Task<ApiKeyAuthResult> AuthenticateApiKeyAsync(
@@ -82,17 +82,13 @@ public class ApiKeyService
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(secretKey))
-        {
             return ApiKeyAuthResult.Invalid();
-        }
 
-        // v2: multi-key model
+        // v2 API keys
         var apiKeys = await _db.ProjectApiKeys
             .Include(k => k.Project)
             .Where(k => k.Project.IsActive)
             .ToListAsync(ct);
-
-        Project? revokedProject = null;
 
         foreach (var key in apiKeys)
         {
@@ -104,10 +100,7 @@ public class ApiKeyService
             if (result == PasswordVerificationResult.Success)
             {
                 if (!key.IsActive)
-                {
-                    revokedProject = key.Project;
-                    break;
-                }
+                    return ApiKeyAuthResult.Revoked();
 
                 key.LastUsedAt = DateTime.UtcNow;
                 await _db.SaveChangesAsync(ct);
@@ -116,17 +109,12 @@ public class ApiKeyService
             }
         }
 
-        if (revokedProject != null)
-        {
-            return ApiKeyAuthResult.Revoked();
-        }
-
-        // v1 fallback (legacy per-project secret)
-        var activeProjects = await _db.Projects
+        // v1 legacy fallback
+        var projects = await _db.Projects
             .Where(p => p.IsActive)
             .ToListAsync(ct);
 
-        foreach (var project in activeProjects)
+        foreach (var project in projects)
         {
             var result = _hasher.VerifyHashedPassword(
                 project,
@@ -134,9 +122,7 @@ public class ApiKeyService
                 secretKey);
 
             if (result == PasswordVerificationResult.Success)
-            {
-                return ApiKeyAuthResult.Ok(project, apiKey: null);
-            }
+                return ApiKeyAuthResult.Ok(project, null);
         }
 
         return ApiKeyAuthResult.Invalid();
@@ -151,7 +137,11 @@ public class ApiKeyService
     }
 
     // ---------------------------------------------------------------------
-    // PUBLIC KEY AUTH (BROWSER / POW)
+    // PUBLIC KEY AUTH (PoW / Browser)
+    // ---------------------------------------------------------------------
+    // ✔ Accepts PROJECT public keys (la_pk_...)
+    // ✔ Does NOT require ProjectApiKeys
+    // ✔ Enforces LIVE + active
     // ---------------------------------------------------------------------
 
     public async Task<ApiKeyAuthResult> AuthenticatePublicKeyAsync(
@@ -159,33 +149,35 @@ public class ApiKeyService
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(publicKey))
-        {
             return ApiKeyAuthResult.Invalid();
-        }
 
         publicKey = publicKey.Trim();
 
         if (!publicKey.StartsWith("la_pk_", StringComparison.Ordinal))
-        {
             return ApiKeyAuthResult.Invalid();
-        }
 
+        // ✅ PRIMARY PATH — PROJECT public key (PoW)
+        var project = await _db.Projects
+            .SingleOrDefaultAsync(p =>
+                p.PublicKey == publicKey &&
+                p.IsActive &&
+                p.Environment == "LIVE",
+                ct);
+
+        if (project != null)
+            return ApiKeyAuthResult.Ok(project, apiKey: null);
+
+        // 🔁 SECONDARY PATH — API key public key (future-proof)
         var apiKey = await _db.ProjectApiKeys
             .Include(k => k.Project)
             .SingleOrDefaultAsync(k =>
                 k.PublicKey == publicKey &&
-                k.IsActive,
+                k.IsActive &&
+                k.Project.IsActive,
                 ct);
 
         if (apiKey == null)
-        {
             return ApiKeyAuthResult.Invalid();
-        }
-
-        if (!apiKey.Project.IsActive)
-        {
-            return ApiKeyAuthResult.Revoked();
-        }
 
         apiKey.LastUsedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
