@@ -69,7 +69,19 @@ public class DeveloperProjectsController : ControllerBase
         var devId = GetDeveloperIdOrThrow();
 
         var dev = await _db.Developers.SingleOrDefaultAsync(d => d.Id == devId);
-        if (dev == null) return Unauthorized("Developer not found.");
+
+        if (dev == null)
+        {
+            dev = new Developer
+            {
+                Id = devId,
+                CreatedAt = DateTime.UtcNow
+                // Optional: Email = User.FindFirst(JwtRegisteredClaimNames.Email)?.Value
+            };
+
+            _db.Developers.Add(dev);
+            await _db.SaveChangesAsync();
+        }
 
         var (pub, sec, secHash) = _keys.GenerateKeys();
 
