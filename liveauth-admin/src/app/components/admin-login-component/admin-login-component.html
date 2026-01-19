@@ -1,0 +1,66 @@
+<div style="max-width:560px; margin:40px auto; padding:16px;">
+  <h2>LiveAuth Admin Login</h2>
+
+  <p style="opacity:.8">Pay a small Lightning invoice to access the admin dashboard.</p>
+
+  <div style="display:flex; gap:12px; align-items:center; margin:16px 0;">
+    <input
+      [(ngModel)]="email"
+      placeholder="admin@example.com"
+      style="flex:1; padding:10px; border-radius:8px; border:1px solid #444; background:#111; color:#fff;"
+    />
+    <button
+      (click)="start()"
+      [disabled]="loginInProgress || !!session"
+      style="padding:10px 14px; border-radius:8px; cursor:pointer;">
+      {{ loginInProgress ? '...' : 'Generate Invoice' }}
+    </button>
+  </div>
+
+  <div *ngIf="error" style="color:#ff6b6b; margin-top:8px;">
+    {{ error }}
+  </div>
+
+  <div *ngIf="session" style="margin-top:20px; padding:16px; border:1px solid #333; border-radius:12px;">
+    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+      <div><b>Amount:</b> {{ session?.amountSats }} sats</div>
+      <div><b>Expires in:</b> {{ remainingLabel }}</div>
+    </div>
+
+    <div *ngIf="session?.invoice">
+      <div style="display:flex; justify-content:center; margin:12px 0;">
+        <qrcode
+          [width]="240"
+          [errorCorrectionLevel]="'M'"
+          [qrdata]="session.invoice">
+        </qrcode>
+      </div>
+    </div>
+
+    <div *ngIf="state === 'expired'" style="margin-top:12px; color:#ff6b6b;">
+      Invoice expired. Refresh and try again.
+    </div>
+
+    <div style="display:flex; gap:8px; align-items:center;">
+      <input
+        [value]="session?.invoice"
+        readonly
+        style="flex:1; padding:10px; border-radius:8px; border:1px solid #444; background:#111; color:#fff; font-family:monospace;"
+        (click)="$any($event.target)?.select()"
+      />
+      <button (click)="copyInvoice()" style="padding:10px 14px; border-radius:8px; cursor:pointer;">
+        Copy
+      </button>
+    </div>
+
+    <div *ngIf="copied" style="color:#64ff8f; margin-top:8px;">Copied!</div>
+
+    <div *ngIf="polling" style="margin-top:12px; opacity:.85;">
+      Waiting for payment confirmation…
+    </div>
+
+    <div *ngIf="remainingSeconds <= 0" style="margin-top:12px; color:#ff6b6b;">
+      Invoice expired. Refresh and try again.
+    </div>
+  </div>
+</div>

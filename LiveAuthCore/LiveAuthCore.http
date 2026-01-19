@@ -1,0 +1,6 @@
+@LiveAuthCore_HostAddress = http://localhost:5166
+
+GET {{LiveAuthCore_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

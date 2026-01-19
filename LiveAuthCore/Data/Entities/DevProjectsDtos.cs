@@ -1,0 +1,50 @@
+using Google.Protobuf.WellKnownTypes;
+
+namespace LiveAuthCore.Data.Entities;
+
+public sealed class ProjectSettingsResponse
+{
+    public List<string> AllowedDomains { get; set; } = new();
+    public string? WebhookUrl { get; set; }
+    public int SatsPerLogin { get; set; }
+    public int MaxAuthsPerIpPerHour { get; set; }
+    
+    public bool AllowDemoAuth { get; set; }
+
+}
+
+
+public sealed class UpdateProjectSettingsRequest
+{
+    public List<string> AllowedDomains { get; set; } = new();
+    public string? WebhookUrl { get; set; }
+    public int SatsPerLogin { get; set; }
+    public int MaxAuthsPerIpPerHour { get; set; }
+    
+    public bool AllowDemoAuth { get; set; }
+
+}
+
+public sealed class UpdateProjectStatusRequest
+{
+    public bool Active { get; set; }
+}
+
+public sealed class AnalyticsSummary
+{
+    public int TotalAuths24h { get; set; }
+    public int Success24h { get; set; }
+    public int Failed24h { get; set; }
+    public long SatsPaid24h { get; set; }
+    
+    public int RateLimitHits24h { get; set; }
+}
+
+public sealed class LogEntry
+{
+    public required DateTime Timestamp { get; set; }
+    public required string IpMasked { get; set; } = string.Empty;
+    public long Sats { get; set; }
+    public required string Status { get; set; } = string.Empty;
+    public required string Reason { get; set; } = string.Empty;
+}

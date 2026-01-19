@@ -1,0 +1,93 @@
+<mat-toolbar color="accent" class="company-toolbar">
+  <span class="material-icons" aria-hidden="true">domain</span>
+  <span class="toolbar-title">Acme Corp</span>
+  <span class="spacer"></span>
+  <span class="toolbar-sub">Mock Login (post-Lightning verification)</span>
+</mat-toolbar>
+
+<div class="mock-login-center">
+  <mat-card class="mock-login-card">
+    <mat-card-header>
+      <div mat-card-avatar class="logo-avatar">
+        <span class="material-icons" aria-hidden="true">verified_user</span>
+      </div>
+      <mat-card-title>Welcome back</mat-card-title>
+      <mat-card-subtitle>
+        You’re seeing this because the Lightning Wall verified you.
+      </mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+
+      <!-- Banner -->
+      <div class="info-banner">
+        <span class="material-icons" aria-hidden="true">bolt</span>
+        <span class="info-text">
+          Demo: In a real product, this secure login page only appears *after* Lightning proof-of-humanity.
+        </span>
+      </div>
+
+      <!-- Login form -->
+      <form class="login-form" autocomplete="on" (submit)="$event.preventDefault()">
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Email</mat-label>
+          <input matInput type="email" [(ngModel)]="username" required placeholder="you@company.com">
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Password</mat-label>
+          <input matInput type="password" [(ngModel)]="password" required placeholder="••••••••">
+        </mat-form-field>
+
+        <div class="actions">
+          <button
+            mat-raised-button
+            color="accent"
+            class="company-accent"
+            type="submit"
+            (click)="submitLogin()"
+            [disabled]="isLoading">
+            <span class="material-icons" aria-hidden="true">login</span>
+            <span>{{ isLoading ? 'Logging in…' : 'Log in' }}</span>
+          </button>
+
+          <!-- Mobile-friendly back link -->
+          <a class="back-link" href="#" (click)="$event.preventDefault(); history.back();">
+            Back
+          </a>
+        </div>
+      </form>
+
+      <!-- Mock invoice display -->
+      <div *ngIf="loggedIn" class="invoice-section">
+        <div class="info-banner" [ngClass]="{
+             'paid': invoiceStatus === 'paid',
+             'pending': invoiceStatus === 'pending',
+             'error': invoiceStatus === 'error'
+           }">
+
+          <span class="material-icons" aria-hidden="true">
+            {{ invoiceStatus === 'paid' ? 'paid' :
+            invoiceStatus === 'error' ? 'error' : 'receipt_long' }}
+          </span>
+
+          <span class="info-text">
+            <strong>Mock invoice</strong>
+            <span *ngIf="invoiceId"> — #{{ invoiceId }}</span>
+            <span> — {{ invoiceAmountSats }} sats</span>
+            <ng-container [ngSwitch]="invoiceStatus">
+              <span *ngSwitchCase="'pending'"> is being paid…</span>
+              <span *ngSwitchCase="'paid'"> was paid successfully.</span>
+              <span *ngSwitchCase="'error'"> failed to pay.</span>
+            </ng-container>
+          </span>
+        </div>
+
+        <div *ngIf="message" class="message-text">
+          {{ message }}
+        </div>
+      </div>
+
+    </mat-card-content>
+  </mat-card>
+</div>

@@ -1,0 +1,128 @@
+using System.Text.Json;
+using LiveAuthCore.Data.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+
+namespace LiveAuthCore.Data;
+
+public class LiveAuthDbContext : DbContext
+{
+    public LiveAuthDbContext(DbContextOptions<LiveAuthDbContext> options) : base(options) { }
+
+    public DbSet<Developer> Developers => Set<Developer>();
+    public DbSet<Project> Projects => Set<Project>();
+    public DbSet<VerificationSession> VerificationSessions => Set<VerificationSession>();
+    public DbSet<UsageEvent> UsageEvents => Set<UsageEvent>();
+    public DbSet<DeveloperLoginSession> DeveloperLoginSessions => Set<DeveloperLoginSession>();
+    public DbSet<DevLoginSession> DevLoginSessions { get; set; } = default!;
+
+    public DbSet<ProjectApiKey> ProjectApiKeys { get; set; } = null!;
+    
+    public DbSet<WebhookEvent> WebhookEvents { get; set; } = null!;
+    
+    public DbSet<AuthSession> AuthSessions => Set<AuthSession>();
+    public DbSet<AuthEvent> AuthEvents => Set<AuthEvent>();
+    
+    public DbSet<BillingSubscription> BillingSubscriptions => Set<BillingSubscription>();
+    public DbSet<AdminLoginSession> AdminLoginSessions => Set<AdminLoginSession>();
+    public DbSet<AuthEventLog> AuthEventLogs => Set<AuthEventLog>();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        // In this project we sometimes bootstrap schema via EnsureCreated + raw SQL guards.
+        // This can cause EF to believe there are pending model changes when applying targeted migrations.
+        // Suppress the PendingModelChangesWarning so that `dotnet ef database update` can run specific migrations
+        // without requiring a full model snapshot alignment.
+        optionsBuilder.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+    }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Project>()
+            .HasIndex(p => p.PublicKey)
+            .IsUnique();
+
+        modelBuilder.Entity<Project>()
+            .HasIndex(p => p.SecretKeyHash);
+
+        modelBuilder.Entity<VerificationSession>()
+            .HasIndex(s => s.PaymentHashB64);
+        
+        modelBuilder.Entity<Developer>()
+            .HasIndex(d => d.LightningAuthKey)
+            .IsUnique()
+            .HasFilter("[LightningAuthKey] IS NOT NULL");
+
+        modelBuilder.Entity<Developer>()
+            .HasIndex(d => d.Email)
+            .IsUnique();
+
+        var stringListConverter = new ValueConverter<List<string>, string>(
+            v => JsonSerializer.Serialize(
+                v ?? new List<string>(),
+                (JsonSerializerOptions?)null
+            ),
+            v => string.IsNullOrWhiteSpace(v)
+                ? new List<string>()
+                : JsonSerializer.Deserialize<List<string>>(
+                    v,
+                    (JsonSerializerOptions?)null
+                ) ?? new List<string>());
+
+        modelBuilder.Entity<Project>()
+            .Property(p => p.AllowedDomains)
+            .HasColumnName("AllowedDomainsRaw")
+            .HasConversion(stringListConverter)
+            .HasColumnType("TEXT");
+
+        modelBuilder.Entity<AuthSession>()
+            .HasIndex(s => new { s.ProjectId, s.ClientIp, s.CreatedAt });
+        
+        modelBuilder.Entity<BillingSubscription>()
+            .HasIndex(x => x.InvoiceRHash)
+            .IsUnique()
+            .HasFilter("[InvoiceRHash] IS NOT NULL");;
+        
+        modelBuilder.Entity<BillingSubscription>()
+            .HasIndex(x => x.ProjectId);
+
+        modelBuilder.Entity<BillingSubscription>()
+            .HasIndex(x => new { x.ProjectId, x.IsPaid });
+
+        modelBuilder.Entity<Project>()
+            .Property(p => p.RowVersion)
+            .IsRowVersion();
+
+        modelBuilder.Entity<BillingSubscription>()
+            .Property(b => b.RowVersion)
+            .IsRowVersion();
+        
+        modelBuilder.Entity<AdminLoginSession>()
+            .HasIndex(x => x.InvoiceRHash);
+
+        modelBuilder.Entity<AdminLoginSession>()
+            .HasIndex(x => new { x.Email, x.CreatedAt });
+
+        modelBuilder.Entity<AdminLoginSession>()
+            .HasIndex(x => new { x.IsPaid, x.ExpiresAt });
+
+        modelBuilder.Entity<AuthEventLog>(entity =>
+        {
+            entity.ToTable("auth_event_log");
+            entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.Property(e => e.OccurredAtUtc).HasColumnName("occurred_at_utc");
+            entity.Property(e => e.EventType).HasColumnName("event_type");
+            entity.Property(e => e.ProjectId).HasColumnName("project_id");
+            entity.Property(e => e.RequestId).HasColumnName("request_id");
+            entity.Property(e => e.IpMasked).HasColumnName("ip_masked");
+            entity.Property(e => e.Sats).HasColumnName("sats");
+            entity.Property(e => e.Reason).HasColumnName("reason");
+            entity.Property(e => e.Metadata).HasColumnName("metadata").HasColumnType("jsonb");
+
+            entity.HasIndex(e => e.OccurredAtUtc).HasDatabaseName("idx_auth_event_log_time").IsDescending();
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("idx_auth_event_log_project");
+            entity.HasIndex(e => e.EventType).HasDatabaseName("idx_auth_event_log_type");
+        });
+    }
+}

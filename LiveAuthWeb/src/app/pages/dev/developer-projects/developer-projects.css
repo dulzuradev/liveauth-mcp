@@ -1,0 +1,339 @@
+:host {
+  display: block;
+  background: #0a0d12;
+  color: #e6edf3;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+/* =========================
+   Toolbar / Top Nav
+   ========================= */
+.la-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  backdrop-filter: blur(8px);
+  background: rgba(10, 13, 18, 0.85);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.la-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.bolt {
+  filter: drop-shadow(0 0 6px rgba(255, 214, 0, 0.6));
+}
+
+.brand {
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  font-size: 1.05rem;
+}
+
+.subbrand {
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+
+.spacer { flex: 1; }
+
+.la-nav {
+  display: none;
+  gap: 14px;
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.la-nav a {
+  color: inherit;
+  text-decoration: none;
+  padding: 6px 4px;
+  border-radius: 6px;
+}
+
+.la-nav a:hover {
+  opacity: 0.75;
+  background: rgba(255,255,255,0.04);
+}
+
+.la-toolbar-cta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* =========================
+   Beta Badge / Callouts
+   ========================= */
+.beta-badge {
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #f6c177, #f6a700);
+  color: #0a0d12;
+  vertical-align: middle;
+}
+
+.beta-callout {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: rgba(246, 193, 119, 0.12);
+  color: #f6c177;
+  border: 1px solid rgba(246, 193, 119, 0.25);
+}
+
+.beta-callout mat-icon {
+  font-size: 18px;
+}
+
+/* =========================
+   Buttons
+   ========================= */
+.primary {
+  background: linear-gradient(135deg, #ffd54f, #ff8f00) !important;
+  color: #0b0f14 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 8px 20px rgba(255, 143, 0, 0.18);
+}
+
+.primary:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 10px 26px rgba(255, 143, 0, 0.25);
+}
+
+.ghost {
+  border-color: rgba(255,255,255,0.18) !important;
+  color: #e6edf3 !important;
+  background: rgba(255,255,255,0.02) !important;
+}
+
+.ghost:hover {
+  background: rgba(255,255,255,0.06) !important;
+}
+
+.big { padding: 12px 18px !important; font-size: 1rem; }
+.full { width: 100%; }
+
+/* =========================
+   Hero
+   ========================= */
+.hero {
+  position: relative;
+  padding: 56px 16px 36px;
+  overflow: hidden;
+}
+
+.hero-bg {
+  position: absolute;
+  inset: -25% -25% auto -25%;
+  height: 420px;
+  background:
+    radial-gradient(700px circle at 10% 5%, rgba(255,213,79,0.18), transparent 42%),
+    radial-gradient(700px circle at 90% 10%, rgba(0,200,255,0.10), transparent 48%),
+    radial-gradient(800px circle at 40% 85%, rgba(145,70,255,0.10), transparent 55%);
+  filter: blur(30px);
+  pointer-events: none;
+}
+
+.hero-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 26px;
+  position: relative;
+  z-index: 1;
+}
+
+.hero-chipset { margin-bottom: 10px; }
+.hero-chipset mat-chip { font-size: 12px; }
+
+.hero-copy {
+  max-width: 640px;
+}
+
+.hero-copy h1 {
+  font-size: clamp(2.1rem, 3.6vw, 3.2rem);
+  font-weight: 900;
+  line-height: 1.12;
+  margin: 8px 0 12px;
+  letter-spacing: -0.2px;
+}
+
+.glow {
+  display: block;
+  font-weight: 800;
+  color: #ffd54f;
+  text-shadow: 0 0 18px rgba(255,213,79,0.55);
+  margin-top: 6px;
+}
+
+.hero-sub {
+  font-size: clamp(1.02rem, 1.4vw, 1.22rem);
+  opacity: 0.92;
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 8px;
+}
+
+.metric {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 12px 10px;
+  text-align: center;
+}
+
+.metric-num { font-weight: 800; font-size: 1.1rem; }
+.metric-label { font-size: 0.82rem; opacity: 0.8; }
+
+/* =========================
+   Hero Visual
+   ========================= */
+.hero-visual {
+  display: flex;
+  justify-content: center;
+}
+
+.hero-card {
+  width: 100%;
+  max-width: 460px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 18px 48px rgba(0,0,0,0.6);
+}
+
+.hero-logo {
+  display: block;
+  width: min(72%, 320px);
+  height: auto;
+  margin: 2px auto 10px;
+  border-radius: 14px;
+}
+
+.hero-card-caption {
+  padding: 10px 6px 4px;
+  text-align: center;
+}
+
+.caption-title {
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.caption-sub {
+  opacity: 0.82;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+/* =========================
+   Sections / Layout
+   ========================= */
+.section {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 42px 16px;
+}
+
+.section h2 {
+  font-weight: 900;
+  font-size: clamp(1.6rem, 2.4vw, 2.3rem);
+  margin-bottom: 8px;
+}
+
+.section-sub {
+  opacity: 0.86;
+  margin-bottom: 20px;
+  max-width: 720px;
+}
+
+.alt { background: rgba(255,255,255,0.02); }
+
+/* =========================
+   Footer
+   ========================= */
+.footer {
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 18px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.footer-right {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.footer-right a {
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.85;
+}
+
+.footer-right a:hover { opacity: 1; }
+
+.footer-beta {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+/* =========================
+   Breakpoints
+   ========================= */
+@media (min-width: 720px) {
+  .la-nav { display: flex; }
+  .hero-inner { grid-template-columns: 1.15fr 0.85fr; align-items: center; }
+}
+
+@media (max-width: 420px) {
+  .hero-metrics { grid-template-columns: 1fr; }
+  .subbrand { display: none; }
+}
