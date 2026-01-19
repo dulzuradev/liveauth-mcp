@@ -5,6 +5,7 @@ using LiveAuthCore.Entities;
 using LiveAuthCore.Middleware;
 using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -154,13 +155,23 @@ app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
     {
-        context.Response.StatusCode = 500;
+        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+
+        if (exception is UnauthorizedAccessException)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        }
+        else
+        {
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        }
+
         context.Response.ContentType = "application/json";
         await context.Response.WriteAsync("""
-        {
-            "error": "An unexpected server error occurred"
-        }
-        """);
+                                          {
+                                              "error": "Unauthorized or invalid token"
+                                          }
+                                          """);
     });
 });
 
