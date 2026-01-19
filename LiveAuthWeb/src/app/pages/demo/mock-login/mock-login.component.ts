@@ -57,7 +57,7 @@ export class MockLoginComponent {
     this.message = '';
 
     const loginData = { username: this.username, password: this.password, paymentHash: this.paymentHash };
-    this.http.post('http://localhost:5166/api/MockLogin', loginData).subscribe({
+    this.http.post('https://api.liveauth.app/api/MockLogin', loginData).subscribe({
       next: (response: any) => {
         this.message = response.message;
         if (response.isSuccessful) {
@@ -70,7 +70,7 @@ export class MockLoginComponent {
             paymentHash: this.paymentHash
           };
 
-          this.http.post('http://localhost:5166/api/MockLogin/PayInvoice', invoicePayload).subscribe({
+          this.http.post('https://api.liveauth.app/api/MockLogin/PayInvoice', invoicePayload).subscribe({
             next: (payResp: any) => {
               this.invoiceStatus = payResp?.isPaid ? 'paid' : 'error';
               this.message = payResp?.message || (payResp?.isPaid ? 'Invoice paid.' : 'Invoice payment failed.');

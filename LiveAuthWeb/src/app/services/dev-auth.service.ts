@@ -26,7 +26,7 @@ export interface DevConfirmLoginResponse {
 
 @Injectable({ providedIn: 'root' })
 export class DevAuthService {
-  private baseUrl = 'http://localhost:5166';
+  private baseUrl = 'https://api.liveauth.app';
 
   constructor(private http: HttpClient) {}
 
