@@ -49,6 +49,11 @@ public class DeveloperProjectsController : ControllerBase
             User.FindFirst("developer_id") ??
             User.FindFirst(ClaimTypes.NameIdentifier) ??
             User.FindFirst(JwtRegisteredClaimNames.Sub);
+        
+        foreach (var c in User.Claims)
+        {
+            Console.WriteLine($"CLAIM: {c.Type} = {c.Value}");
+        }
 
         if (claim == null || !Guid.TryParse(claim.Value, out var devId))
             throw new UnauthorizedAccessException("Developer ID missing from token");
