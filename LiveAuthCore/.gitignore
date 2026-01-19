@@ -1,0 +1,13 @@
+/bin
+/obj
+/.vs
+admin.macaroon.txt
+*.db
+/.vs
+/obj
+/.idea
+/obj
+lightningcaptcha.db-shm
+lightningcaptcha.db-wal
+liveauth.db-shm
+liveauth.db-wal

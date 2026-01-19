@@ -1,0 +1,172 @@
+.mock-login-center {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.mock-login-card {
+  width: 100%;
+  max-width: 480px;
+}
+
+.spacer { flex: 1 1 auto; }
+.toolbar-sub { opacity: 0.8; font-size: 0.9rem; }
+.logo-avatar {
+  background: linear-gradient(135deg, rgba(0,194,255,0.35), rgba(0,150,136,0.35));
+}
+
+.info-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px dashed rgba(242,169,0,0.5);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.login-form .full-width { width: 100%; }
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.back-link { color: #90caf9; text-decoration: none; }
+.back-link:hover { text-decoration: underline; }
+
+/* Company-themed toolbar (blue/teal, not error-like) */
+.company-toolbar {
+  background: linear-gradient(90deg, rgba(0, 194, 255, 0.18), rgba(0, 150, 136, 0.18));
+  border-bottom: 1px solid rgba(0, 194, 255, 0.35);
+}
+
+/* Company accent button scoped to this component */
+.mat-mdc-raised-button.company-accent,
+.mat-mdc-unelevated-button.company-accent {
+  --mdc-protected-button-container-color: #009688; /* teal */
+  --mdc-filled-button-container-color: #009688;
+  color: #ffffff;
+}
+
+/* Info banner uses calm blue border instead of warning/error tones */
+.info-banner {
+  border-color: rgba(0, 194, 255, 0.5);
+  background: rgba(0, 194, 255, 0.06);
+}
+
+/* Center the card on mobile */
+.mock-login-center {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+}
+
+/* Card adapts fluidly */
+.mock-login-card {
+  width: 100%;
+  max-width: 420px;   /* perfect for mobile + desktop */
+  margin-top: 12px;
+}
+
+/* Toolbar */
+.company-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+
+.toolbar-title {
+  margin-left: 6px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.toolbar-sub {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-left: 8px;
+}
+
+@media (max-width: 480px) {
+  .toolbar-sub {
+    display: none; /* Hide long subtitle on small screens */
+  }
+}
+
+/* Banner */
+.info-banner {
+  display: flex;
+  gap: 8px;
+  background: #e9f4ff;
+  border-left: 4px solid #2196f3;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.info-banner.paid {
+  border-left-color: #4caf50;
+}
+
+.info-banner.pending {
+  border-left-color: #ff9800;
+}
+
+.info-banner.error {
+  border-left-color: #f44336;
+}
+
+.info-text {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+/* Form spacing */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+/* Actions row */
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.back-link {
+  font-size: 14px;
+  color: #666;
+  text-decoration: underline;
+}
+
+.message-text {
+  margin-top: 8px;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+/* Tighten layout on very small screens */
+@media (max-width: 360px) {
+  .mock-login-card {
+    padding: 8px;
+  }
+
+  .info-text {
+    font-size: 13px;
+  }
+
+  .actions button {
+    flex: 1;
+    font-size: 14px;
+  }
+}
+

@@ -1,0 +1,71 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <!-- Prevent platform-specific NuGet fallback folders from breaking builds on non-Windows hosts -->
+    <RestoreFallbackFolders></RestoreFallbackFolders>
+    <RestorePackagesPath>$(UserProfile)\.nuget\packages</RestorePackagesPath>
+    <!-- Ensure no hardcoded Windows "fallback" path is used by NuGet/MSBuild on non-Windows hosts -->
+    <NuGetPackageFolders>$(RestorePackagesPath)</NuGetPackageFolders>
+  </PropertyGroup>
+
+  <!-- Ensure rich debugging experience in Debug configuration -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>portable</DebugType>
+    <Optimize>false</Optimize>
+    <!-- Tiered JIT can sometimes make stepping/breakpoints confusing in dev -->
+    <TieredCompilation>false</TieredCompilation>
+    <TieredCompilationQuickJit>false</TieredCompilationQuickJit>
+    <ReadyToRun>false</ReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+  <!-- Keep Release optimized; helps avoid accidentally debugging an optimized build -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <Optimize>true</Optimize>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <!-- Remove stale Windows-specific NuGet restore artifacts produced on another machine -->
+  <Target Name="CleanStaleNuGetArtifacts" BeforeTargets="Restore">
+    <ItemGroup>
+      <_StaleArtifacts Include="$(BaseIntermediateOutputPath)project.assets.json" />
+      <_StaleArtifacts Include="$(BaseIntermediateOutputPath)$(MSBuildProjectName).csproj.nuget.g.props" />
+      <_StaleArtifacts Include="$(BaseIntermediateOutputPath)$(MSBuildProjectName).csproj.nuget.g.targets" />
+      <_StaleArtifacts Include="$(BaseIntermediateOutputPath)$(MSBuildProjectName).csproj.nuget.dgspec.json" />
+      <_StaleArtifacts Include="$(BaseIntermediateOutputPath)rpswa.dswa.cache.json" />
+    </ItemGroup>
+    <Message Text="Cleaning stale NuGet artifacts: @(_StaleArtifacts)" Importance="low" />
+    <Delete Files="@(_StaleArtifacts)" ContinueOnError="true" />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Google.Protobuf" Version="3.33.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.71.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.72.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="LNUnit.LND" Version="2.0.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.10">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.10" />
+    <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
+    <PackageReference Include="Stripe.net" Version="49.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
+
+   
+  </ItemGroup>
+
+</Project>

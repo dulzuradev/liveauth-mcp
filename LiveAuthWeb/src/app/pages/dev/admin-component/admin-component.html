@@ -1,0 +1,28 @@
+<div class="container mt-5">
+  <h2>Admin Dashboard</h2>
+  <p>Monitor payment and login activity for the Lightning CAPTCHA service.</p>
+  <table class="table table-striped">
+    <thead>
+    <tr>
+      <th>User ID</th>
+      <th>Payment Hash</th>
+      <th>Status</th>
+      <th>Time</th>
+      <th>Refunded</th>
+      <th>Refund Payment Hash</th>
+    </tr>
+    </thead>
+    <tbody>
+      @for (attempt of loginAttempts; track attempt.id) {
+        <tr>
+          <td>{{ attempt.userId }}</td>
+          <td>{{ attempt.paymentHash }}</td>
+          <td>{{ attempt.isSuccessful ? 'Success' : 'Failed' }}</td>
+          <td>{{ attempt.attemptTime | date:'short' }}</td>
+          <td>{{ attempt.isRefunded ? 'Yes' : 'No' }}</td>
+          <td>{{ attempt.refundPaymentHash || 'N/A' }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

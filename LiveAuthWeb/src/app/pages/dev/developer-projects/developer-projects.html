@@ -1,0 +1,1098 @@
+<div class="p-4">
+
+  <div class="flex justify-content-between align-items-center mb-3">
+    <h2>Developer Projects</h2>
+
+    <!-- LOGOUT -->
+    <button
+      *ngIf="loggedIn"
+      (click)="logout()"
+      class="p-button-text"
+      icon="pi pi-sign-out"
+      label="Logout"
+      pButton>
+    </button>
+  </div>
+
+  <!-- LOGIN + CREATE PROJECT CARD -->
+  <div class="p-card p-3 mb-4">
+    <div class="grid">
+
+      <!-- DEVELOPER EMAIL -->
+      <div class="col-12 md:col-4">
+        <label>Email</label>
+        <input
+          [(ngModel)]="developerEmail"
+          [disabled]="loggedIn || loginInProgress || polling"
+          class="w-full"
+          pInputText
+          placeholder="dev@example.com"/>
+      </div>
+
+      <!-- LOGIN BUTTON -->
+      <div class="col-12 md:col-2 flex align-items-end">
+        <button
+          (click)="openLoginDialog()"
+          [disabled]="!developerEmail || loggedIn"
+          [loading]="loginInProgress || polling"
+          icon="pi pi-bolt"
+          label="Login (LN)"
+          pButton>
+        </button>
+      </div>
+
+      <!-- PROJECT NAME INPUT (only after login) -->
+      <div *ngIf="loggedIn" class="col-12 md:col-3">
+        <label>Project Name</label>
+        <input
+          [(ngModel)]="projectName"
+          class="w-full"
+          pInputText
+          placeholder="My App"/>
+      </div>
+
+      <!-- CREATE PROJECT BUTTON (only after login) -->
+      <div *ngIf="loggedIn" class="col-12 md:col-3 flex align-items-end">
+        <button
+          (click)="createProject()"
+          [disabled]="!projectName"
+          [loading]="loading"
+          icon="pi pi-plus"
+          label="Create Project"
+          pButton>
+        </button>
+      </div>
+
+    </div>
+
+    <p-message *ngIf="error" [text]="error" severity="warn"></p-message>
+  </div>
+
+  <!-- PROJECT TABLE (only after login) -->
+  <p-table
+    *ngIf="loggedIn"
+    [paginator]="true"
+    [rows]="8"
+    [value]="projects"
+    class="mt-4">
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Project Name</th>
+        <th>Project ID</th>
+        <th>Public Key</th>
+        <th>Env</th>
+        <th>Billing</th>
+        <th>Status</th>
+        <th style="width: 260px;">Actions</th>
+      </tr>
+    </ng-template>
+
+    <ng-template let-p pTemplate="body">
+      <tr>
+        <td>{{ p.name }}</td>
+        <td><code>{{ p.projectId }}</code></td>
+        <td><code>{{ p.publicKey }}</code></td>
+
+        <!-- ENVIRONMENT TAG -->
+        <td>
+          <p-tag
+            [value]="p.environment || 'TEST'"
+            [severity]="(p.environment || 'TEST') === 'LIVE' ? 'danger' : 'info'">
+          </p-tag>
+        </td>
+        <!-- 👇 NEW: BILLING LABEL -->
+        <td>
+      <span style="font-size: 0.8rem; opacity: 0.85;">
+        {{ getProjectBillingLabel(p) }}
+      </span>
+        </td>
+
+        <!-- ACTIVE / PAUSED TAG -->
+        <td>
+          <p-tag
+            [value]="p.active ? 'Active' : 'Paused'"
+            [severity]="p.active ? 'success' : 'warn'">
+          </p-tag>
+        </td>
+
+        <!-- ACTION BUTTONS -->
+        <td>
+          <div class="flex flex-wrap gap-2">
+            <button
+              pButton
+              label="Details"
+              icon="pi pi-search"
+              class="p-button-text p-button-sm"
+              (click)="openProjectDetails(p)">
+            </button>
+
+            <button
+              pButton
+              label="Rotate Secret"
+              icon="pi pi-key"
+              class="p-button-warning p-button-sm"
+              (click)="rotateSecret(p.projectId)"
+              [disabled]="loading">
+            </button>
+
+            <button
+              pButton
+              icon="pi pi-pause"
+              class="p-button-secondary p-button-sm"
+              [label]="p.active ? 'Pause' : 'Activate'"
+              (click)="toggleProjectActive(p)">
+            </button>
+
+            <!-- NEW: toggle TEST/LIVE -->
+            <button
+              pButton
+              class="p-button-text p-button-sm"
+              [label]="p.environment === 'LIVE' ? 'To TEST' : 'To LIVE'"
+              [icon]="p.environment === 'LIVE' ? 'pi pi-arrow-down' : 'pi pi-arrow-up'"
+              (click)="toggleProjectEnvironment(p)"
+              [disabled]="p.environment !== 'LIVE' &&
+              p.plan === 'pro' &&
+              p.proPaidUntil && getDate(p.proPaidUntil)">
+            </button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+  </p-table>
+
+  <!-- LOGIN MODAL -->
+  <p-dialog
+    [(visible)]="loginDialogVisible"
+    (onHide)="stopPolling(); stopCountdown();"
+    [closable]="true"
+    [modal]="true"
+    [style]="{ width: '520px' }"
+    header="Developer Login (Lightning)">
+
+    <div class="p-fluid">
+
+      <p class="mb-3">
+        Pay a tiny Lightning invoice to verify you control this developer account.
+      </p>
+
+      <button
+        (click)="startLogin()"
+        [disabled]="!!loginSession"
+        [loading]="loginInProgress"
+        class="mb-3"
+        icon="pi pi-bolt"
+        label="Generate Invoice"
+        pButton>
+      </button>
+
+      <!-- Show invoice once created -->
+      <div *ngIf="loginSession">
+
+        <div class="flex justify-content-between align-items-center mb-2">
+          <div>
+            <b>Amount:</b> {{ loginSession.amountSats }} sats
+          </div>
+          <div>
+            <b>Expires in:</b> {{ remainingTimeLabel }}
+          </div>
+        </div>
+
+        <!-- QR (qrcode-angular) -->
+        <div class="flex justify-content-center mb-3">
+          <div class="ln-qr-svg-box" aria-label="Lightning invoice QR">
+            <qrcode
+              class="ln-qr-svg"
+              [value]="lightningQrValue"
+              [size]="320"
+              [errorLevel]="'M'"
+              [mode]="'svg'">
+            </qrcode>
+          </div>
+        </div>
+
+
+        <a
+          class="block mt-2 text-sm text-primary text-center"
+          [href]="'LIGHTNING:' + lightningQrValue">
+          Open in Lightning wallet
+        </a>
+
+
+        <!-- Invoice + copy -->
+        <p><b>Invoice (BOLT11):</b></p>
+
+        <div
+          class="invoice-row"
+          style="display:flex; gap:8px; align-items:center;">
+
+          <input
+            #loginInvoiceInput
+            (click)="loginInvoiceInput.select()"
+            [value]="loginSession.invoice"
+            class="invoice-input"
+            readonly
+            style="
+              flex:1;
+              padding:8px;
+              border-radius:6px;
+              background:#222;
+              color:#fff;
+              border:1px solid #444;
+              font-family: monospace;
+            "/>
+
+          <button
+            (click)="copyLoginInvoice()"
+            aria-label="Copy invoice"
+            class="p-button-rounded p-button-secondary"
+            icon="pi pi-copy"
+            pButton>
+          </button>
+        </div>
+
+        <!-- Copied notice -->
+        <p
+          *ngIf="copiedLoginInvoice"
+          style="color:#64ff8f; margin-top:6px;">
+          Copied!
+        </p>
+
+        <p *ngIf="polling" class="mt-2 text-primary">
+          Waiting for payment confirmation…
+        </p>
+
+        <p *ngIf="remainingSeconds <= 0" class="mt-2 text-red-500">
+          Invoice expired. Close and try again.
+        </p>
+
+      </div>
+
+    </div>
+  </p-dialog>
+
+  <!-- ROTATE SECRET DIALOG -->
+  <p-dialog
+    [(visible)]="showRotateDialog"
+    [modal]="true"
+    [style]="{ width: '450px' }"
+    header="New Secret Key (shown once)">
+
+    <div *ngIf="lastRotatedSecret">
+      <p><b>Project ID:</b> {{ lastRotatedSecret.projectId }}</p>
+      <p><b>Public Key:</b> <code>{{ lastRotatedSecret.publicKey }}</code></p>
+
+      <p class="mb-2"><b>New Secret Key:</b></p>
+
+      <div
+        class="secret-row"
+        style="display:flex; gap:8px; align-items:center;">
+        <input
+          #rotateSecretInput
+          class="w-full"
+          style="
+            flex:1;
+            padding:8px;
+            border-radius:6px;
+            background:#222;
+            color:#fff;
+            border:1px solid #444;
+            font-family: monospace;
+          "
+          [value]="lastRotatedSecret.secretKey"
+          readonly
+          (click)="rotateSecretInput.select()"
+          aria-label="New secret key"/>
+
+        <button
+          pButton
+          icon="pi pi-copy"
+          class="p-button-rounded p-button-secondary"
+          (click)="copyRotatedSecret()"
+          aria-label="Copy new secret key">
+        </button>
+      </div>
+
+      <p
+        *ngIf="copiedRotatedSecret"
+        style="color:#64ff8f; margin-top:6px;">
+        Copied!
+      </p>
+
+      <p class="mt-2 text-sm text-gray-500">
+        Copy this new secret key now — the old one is invalid immediately.
+      </p>
+    </div>
+
+  </p-dialog>
+
+  <!-- SECRET KEY DIALOG (ON PROJECT CREATION) -->
+  <p-dialog
+    [(visible)]="showSecretDialog"
+    [modal]="true"
+    [style]="{ width: '450px' }"
+    header="Your Secret Key (shown once)">
+
+    <div *ngIf="lastSecret">
+      <p><b>Project ID:</b> {{ lastSecret.projectId }}</p>
+      <p><b>Public Key:</b> <code>{{ lastSecret.publicKey }}</code></p>
+
+      <p class="mb-2"><b>Secret Key:</b></p>
+
+      <div
+        class="secret-row"
+        style="display:flex; gap:8px; align-items:center;">
+        <input
+          #secretInput
+          class="w-full"
+          style="
+            flex:1;
+            padding:8px;
+            border-radius:6px;
+            background:#222;
+            color:#fff;
+            border:1px solid #444;
+            font-family: monospace;
+          "
+          [value]="lastSecret.secretKey"
+          readonly
+          (click)="secretInput.select()"
+          aria-label="Secret key"/>
+
+        <button
+          pButton
+          icon="pi pi-copy"
+          class="p-button-rounded p-button-secondary"
+          (click)="copySecretKey()"
+          aria-label="Copy secret key">
+        </button>
+      </div>
+
+      <p
+        *ngIf="copiedSecret"
+        style="color:#64ff8f; margin-top:6px;">
+        Copied!
+      </p>
+
+      <p class="mt-2 text-sm text-gray-500">
+        Copy this secret key now — you will not be able to view it again.
+      </p>
+    </div>
+
+  </p-dialog>
+
+  <!-- PROJECT DETAILS DIALOG (SETTINGS + ANALYTICS + LOGS + API KEYS) -->
+  <p-dialog
+    [(visible)]="showProjectDialog"
+    [modal]="true"
+    [style]="{ width: '900px' }"
+    [contentStyle]="{ 'min-height': '520px', 'max-height': '75vh', 'overflow-y': 'auto' }"
+    header="Project Details">
+
+    <p-tabs [(value)]="_projectDialogTab" (valueChange)="setProjectDialogTab($event)">
+
+      <!-- Header row: tab list + time range selector -->
+      <div class="flex justify-content-between align-items-center mb-2">
+        <p-tablist>
+          <p-tab value="overview">Overview</p-tab>
+          <p-tab value="analytics">Analytics</p-tab>
+          <p-tab value="logs">Logs</p-tab>
+          <p-tab value="keys">API Keys</p-tab>
+          <p-tab value="billing">Billing</p-tab>
+          <p-tab value="webhooks">Webhooks</p-tab>
+        </p-tablist>
+
+        <!-- Time range selector (only for analytics & logs) -->
+        <div
+          class="flex gap-2 text-sm"
+          *ngIf="_projectDialogTab === 'analytics' || _projectDialogTab === 'logs'">
+          <button
+            pButton
+            class="p-button-text p-button-sm"
+            [ngClass]="{ 'p-button-secondary': timeRange === '1h' }"
+            (click)="onTimeRangeChange('1h')">
+            1h
+          </button>
+          <button
+            pButton
+            class="p-button-text p-button-sm"
+            [ngClass]="{ 'p-button-secondary': timeRange === '24h' }"
+            (click)="onTimeRangeChange('24h')">
+            24h
+          </button>
+          <button
+            pButton
+            class="p-button-text p-button-sm"
+            [ngClass]="{ 'p-button-secondary': timeRange === '7d' }"
+            (click)="onTimeRangeChange('7d')">
+            7d
+          </button>
+        </div>
+      </div>
+
+      <p-tabpanels>
+
+        <!-- OVERVIEW TAB -->
+        <p-tabpanel value="overview">
+          <ng-container *ngIf="selectedProject">
+
+            <p><b>Name:</b> {{ selectedProject.name }}</p>
+            <p class="flex align-items-center gap-2">
+              <b>Project ID:</b>
+              <code>{{ selectedProject.projectId }}</code>
+              <button
+                pButton
+                type="button"
+                class="p-button-text p-button-sm"
+                icon="pi pi-copy"
+                (click)="copyProjectId()"
+                [disabled]="!selectedProject?.projectId"
+                aria-label="Copy Project ID"></button>
+              <span class="text-xs text-green-400" *ngIf="copiedProjectId">Copied!</span>
+            </p>
+            <p class="flex align-items-center gap-2">
+              <b>Public Key:</b>
+              <code>{{ selectedProject.publicKey }}</code>
+              <button
+                pButton
+                type="button"
+                class="p-button-text p-button-sm"
+                icon="pi pi-copy"
+                (click)="copyPublicKey()"
+                [disabled]="!selectedProject?.publicKey"
+                aria-label="Copy Public Key"></button>
+              <span class="text-xs text-green-400" *ngIf="copiedPublicKey">Copied!</span>
+            </p>
+
+            <!-- BILLING MODE BADGE -->
+            <div class="mt-2">
+              <p-tag
+                [value]="getProjectModeBadge(selectedProject)"
+                [severity]="getProjectModeSeverity(selectedProject)"
+                class="p-tag-rounded p-tag-sm">
+              </p-tag>
+            </div>
+
+            <!-- ENVIRONMENT TOGGLE BUTTON -->
+            <div class="mt-2">
+              <button
+                pButton
+                class="p-button-text p-button-sm"
+                [icon]="selectedProject.environment === 'LIVE' ? 'pi pi-arrow-down' : 'pi pi-arrow-up'"
+                (click)="toggleProjectEnvironment(selectedProject)"
+                [disabled]="loading || selectedProject.environment !== 'LIVE' &&
+              selectedProject.plan === 'pro' &&
+              selectedProject.proPaidUntil && getDate(selectedProject.proPaidUntil)">
+              </button>
+            </div>
+
+            <div class="grid mt-3">
+              <div class="col-12 md:col-6">
+                <label>Allowed Domains</label>
+                <textarea
+                  [(ngModel)]="projectForm.allowedDomains"
+                  pInputTextarea
+                  rows="3"
+                  placeholder="https://myapp.com&#10;https://staging.myapp.com">
+            </textarea>
+              </div>
+
+              <div class="col-12 md:col-6">
+                <label>Webhook URL</label>
+                <input
+                  [(ngModel)]="projectForm.webhookUrl"
+                  pInputText
+                  class="w-full"
+                  placeholder="https://api.myapp.com/lightningwall/webhook"/>
+
+                <button
+                  class="mt-2"
+                  pButton
+                  label="Send Test Webhook"
+                  icon="pi pi-send"
+                  (click)="testWebhook(selectedProject)">
+                </button>
+              </div>
+            </div>
+
+            <div class="grid mt-3">
+              <div class="col-12 md:col-4">
+                <label>Sats per Login</label>
+                <input
+                  type="number"
+                  [(ngModel)]="projectForm.satsPerLogin"
+                  pInputText
+                  class="w-full"/>
+              </div>
+
+              <div class="col-12 md:col-4">
+                <label>Max Auths / IP / Hour</label>
+                <input
+                  type="number"
+                  [(ngModel)]="projectForm.maxAuthsPerIpPerHour"
+                  pInputText
+                  class="w-full"/>
+              </div>
+
+              <div class="col-12 md:col-4 flex align-items-end">
+                <button
+                  pButton
+                  label="Save Settings"
+                  icon="pi pi-save"
+                  (click)="saveProjectSettings()"
+                  [loading]="savingSettings">
+                </button>
+              </div>
+            </div>
+
+            <!-- Effective sats per login (based on env + satsPerLogin) -->
+            <p
+              class="mt-2"
+              style="font-size: 0.8rem; opacity: 0.8;"
+              *ngIf="selectedProject">
+              <b>Effective sats per login:</b>
+              {{ getEffectiveSatsLabel() }}
+            </p>
+
+          </ng-container>
+        </p-tabpanel>
+
+        <!-- ANALYTICS TAB -->
+        <p-tabpanel value="analytics">
+          <ng-container *ngIf="analytics">
+            <p>
+              Window:
+              <b>
+                {{
+                  timeRange === '1h' ? 'Last 1 hour' :
+                    timeRange === '7d' ? 'Last 7 days' : 'Last 24 hours'
+                }}
+              </b>
+            </p>
+            <ul>
+              <li>Total Auths: {{ analytics.totalAuths24h }}</li>
+              <li>Successful: {{ analytics.success24h }}</li>
+              <li>Failed: {{ analytics.failed24h }}</li>
+              <li>Sats Paid: {{ analytics.satsPaid24h }}</li>
+              <li>Rate-limit hits: {{ analytics.rateLimitHits24h }}</li>
+            </ul>
+          </ng-container>
+        </p-tabpanel>
+
+        <!-- LOGS TAB -->
+        <p-tabpanel value="logs">
+          <p-table
+            *ngIf="logs"
+            [value]="logs"
+            [paginator]="true"
+            [rows]="5">
+
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Time</th>
+                <th>IP</th>
+                <th>Sats</th>
+                <th>Status</th>
+                <th>Reason</th>
+              </tr>
+            </ng-template>
+
+            <ng-template let-log pTemplate="body">
+              <tr>
+                <td>{{ toDate(log.timestamp) | localTime}}</td>
+                <td>{{ log.ipMasked }}</td>
+                <td>{{ log.sats }}</td>
+                <td>
+                  <p-tag
+                    [value]="log.status"
+                    [severity]="
+                  log.status === 'SUCCESS'
+                    ? 'success'
+                    : log.status === 'RATE_LIMIT'
+                      ? 'warn'
+                      : 'danger'">
+                  </p-tag>
+                </td>
+                <td>{{ log.reason }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </p-tabpanel>
+
+        <!-- API KEYS TAB -->
+        <p-tabpanel value="keys">
+          <div class="flex justify-content-between align-items-center mb-3">
+            <h4 class="m-0">API Keys</h4>
+
+            <button
+              pButton
+              label="New Key"
+              icon="pi pi-plus"
+              (click)="openNewKeyDialog()">
+            </button>
+          </div>
+
+          <p *ngIf="!apiKeys && !loadingKeys">
+            No keys loaded yet.
+          </p>
+
+          <p *ngIf="loadingKeys">
+            Loading keys...
+          </p>
+
+          <p-table
+            *ngIf="apiKeys && apiKeys.length"
+            [value]="apiKeys"
+            [paginator]="true"
+            [rows]="5">
+
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Label</th>
+                <th>Public Key</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Last Used</th>
+                <th style="width: 220px;">Actions</th>
+              </tr>
+            </ng-template>
+
+            <ng-template let-k pTemplate="body">
+              <tr>
+                <td>{{ k.label }}</td>
+                <td><code>{{ k.publicKey }}</code></td>
+                <td>
+                  <p-tag
+                    [value]="k.isActive ? 'Active' : 'Revoked'"
+                    [severity]="k.isActive ? 'success' : 'danger'">
+                  </p-tag>
+                </td>
+                <td>{{ k.createdAt  | localTime }}</td>
+                <td>{{ k.lastUsedAt ? (k.lastUsedAt | localTime) : 'Never' }}</td>
+                <td>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      pButton
+                      label="Rename"
+                      icon="pi pi-pencil"
+                      class="p-button-text p-button-sm"
+                      (click)="renameApiKey(k)">
+                    </button>
+
+                    <button
+                      pButton
+                      label="Revoke"
+                      icon="pi pi-ban"
+                      class="p-button-danger p-button-sm"
+                      [disabled]="!k.isActive"
+                      (click)="revokeApiKey(k)">
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </ng-template>
+
+          </p-table>
+        </p-tabpanel>
+
+        <!-- BILLING TAB -->
+        <p-tabpanel value="billing">
+          <ng-container *ngIf="selectedProject">
+
+            <h4 class="mb-3">Billing</h4>
+
+            <!-- Current Plan -->
+            <div class="p-card p-3 mb-3">
+              <div class="flex justify-content-between align-items-center">
+                <div>
+                  <p class="mb-1">
+                    <b>Current Plan:</b>
+                    {{ selectedProject.plan | titlecase }}
+                  </p>
+
+                  <p class="mb-1">
+                    <b>Usage:</b>
+                    {{ selectedProject.monthlyAuthCount }}
+                    /
+                    {{
+                      selectedProject.plan === 'free'
+                        ? planLimits.freeMonthlyAuthLimit
+                        : 'Unlimited'
+                    }}
+                  </p>
+
+                  <p class="mb-0 text-sm opacity-80">
+                    Period started:
+                    {{ selectedProject.monthlyAuthPeriodStart | date:'mediumDate' }}
+                  </p>
+                </div>
+
+                <!-- PLAN BADGE -->
+                <p-tag
+                  [value]="selectedProject.plan === 'free' ? 'Free' : 'Pro'"
+                  [severity]="selectedProject.plan === 'free' ? 'info' : 'success'">
+                </p-tag>
+              </div>
+            </div>
+
+            <!-- Upgrade CTA -->
+            <div
+              class="p-card p-3"
+              *ngIf="selectedProject.plan === 'free'">
+
+              <h5 class="mb-2">Upgrade to Pro ⚡</h5>
+
+              <p class="text-sm mb-3">
+                Unlock unlimited verifications, higher sats-per-auth,
+                and production-grade limits.
+              </p>
+
+              <ul class="text-sm mb-3">
+                <li>Unlimited monthly auths</li>
+                <li>Custom sats per verification</li>
+                <li>Priority Lightning settlement</li>
+              </ul>
+
+              <button
+                pButton
+                icon="pi pi-bolt"
+                label="Upgrade via Lightning"
+                class="p-button-success"
+                (click)="startSubscriptionUpgrade(selectedProject)"
+                [loading]="billingLoading">
+              </button>
+            </div>
+
+            <!-- Pro state -->
+            <div
+              class="p-card p-3"
+              *ngIf="selectedProject.plan === 'pro'">
+
+              <!-- ACTIVE -->
+              <ng-container *ngIf="!isProExpired(selectedProject)">
+                <h5 class="mb-2">Pro Plan Active ✅</h5>
+
+                <p class="text-sm">
+                  Your project is fully unlocked.
+                </p>
+
+                <p class="text-sm opacity-80">
+                  Paid until:
+                  {{ selectedProject.proPaidUntil | date:'mediumDate' }}
+                </p>
+              </ng-container>
+
+              <!-- GRACE PERIOD -->
+              <ng-container *ngIf="isInGracePeriod(selectedProject)">
+                <h5 class="mb-2 text-yellow-400">Pro Plan – Grace Period ⚠️</h5>
+
+                <p class="text-sm">
+                  Your Pro subscription has expired, but your project is temporarily
+                  still active.
+                </p>
+
+                <p class="text-sm">
+                  <b>{{ getProGraceDaysRemaining(selectedProject) }}</b>
+                  day(s) remaining in grace period.
+                </p>
+
+                <p class="text-sm opacity-80">
+                  Renew now to avoid automatic downgrade.
+                </p>
+
+                <button
+                  pButton
+                  icon="pi pi-bolt"
+                  label="Renew Pro via Lightning"
+                  class="p-button-warning mt-2"
+                  (click)="startSubscriptionUpgrade(selectedProject)">
+                </button>
+              </ng-container>
+
+              <!-- EXPIRED -->
+              <ng-container *ngIf="isProExpired(selectedProject) && !isInGracePeriod(selectedProject)">
+                <h5 class="mb-2 text-red-400">Pro Plan Expired ❌</h5>
+
+                <p class="text-sm">
+                  Your Pro subscription has expired and grace period has ended.
+                </p>
+
+                <p class="text-sm">
+                  The project is now operating on the Free plan.
+                </p>
+
+                <button
+                  pButton
+                  icon="pi pi-bolt"
+                  label="Re-upgrade to Pro"
+                  class="p-button-danger mt-2"
+                  (click)="startSubscriptionUpgrade(selectedProject)">
+                </button>
+              </ng-container>
+
+            </div>
+
+          </ng-container>
+        </p-tabpanel>
+
+        <!-- WEBHOOKS TAB -->
+        <p-tabpanel value="webhooks">
+          <ng-container *ngIf="webhooks && webhooks.length; else noWebhooks">
+            <p-table
+              [value]="webhooks"
+              [paginator]="true"
+              [rows]="10">
+
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Created</th>
+                  <th>Event</th>
+                  <th>Status</th>
+                  <th>HTTP</th>
+                  <th>Attempts</th>
+                  <th>Error</th>
+                  <th style="width: 120px;">Actions</th>
+                </tr>
+              </ng-template>
+
+              <ng-template pTemplate="body" let-wh>
+                <tr>
+                  <td>{{ wh.createdAt | localTime}}</td>
+                  <td><code>{{ wh.eventType }}</code></td>
+                  <td>
+                    <p-tag
+                      [value]="wh.status"
+                      [severity]="
+                  wh.status === 'Delivered'
+                    ? 'success'
+                    : wh.status === 'Dead'
+                      ? 'danger'
+                      : 'warn'">
+                    </p-tag>
+                  </td>
+                  <td>{{ wh.lastStatusCode || '—' }}</td>
+                  <td>{{ wh.attemptCount }}</td>
+                  <td>
+              <span
+                class="text-xs whitespace-nowrap overflow-hidden text-ellipsis block max-w-20rem"
+                [title]="wh.lastError || ''">
+                {{ wh.lastError || '—' }}
+              </span>
+                  </td>
+                  <td>
+                    <button
+                      pButton
+                      label="Replay"
+                      icon="pi pi-refresh"
+                      class="p-button-text p-button-sm"
+                      (click)="replayWebhook(wh)">
+                    </button>
+                  </td>
+                </tr>
+              </ng-template>
+
+            </p-table>
+          </ng-container>
+
+          <ng-template #noWebhooks>
+            <p *ngIf="!loadingWebhooks">No webhook events yet.</p>
+            <p *ngIf="loadingWebhooks">Loading webhooks…</p>
+          </ng-template>
+        </p-tabpanel>
+
+      </p-tabpanels>
+
+    </p-tabs>
+  </p-dialog>
+
+  <!-- NEW API KEY DIALOG (label input) -->
+  <p-dialog
+    [(visible)]="showNewKeyDialog"
+    [modal]="true"
+    [style]="{ width: '400px' }"
+    header="Create API Key">
+
+    <div class="p-fluid">
+      <label>Label</label>
+      <input
+        type="text"
+        pInputText
+        [(ngModel)]="newKeyLabel"
+        placeholder="e.g. Web frontend"/>
+
+      <div class="flex justify-content-end gap-2 mt-3">
+        <button
+          pButton
+          label="Cancel"
+          class="p-button-text"
+          (click)="showNewKeyDialog = false">
+        </button>
+
+        <button
+          pButton
+          label="Create"
+          icon="pi pi-check"
+          [loading]="creatingKey"
+          (click)="createApiKey()">
+        </button>
+      </div>
+    </div>
+  </p-dialog>
+
+  <!-- NEW API KEY SECRET DIALOG (shown once) -->
+  <p-dialog
+    [(visible)]="showNewKeySecretDialog"
+    [modal]="true"
+    [style]="{ width: '480px' }"
+    header="New API Key Secret (shown once)">
+
+    <div *ngIf="lastCreatedKey">
+      <p><b>Label:</b> {{ lastCreatedKey.label }}</p>
+      <p><b>Public Key:</b> <code>{{ lastCreatedKey.publicKey }}</code></p>
+
+      <p class="mb-2"><b>Secret Key:</b></p>
+
+      <div class="secret-row" style="display:flex; gap:8px; align-items:center;">
+        <input
+          #apiSecretInput
+          class="w-full"
+          style="
+      flex:1;
+      padding:8px;
+      border-radius:6px;
+      background:#222;
+      color:#fff;
+      border:1px solid #444;
+      font-family: monospace;
+    "
+          [value]="lastCreatedKey.secretKey"
+          readonly
+          (click)="apiSecretInput.select()"
+          aria-label="New API secret key"/>
+
+        <button
+          pButton
+          icon="pi pi-copy"
+          class="p-button-rounded p-button-secondary"
+          (click)="copyNewKeySecret()"
+          aria-label="Copy API secret key">
+        </button>
+      </div>
+
+      <p *ngIf="copiedNewKeySecret" style="color:#64ff8f; margin-top:6px;">
+        Copied!
+      </p>
+
+      <p class="mt-2 text-sm text-gray-500">
+        Copy this secret now — it will not be shown again. You can revoke or rename this key from the API Keys tab
+        anytime.
+      </p>
+    </div>
+  </p-dialog>
+
+  <!-- BILLING UPGRADE DIALOG -->
+  <p-dialog
+    [(visible)]="showBillingDialog"
+    (onHide)="onBillingDialogHide()"
+    [modal]="true"
+    [closable]="true"
+    [style]="{ width: '520px' }"
+    header="Upgrade to Pro (Lightning)">
+
+    <div class="p-fluid">
+
+      <p class="mb-3">
+        Upgrade this project using a Lightning payment.
+        Unlock unlimited usage instantly.
+      </p>
+
+      <!-- Generate Invoice -->
+      <button
+        pButton
+        icon="pi pi-bolt"
+        label="Generate Lightning Invoice"
+        class="mb-3"
+        (click)="startBillingUpgrade()"
+        [disabled]="billingSession"
+        [loading]="billingLoading">
+      </button>
+
+      <!-- Invoice UI -->
+      <ng-container *ngIf="billingSession">
+
+        <div class="flex justify-content-between mb-2">
+          <div><b>Amount:</b> {{ billingSession.amountSats }} sats</div>
+          <div><b>Expires in:</b> {{ billingRemainingLabel }}</div>
+        </div>
+
+        <!-- QR -->
+        <div class="flex justify-content-center mb-3">
+          <div class="ln-qr-svg-box" aria-label="Billing invoice QR">
+            <qrcode
+              class="ln-qr-svg"
+              [value]="'lightning:' + billingSession.invoice"
+              [size]="320"
+              [errorLevel]="'M'"
+              [mode]="'svg'">
+            </qrcode>
+          </div>
+        </div>
+
+
+        <a
+          class="block mt-2 text-sm text-primary text-center"
+          [href]="'LIGHTNING:' + billingSession.invoice">
+          Open in Lightning wallet
+        </a>
+
+
+        <!-- Invoice string -->
+        <p><b>Invoice (BOLT11):</b></p>
+
+        <div class="flex gap-2 align-items-center">
+          <input
+            #billingInvoiceInput
+            [value]="billingSession.invoice"
+            readonly
+            class="w-full"
+            style="
+            padding:8px;
+            border-radius:6px;
+            background:#222;
+            color:#fff;
+            border:1px solid #444;
+            font-family: monospace;
+          "
+            (click)="billingInvoiceInput.select()"/>
+
+          <button
+            pButton
+            icon="pi pi-copy"
+            class="p-button-rounded p-button-secondary"
+            (click)="copyBillingInvoice()">
+          </button>
+        </div>
+
+        <p *ngIf="billingCopied" class="mt-2 text-green-400">
+          Copied!
+        </p>
+
+        <p *ngIf="billingPolling" class="mt-3 text-primary">
+          Waiting for payment confirmation…
+        </p>
+
+        <p *ngIf="billingExpired" class="mt-3 text-red-500">
+          Invoice expired. Close and try again.
+        </p>
+
+      </ng-container>
+
+    </div>
+  </p-dialog>
+
+
+</div>
+<div class="footer-beta">
+  LiveAuth is in public beta. Feedback welcome.
+</div>

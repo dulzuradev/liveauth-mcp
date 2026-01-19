@@ -1,0 +1,70 @@
+/* Angular Material prebuilt dark theme */
+@import '@angular/material/prebuilt-themes/pink-bluegrey.css';
+@import "primeflex/primeflex.scss";
+@import "primeicons/primeicons.css";
+
+
+/* Global lightning wall background */
+:root {
+  --btc-orange: #F2A900;
+  --electric-blue: #00C2FF;
+  --wall-deep: #0a0f1e;
+  --wall-surface: #11182d;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(1200px 600px at 80% -10%, rgba(0, 194, 255, 0.15), transparent 60%),
+              radial-gradient(1000px 500px at 20% 120%, rgba(242, 169, 0, 0.12), transparent 60%),
+              linear-gradient(135deg, var(--wall-deep) 0%, var(--wall-surface) 100%);
+  color: #e3e7ee;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Subtle animated lightning strokes */
+.lighting-strike {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.06) 0px,
+    rgba(255, 255, 255, 0.06) 1px,
+    transparent 2px,
+    transparent 10px
+  );
+  mix-blend-mode: overlay;
+  animation: flicker 4s infinite ease-in-out;
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.35; }
+}
+
+/* Utility to center auth card */
+.auth-center {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+/* Material overrides for accent color hints */
+.mat-mdc-raised-button.btc-accent,
+.mat-mdc-unelevated-button.btc-accent,
+.mat-mdc-outlined-button.btc-accent {
+  --mdc-protected-button-container-color: var(--btc-orange);
+  --mdc-filled-button-container-color: var(--btc-orange);
+  --mdc-outlined-button-label-text-color: var(--btc-orange);
+  color: #121212;
+}
+
+.mat-toolbar.btc-toolbar {
+  background: linear-gradient(90deg, rgba(242, 169, 0, 0.15), rgba(0, 194, 255, 0.15));
+  border-bottom: 1px solid rgba(242, 169, 0, 0.3);
+}
