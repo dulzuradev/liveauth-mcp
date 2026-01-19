@@ -159,9 +159,12 @@ public class ApiKeyService
         // ✅ PRIMARY PATH — PROJECT public key (PoW)
         var project = await _db.Projects
             .SingleOrDefaultAsync(p =>
-                p.PublicKey == publicKey &&
-                p.IsActive &&
-                p.Environment == "LIVE",
+                    p.PublicKey == publicKey &&
+                    p.IsActive &&
+                    (
+                        p.Environment == "LIVE" ||
+                        p.AllowDemoAuth
+                    ),
                 ct);
 
         if (project != null)
