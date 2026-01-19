@@ -255,6 +255,33 @@ if (app.Environment.IsDevelopment())
         c.RoutePrefix = string.Empty;
     });
 }
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+
+        await context.Response.WriteAsync(
+            "{\"error\":\"Internal server error\"}"
+        );
+    });
+});
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+
+        await context.Response.WriteAsync("""
+                                          {
+                                              "error": "An unexpected server error occurred"
+                                          }
+                                          """);
+    });
+});
 
 // Caddy terminates TLS; safe to keep but only once
 app.UseHttpsRedirection();
