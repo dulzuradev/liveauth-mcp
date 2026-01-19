@@ -30,7 +30,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Core services / DI
 // --------------------
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+// builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton<StripeService>();
 builder.Services.AddSingleton<OpenNodeService>();
@@ -405,7 +405,7 @@ using (var scope = app.Services.CreateScope())
 // --------------------
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    // app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
