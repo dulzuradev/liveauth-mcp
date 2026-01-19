@@ -5,6 +5,7 @@ using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace LiveAuthCore.Controllers;
 
@@ -18,18 +19,21 @@ public class PublicPowController : ControllerBase
     private readonly PowReplayService _replay;
     private readonly PowDifficultyService _difficulty;
     private readonly PowAttemptLogger _attempts;
+    private readonly ILogger<PublicPowController> _logger;
 
     public PublicPowController(LightningService jwt,
         PowChallengeSigner signer,
         PowReplayService replay,
         PowDifficultyService difficulty,
-        PowAttemptLogger attempts)
+        PowAttemptLogger attempts,
+        ILogger<PublicPowController> logger)
     {
         _jwt = jwt;
         _signer = signer;
         _replay = replay;
         _difficulty = difficulty;
         _attempts = attempts;
+        _logger = logger;
     }
 
     /* ============================================================
@@ -98,11 +102,25 @@ public class PublicPowController : ControllerBase
     )
     {
         var project = GetProject();
+        
         if (project == null)
+        {
+            _logger.LogWarning("PoW challenge request: project not found in HttpContext.");
             return Unauthorized();
+        }
+
+        _logger.LogWarning(
+            "PoW project found: {Found}, env={Env}, active={Active}",
+            project != null,
+            project?.Environment,
+            project?.IsActive
+        );
 
         if (!project.IsActive)
+        {
+            _logger.LogWarning("PoW challenge request: project {ProjectId} is inactive.", project.Id);
             return Forbid();
+        }
 
         // Use request-scoped cancellation
         int difficultyBits =
@@ -117,6 +135,9 @@ public class PublicPowController : ControllerBase
             BuildPayload(project.Id, challengeHex, difficultyBits, expiresAtUnix);
 
         var sig = _signer.Sign(payload);
+
+        _logger.LogDebug("PoW challenge generated: project={ProjectId}, difficulty={Difficulty}, expires={Expires}", 
+            project.Id, difficultyBits, expiresAtUnix);
 
         return Ok(new PowChallengeResponse(
             ProjectPublicKey: project.PublicKey,
@@ -141,20 +162,33 @@ public async Task<IActionResult> Verify(
     CancellationToken ct)
 {
     var project = GetProject();
-    if (project == null) return Unauthorized();
-    if (!project.IsActive) return Forbid();
+    if (project == null)
+    {
+        _logger.LogWarning("PoW verify request: project not found in HttpContext.");
+        return Unauthorized();
+    }
+    
+    if (!project.IsActive)
+    {
+        _logger.LogWarning("PoW verify request: project {ProjectId} is inactive.", project.Id);
+        return Forbid();
+    }
 
     if (string.IsNullOrWhiteSpace(req.ChallengeHex) ||
         string.IsNullOrWhiteSpace(req.HashHex) ||
         string.IsNullOrWhiteSpace(req.Nonce.ToString()) ||
         string.IsNullOrWhiteSpace(req.Sig))
     {
+        _logger.LogWarning("PoW verify request: project {ProjectId} sent missing fields.", project.Id);
         return BadRequest("Missing fields.");
     }
 
     var nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     if (req.ExpiresAtUnix <= nowUnix)
+    {
+        _logger.LogInformation("PoW verify failed: challenge expired for project {ProjectId}.", project.Id);
         return Ok(new PowVerifyResponse(false, null, "lightning"));
+    }
 
     // Approximate solve duration (fine for v1)
     var solveMs =
@@ -174,6 +208,7 @@ public async Task<IActionResult> Verify(
 
     if (!_signer.Verify(payload, req.Sig))
     {
+        _logger.LogWarning("PoW verify failed: invalid signature for project {ProjectId}.", project.Id);
         await _difficulty.RecordResultAsync(
             project.Id,
             solveMs,
@@ -202,6 +237,7 @@ public async Task<IActionResult> Verify(
 
     if (!computedHex.Equals(req.HashHex, StringComparison.OrdinalIgnoreCase))
     {
+        _logger.LogWarning("PoW verify failed: hash mismatch for project {ProjectId}.", project.Id);
         await _difficulty.RecordResultAsync(
             project.Id,
             solveMs,
@@ -224,6 +260,7 @@ public async Task<IActionResult> Verify(
     var target = TargetFromBits(difficultyBits);
     if (!IsLessThan(computed, target))
     {
+        _logger.LogWarning("PoW verify failed: difficulty target not met for project {ProjectId}. Bits={Bits}", project.Id, difficultyBits);
         await _difficulty.RecordResultAsync(
             project.Id,
             solveMs,
@@ -253,6 +290,7 @@ public async Task<IActionResult> Verify(
 
     if (!firstUse)
     {
+        _logger.LogWarning("PoW verify failed: replay detected for project {ProjectId}, nonce {Nonce}.", project.Id, req.Nonce);
         await _difficulty.RecordResultAsync(
             project.Id,
             solveMs,
@@ -272,6 +310,7 @@ public async Task<IActionResult> Verify(
     // ------------------------------------------------
     // 5) Success → issue short-lived JWT
     // ------------------------------------------------
+    _logger.LogInformation("PoW verify success: project {ProjectId}, solveMs={SolveMs}", project.Id, solveMs);
     await _difficulty.RecordResultAsync(
         project.Id,
         solveMs,
