@@ -81,7 +81,7 @@ export class LiveAuthClientService {
   private readonly baseUrl = 'https://api.liveauth.app';
 
   private readonly headers = new HttpHeaders({
-    'X-LW-Public': 'la_pk_WqLI6BZkVcTzUOlLgreJLz_c',
+    'X-LW-Public': 'la_pk_cNwyEPqhzi22FMeZ9alAqi6V',
     'Content-Type': 'application/json'
   });
 
