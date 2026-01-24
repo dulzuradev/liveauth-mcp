@@ -5,7 +5,6 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
   caddy_data:
   caddy_config:
 
@@ -26,12 +25,11 @@ services:
       - caddy_data:/data
       - caddy_config:/config
       - ./LiveAuthWeb/dist/liveauth-web/browser:/srv
-
     networks:
       - liveauth
 
   # -------------------------
-  # LiveAuth API (.NET)
+  # LiveAuth API (.NET + SQLite)
   # -------------------------
   liveauth-api:
     build:
@@ -42,24 +40,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__Default: Host=postgres;Database=liveauth;Username=liveauth;Password=liveauth
-    depends_on:
-      - postgres
-    networks:
-      - liveauth
-
-  # -------------------------
-  # PostgreSQL
-  # -------------------------
-  postgres:
-    image: postgres:16
-    container_name: liveauth-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: liveauth
-      POSTGRES_USER: liveauth
-      POSTGRES_PASSWORD: liveauth
+      ConnectionStrings__Default: Data Source=/app/liveauth.db
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # 🔐 PERSISTENT SQLITE DATABASE
+      - /opt/liveauth/data/liveauth.db:/app/liveauth.db
     networks:
       - liveauth
