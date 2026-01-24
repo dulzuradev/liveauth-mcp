@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { BASE_API_URL } from '../config';
 
 export interface DevStartLoginRequest {
   developerEmail: string;
@@ -26,7 +27,7 @@ export interface DevConfirmLoginResponse {
 
 @Injectable({ providedIn: 'root' })
 export class DevAuthService {
-  private baseUrl = 'https://api.liveauth.app';
+  private baseUrl = BASE_API_URL;
 
   constructor(private http: HttpClient) {}
 

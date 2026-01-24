@@ -10,6 +10,7 @@ import {
   throwError,
   timeout,
 } from 'rxjs';
+import { BASE_API_URL } from '../config';
 
 /* ------------------------------------------------------------------ */
 /* POW TYPES (MATCHES YOUR /pow/challenge RESPONSE)                    */
@@ -78,7 +79,7 @@ export interface LightningStartResult {
 
 @Injectable({ providedIn: 'root' })
 export class LiveAuthClientService {
-  private readonly baseUrl = 'https://api.liveauth.app';
+  private readonly baseUrl = BASE_API_URL;
 
   private readonly headers = new HttpHeaders({
     'X-LW-Public': 'la_pk_cNwyEPqhzi22FMeZ9alAqi6V',
