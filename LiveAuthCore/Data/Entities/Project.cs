@@ -59,6 +59,6 @@ public static class ProjectExtensions
 
 public static class SubscriptionPricing
 {
-    public const long ProMonthlySats = 100_000;
+    public const long ProMonthlySats = 100_00;
     public static readonly TimeSpan ProDuration = TimeSpan.FromDays(30);
 }

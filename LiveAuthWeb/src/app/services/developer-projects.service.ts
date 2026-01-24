@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import {HttpClient, HttpParams} from '@angular/common/http';
 import { DevAuthService } from './dev-auth.service';
 import { Observable } from 'rxjs';
+import { BASE_API_URL } from '../config';
 
 export interface CreateProjectRequest { name: string; }
 export interface CreateProjectResponse { projectId: string; publicKey: string; secretKey: string; }
@@ -118,7 +119,7 @@ export interface CreateSubscriptionInvoiceResponse {
 
 @Injectable({ providedIn: 'root' })
 export class DeveloperProjectsService {
-    private baseUrl = 'https://api.liveauth.app';
+    private baseUrl = BASE_API_URL;
 
   constructor(private http: HttpClient, private devAuth: DevAuthService) {}
 

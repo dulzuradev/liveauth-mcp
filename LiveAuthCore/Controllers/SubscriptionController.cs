@@ -24,6 +24,7 @@ namespace LiveAuthCore.Controllers
             _lightning = lightning;
         }
 
+        [AllowAnonymous]
         [HttpPost("subscribe")]
         public async Task<ActionResult<CreateSubscriptionInvoiceResponse>> Subscribe(
             [FromBody] CreateSubscriptionInvoiceRequest request,
@@ -65,7 +66,7 @@ namespace LiveAuthCore.Controllers
             // v1 pricing (simple + explicit)
             var amountSats = request.Plan switch
             {
-                "pro" => 100_000, // ~ $50–60 at current rates
+                "pro" => 100_00, // ~ $50–60 at current rates
                 _ => throw new ArgumentException("Unknown plan")
             };
 
