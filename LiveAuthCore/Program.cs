@@ -128,7 +128,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
                 "https://liveauth.app",
                 "https://dev.liveauth.app",
-                "http://localhost:4200"
+                "http://localhost:49247"
             )
             .AllowAnyHeader()
             .AllowAnyMethod());
