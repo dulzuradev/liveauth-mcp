@@ -94,12 +94,12 @@ public class LiveAuthDbContext : DbContext
             .Property(p => p.RowVersion)
             .IsRowVersion();
         
-        modelBuilder.Entity<BillingSubscription>()
-            .Property(x => x.RowVersion)
-            .IsRowVersion()
-            .IsConcurrencyToken()
-            .ValueGeneratedOnAddOrUpdate()
-            .IsRequired(false);
+        // modelBuilder.Entity<BillingSubscription>()
+        //     .Property(x => x.RowVersion)
+        //     .IsRowVersion()
+        //     .IsConcurrencyToken()
+        //     .ValueGeneratedOnAddOrUpdate()
+        //     .IsRequired(false);
         
         modelBuilder.Entity<AdminLoginSession>()
             .HasIndex(x => x.InvoiceRHash);
