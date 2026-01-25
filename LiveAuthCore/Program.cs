@@ -2,11 +2,11 @@ using System.Text;
 using System.Security.Claims;
 using LiveAuthCore.Auth;
 using LiveAuthCore.Data;
-using LiveAuthCore.Entities;
 using LiveAuthCore.Middleware;
 using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -14,13 +14,14 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // --------------------------------------------------
-// DbContexts
+// DbContext (SINGLE SQLite DB)
 // --------------------------------------------------
-builder.Services.AddDbContext<LiveAuthDbContext>(opts =>
-    opts.UseSqlite("Data Source=liveauth.db"));
+var connectionString =
+    builder.Configuration.GetConnectionString("LiveAuth")
+    ?? throw new InvalidOperationException("Missing LiveAuth connection string");
 
-builder.Services.AddDbContext<AppDbContext>(opts =>
-    opts.UseSqlite("Data Source=lightningcaptcha.db"));
+builder.Services.AddDbContext<LiveAuthDbContext>(opts =>
+    opts.UseSqlite(connectionString));
 
 // --------------------------------------------------
 // Core services
@@ -82,33 +83,28 @@ builder.Services
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            // 🔐 Signature
             ValidateIssuerSigningKey = true,
             IssuerSigningKey =
                 new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
 
-            // 🔥 MUST MATCH TOKEN CONTENTS
             ValidateIssuer = true,
             ValidIssuer = "LiveAuth",
 
             ValidateAudience = true,
             ValidAudience = "LiveAuthUsers",
 
-            // ⏱ Lifetime
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1),
 
-            // 🔥 CRITICAL FIXES
             RoleClaimType = ClaimTypes.Role,
             NameClaimType = "userId"
         };
 
-        // Optional but VERY useful for debugging
         options.Events = new JwtBearerEvents
         {
             OnAuthenticationFailed = ctx =>
             {
-                Console.WriteLine($"JWT auth failed: {ctx.Exception.Message}");
+                Console.Error.WriteLine($"JWT auth failed: {ctx.Exception}");
                 return Task.CompletedTask;
             }
         };
@@ -120,7 +116,7 @@ builder.Services
 builder.Services.AddAuthorization();
 
 // --------------------------------------------------
-// CORS (single authoritative policy)
+// CORS
 // --------------------------------------------------
 builder.Services.AddCors(options =>
 {
@@ -128,7 +124,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
                 "https://liveauth.app",
                 "https://dev.liveauth.app",
-                "http://localhost:4200"
+                "http://localhost:52059"
             )
             .AllowAnyHeader()
             .AllowAnyMethod());
@@ -152,6 +148,14 @@ if (builder.Environment.IsDevelopment())
 
 var app = builder.Build();
 
+var dbPath = new SqliteConnectionStringBuilder(connectionString).DataSource;
+var dir = Path.GetDirectoryName(dbPath);
+
+if (!string.IsNullOrEmpty(dir))
+{
+    Directory.CreateDirectory(dir);
+}
+
 // --------------------------------------------------
 // DB initialization
 // --------------------------------------------------
@@ -160,32 +164,37 @@ using (var scope = app.Services.CreateScope())
     scope.ServiceProvider
         .GetRequiredService<LiveAuthDbContext>()
         .Database.EnsureCreated();
-
-    scope.ServiceProvider
-        .GetRequiredService<AppDbContext>()
-        .Database.EnsureCreated();
 }
 
 // --------------------------------------------------
-// Global exception handling (ONCE)
+// Global exception handling
 // --------------------------------------------------
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
     {
-        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+        var ex = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+
+        if (builder.Environment.IsDevelopment())
+        {
+            context.Response.StatusCode = 500;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = ex?.Message,
+                stack = ex?.StackTrace
+            });
+            return;
+        }
 
         context.Response.StatusCode =
-            exception is UnauthorizedAccessException
+            ex is UnauthorizedAccessException
                 ? StatusCodes.Status401Unauthorized
                 : StatusCodes.Status500InternalServerError;
 
-        context.Response.ContentType = "application/json";
-        await context.Response.WriteAsync("""
+        await context.Response.WriteAsJsonAsync(new
         {
-            "error": "Unauthorized or invalid token"
-        }
-        """);
+            error = "Unauthorized or invalid token"
+        });
     });
 });
 
@@ -193,18 +202,14 @@ app.UseExceptionHandler(errorApp =>
 // Pipeline
 // --------------------------------------------------
 app.UseHttpsRedirection();
-
 app.UseRouting();
-
 app.UseCors("LiveAuthCors");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Custom auth middleware
 app.UseMiddleware<PublicKeyAuthMiddleware>();
 app.UseMiddleware<ApiKeyAuthMiddleware>();
 
 app.MapControllers();
-
 app.Run();

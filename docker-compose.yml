@@ -7,7 +7,7 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
-  liveauth_sqlite:
+  liveauth_sqlite_data:
 
 services:
 
@@ -44,6 +44,6 @@ services:
       ConnectionStrings__Default: Data Source=/app/liveauth.db
     volumes:
       # 🔐 PERSISTENT SQLITE DATABASE
-      - liveauth_sqlite:/app
+      - liveauth_sqlite_data:/data 
     networks:
       - liveauth
