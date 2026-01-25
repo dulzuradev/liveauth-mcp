@@ -3,11 +3,12 @@
 }
 
 liveauth.app {
-    root * /srv
+    root * /srv/browser
     file_server
 }
 
 api.liveauth.app {
     reverse_proxy liveauth-api:8080
 }
+
 
