@@ -1,18 +1,6 @@
 services:
 
   # -------------------------
-  # Frontend (Angular build)
-  # -------------------------
-  liveauth-web:
-    build:
-      context: ./LiveAuthWeb
-      dockerfile: Dockerfile
-    container_name: liveauth-web
-    restart: unless-stopped
-    networks:
-      - liveauth
-
-  # -------------------------
   # Reverse Proxy / TLS
   # -------------------------
   caddy:
