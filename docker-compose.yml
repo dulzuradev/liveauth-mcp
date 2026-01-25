@@ -14,10 +14,17 @@ services:
   # -------------------------
   # Reverse Proxy / TLS
   # -------------------------
+  liveauth-web:
+    build:
+      context: ./LiveAuthWeb
+      dockerfile: dockerfile
+    container_name: liveauth-web
+    restart: unless-stopped
+    networks:
+      - liveauth
+
   caddy:
     image: caddy:2.8
-    container_name: liveauth-caddy
-    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
@@ -25,7 +32,8 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-      - ./LiveAuthWeb/dist/liveauth-web/browser:/srv
+    depends_on:
+      - liveauth-web
     networks:
       - liveauth
 
