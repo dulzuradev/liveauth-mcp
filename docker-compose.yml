@@ -1,37 +1,39 @@
-version: "3.9"
-
-networks:
-  liveauth:
-    driver: bridge
-
-volumes:
-  caddy_data:
-  caddy_config:
-  liveauth_sqlite_data:
-
 services:
+
+  # -------------------------
+  # Frontend (Angular build)
+  # -------------------------
+  liveauth-web:
+    build:
+      context: ./LiveAuthWeb
+      dockerfile: Dockerfile
+    container_name: liveauth-web
+    restart: unless-stopped
+    networks:
+      - liveauth
 
   # -------------------------
   # Reverse Proxy / TLS
   # -------------------------
-
   caddy:
-  image: caddy:2.8
-  container_name: liveauth-caddy
-  restart: unless-stopped
-  ports:
-    - "80:80"
-    - "443:443"
-  volumes:
-    - ./Caddyfile:/etc/caddy/Caddyfile:ro
-    - caddy_data:/data
-    - caddy_config:/config
-    - ./LiveAuthWeb/dist/liveauth-web:/srv
-  networks:
-    - liveauth
+    image: caddy:2.8
+    container_name: liveauth-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./LiveAuthWeb/dist/liveauth-web:/srv
+    depends_on:
+      - liveauth-web
+    networks:
+      - liveauth
 
   # -------------------------
-  # LiveAuth API (.NET + SQLite)
+  # LiveAuth API (.NET)
   # -------------------------
   liveauth-api:
     build:
@@ -42,9 +44,17 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__Default: Data Source=/app/liveauth.db
+      ConnectionStrings__Default: Data Source=/data/liveauth.db
     volumes:
-      # 🔐 PERSISTENT SQLITE DATABASE
-      - liveauth_sqlite_data:/data 
+      - sqlite_data:/data
     networks:
       - liveauth
+
+networks:
+  liveauth:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
+  sqlite_data:
