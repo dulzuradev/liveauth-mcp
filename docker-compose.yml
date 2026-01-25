@@ -16,7 +16,7 @@ services:
       - caddy_config:/config
       - ./LiveAuthWeb/dist/liveauth-web:/srv
     depends_on:
-      - liveauth-web
+      - liveauth-api
     networks:
       - liveauth
 
@@ -24,6 +24,7 @@ services:
   # LiveAuth API (.NET)
   # -------------------------
   liveauth-api:
+    image: liveauth-api:latest
     build:
       context: ./LiveAuthCore
       dockerfile: Dockerfile
