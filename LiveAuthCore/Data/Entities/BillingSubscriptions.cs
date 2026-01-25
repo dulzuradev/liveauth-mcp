@@ -19,5 +19,7 @@ public class BillingSubscription
 
     public DateTime ExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; }
+    
+    public byte[]? RowVersion { get; set; }
 
 }
