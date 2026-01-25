@@ -26,7 +26,7 @@ services:
     - ./Caddyfile:/etc/caddy/Caddyfile:ro
     - caddy_data:/data
     - caddy_config:/config
-    - ./LiveAuthWeb/dist/liveauth-web/browser:/srv
+    - ./LiveAuthWeb/dist/liveauth-web:/srv
   networks:
     - liveauth
 
