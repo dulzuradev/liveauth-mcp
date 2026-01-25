@@ -93,11 +93,6 @@ public class LiveAuthDbContext : DbContext
         modelBuilder.Entity<Project>()
             .Property(p => p.RowVersion)
             .IsRowVersion();
-
-        modelBuilder.Entity<BillingSubscription>()
-            .Property(b => b.RowVersion)
-            .IsRowVersion()
-            .IsRequired(false);
         
         modelBuilder.Entity<AdminLoginSession>()
             .HasIndex(x => x.InvoiceRHash);
