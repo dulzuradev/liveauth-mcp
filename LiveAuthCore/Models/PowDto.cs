@@ -35,6 +35,9 @@ public sealed record PowVerifyRequest
 
     [property: JsonPropertyName("expiresAtUnix")]
     long ExpiresAtUnix,
+
+    [property: JsonPropertyName("difficultyBits")]
+    int DifficultyBits,
     
     [property: JsonPropertyName("sig")]
     string Sig
