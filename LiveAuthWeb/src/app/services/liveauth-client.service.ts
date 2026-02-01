@@ -30,6 +30,7 @@ export interface PowVerifyRequest {
   nonce: number;
   hashHex: string;
   expiresAtUnix: number;
+  difficultyBits: number;
   sig: string;
 }
 
@@ -104,6 +105,7 @@ export class LiveAuthClientService {
               nonce: solution.nonce,
               hashHex: solution.hashHex,
               expiresAtUnix: challenge.expiresAtUnix,
+              difficultyBits: challenge.difficultyBits,
               sig: challenge.sig
             }).pipe(
               map(result => ({

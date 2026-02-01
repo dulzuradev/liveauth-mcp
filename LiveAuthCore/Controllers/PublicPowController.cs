@@ -194,7 +194,16 @@ public async Task<IActionResult> Verify(
     var solveMs =
         (nowUnix - (req.ExpiresAtUnix - 300)) * 1000;
 
-    int difficultyBits = await _difficulty.GetDifficultyAsync(project, ct);
+    // Use difficulty from the signed challenge payload, not current adaptive difficulty.
+    // This fixes the race condition where difficulty changes between challenge and verify.
+    int difficultyBits = req.DifficultyBits;
+
+    // Sanity check: difficulty must be in valid range (prevents tampered requests)
+    if (difficultyBits < 16 || difficultyBits > 24)
+    {
+        _logger.LogWarning("PoW verify failed: difficultyBits {Bits} out of range for project {ProjectId}.", difficultyBits, project.Id);
+        return BadRequest("Invalid difficulty.");
+    }
 
     // ------------------------------------------------
     // 1) Signature verification (stateless integrity)
