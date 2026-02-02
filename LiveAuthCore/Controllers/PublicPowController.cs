@@ -109,12 +109,13 @@ public class PublicPowController : ControllerBase
             return Unauthorized();
         }
 
-        _logger.LogWarning(
-            "PoW project found: {Found}, env={Env}, active={Active}",
-            project != null,
-            project?.Environment,
-            project?.IsActive
-        );
+        // Log SDK version for tracking
+        var sdkVersion = Request.Headers.TryGetValue("X-LW-SDK-Version", out var sdkVer) 
+            ? sdkVer.ToString() 
+            : "unknown";
+
+        _logger.LogDebug("PoW challenge: project={ProjectId}, env={Env}, sdkVersion={SdkVersion}",
+            project.Id, project.Environment, sdkVersion);
 
         if (!project.IsActive)
         {
@@ -167,6 +168,11 @@ public async Task<IActionResult> Verify(
         _logger.LogWarning("PoW verify request: project not found in HttpContext.");
         return Unauthorized();
     }
+    
+    // Log SDK version for tracking
+    var sdkVersion = Request.Headers.TryGetValue("X-LW-SDK-Version", out var sdkVer) 
+        ? sdkVer.ToString() 
+        : "unknown";
     
     if (!project.IsActive)
     {
@@ -319,7 +325,8 @@ public async Task<IActionResult> Verify(
     // ------------------------------------------------
     // 5) Success → issue short-lived JWT
     // ------------------------------------------------
-    _logger.LogInformation("PoW verify success: project {ProjectId}, solveMs={SolveMs}", project.Id, solveMs);
+    _logger.LogInformation("PoW verify success: project={ProjectId}, solveMs={SolveMs}, difficulty={Difficulty}, sdkVersion={SdkVersion}", 
+        project.Id, solveMs, difficultyBits, sdkVersion);
     await _difficulty.RecordResultAsync(
         project.Id,
         solveMs,
