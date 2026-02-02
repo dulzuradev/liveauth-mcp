@@ -23,6 +23,10 @@ var connectionString =
 builder.Services.AddDbContext<LiveAuthDbContext>(opts =>
     opts.UseSqlite(connectionString));
 
+// Add DbContextFactory for services that need isolated contexts
+builder.Services.AddDbContextFactory<LiveAuthDbContext>(opts =>
+    opts.UseSqlite(connectionString));
+
 // --------------------------------------------------
 // Core services
 // --------------------------------------------------
@@ -47,6 +51,7 @@ builder.Services.AddScoped<WebhookService>();
 
 builder.Services.AddHostedService<DevLoginSessionCleanupService>();
 builder.Services.AddHostedService<WebhookDeliveryWorker>();
+builder.Services.AddHostedService<PowNonceCleanupService>();
 
 builder.Services.AddHttpClient("webhooks");
 builder.Services.AddHttpContextAccessor();
