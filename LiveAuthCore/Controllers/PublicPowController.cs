@@ -19,6 +19,7 @@ public class PublicPowController : ControllerBase
     private readonly PowReplayService _replay;
     private readonly PowDifficultyService _difficulty;
     private readonly PowAttemptLogger _attempts;
+    private readonly PowRateLimitService _rateLimit;
     private readonly ILogger<PublicPowController> _logger;
 
     public PublicPowController(LightningService jwt,
@@ -26,6 +27,7 @@ public class PublicPowController : ControllerBase
         PowReplayService replay,
         PowDifficultyService difficulty,
         PowAttemptLogger attempts,
+        PowRateLimitService rateLimit,
         ILogger<PublicPowController> logger)
     {
         _jwt = jwt;
@@ -33,6 +35,7 @@ public class PublicPowController : ControllerBase
         _replay = replay;
         _difficulty = difficulty;
         _attempts = attempts;
+        _rateLimit = rateLimit;
         _logger = logger;
     }
 
@@ -107,6 +110,18 @@ public class PublicPowController : ControllerBase
         {
             _logger.LogWarning("PoW challenge request: project not found in HttpContext.");
             return Unauthorized();
+        }
+
+        // Rate limiting: Prevent hash grinding and DoS
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        if (!_rateLimit.TryAcquire(ipAddress, project.Id))
+        {
+            return StatusCode(429, new
+            {
+                error = "rate_limit_exceeded",
+                error_description = "Too many challenge requests. Please try again later.",
+                retry_after_seconds = 60
+            });
         }
 
         // Log SDK version for tracking
