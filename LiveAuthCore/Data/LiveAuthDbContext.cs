@@ -27,6 +27,7 @@ public class LiveAuthDbContext : DbContext
     public DbSet<BillingSubscription> BillingSubscriptions => Set<BillingSubscription>();
     public DbSet<AdminLoginSession> AdminLoginSessions => Set<AdminLoginSession>();
     public DbSet<AuthEventLog> AuthEventLogs => Set<AuthEventLog>();
+    public DbSet<PowUsedNonce> PowUsedNonces => Set<PowUsedNonce>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -93,6 +94,15 @@ public class LiveAuthDbContext : DbContext
         modelBuilder.Entity<Project>()
             .Property(p => p.RowVersion)
             .IsRowVersion();
+        
+        // Unique constraint for replay protection (atomic check-and-insert)
+        modelBuilder.Entity<PowUsedNonce>()
+            .HasIndex(n => new { n.ProjectId, n.ChallengeHex, n.Nonce })
+            .IsUnique();
+        
+        // Index for cleanup of expired nonces
+        modelBuilder.Entity<PowUsedNonce>()
+            .HasIndex(n => n.ExpiresAt);
         
         // modelBuilder.Entity<BillingSubscription>()
         //     .Property(x => x.RowVersion)
