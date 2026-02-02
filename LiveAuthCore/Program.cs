@@ -33,6 +33,7 @@ builder.Services.AddSingleton<OpenNodeService>();
 builder.Services.AddSingleton<PowReplayProtectionService>();
 builder.Services.AddSingleton<PowAttemptLogger>();
 builder.Services.AddSingleton<PowChallengeSigner>();
+builder.Services.AddSingleton<PowRateLimitService>();
 
 builder.Services.AddScoped<LightningService>();
 builder.Services.AddScoped<ApiKeyService>();
@@ -49,6 +50,7 @@ builder.Services.AddHostedService<WebhookDeliveryWorker>();
 
 builder.Services.AddHttpClient("webhooks");
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
 builder.Services.AddDistributedMemoryCache();
 
 // --------------------------------------------------
