@@ -1,5 +1,5 @@
 {
-  "name": "@liveauth/mcp-server",
+  "name": "@liveauth-labs/mcp-server",
   "version": "0.1.0",
   "description": "MCP server for LiveAuth - PoW and Lightning authentication for AI agents",
   "type": "module",
