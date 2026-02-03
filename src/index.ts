@@ -138,7 +138,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
       case 'liveauth_get_challenge': {
-        const { projectPublicKey } = args as { projectPublicKey: string };
+        const { projectPublicKey } = args as unknown as { projectPublicKey: string };
         
         const response = await fetch(`${LIVEAUTH_API_BASE}/api/public/pow/challenge`, {
           headers: {
@@ -164,7 +164,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'liveauth_verify_pow': {
-        const verifyArgs = args as PowVerifyRequest & { projectPublicKey: string };
+        const verifyArgs = args as unknown as PowVerifyRequest & { projectPublicKey: string };
         
         const response = await fetch(`${LIVEAUTH_API_BASE}/api/public/pow/verify`, {
           method: 'POST',
@@ -212,7 +212,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'liveauth_start_lightning': {
-        const { projectPublicKey } = args as { projectPublicKey: string };
+        const { projectPublicKey } = args as unknown as { projectPublicKey: string };
         
         const response = await fetch(`${LIVEAUTH_API_BASE}/api/public/auth/start`, {
           method: 'POST',
