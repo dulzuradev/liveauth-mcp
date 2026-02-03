@@ -13,13 +13,13 @@ This MCP server allows AI agents (Claude, GPT, AutoGPT, etc.) to:
 ## Installation
 
 ```bash
-npm install -g @liveauth/mcp-server
+npm install -g @liveauth-labs/mcp-server
 ```
 
 Or use directly with npx:
 
 ```bash
-npx @liveauth/mcp-server
+npx @liveauth-labs/mcp-server
 ```
 
 ## Configuration
@@ -33,7 +33,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "liveauth": {
       "command": "npx",
-      "args": ["-y", "@liveauth/mcp-server"],
+      "args": ["-y", "@liveauth-labs/mcp-server"],
       "env": {
         "LIVEAUTH_API_BASE": "https://api.liveauth.app"
       }
