@@ -141,9 +141,9 @@ node dist/index.js
 
 ## Resources
 
-- [LiveAuth Documentation](https://liveauth.app/docs)
+- [LiveAuth Demo & Docs](https://liveauth.app)
 - [MCP Protocol Spec](https://modelcontextprotocol.io)
-- [Get LiveAuth API Key](https://liveauth.app/signup)
+- [GitHub Repository](https://github.com/dulzuradev/liveauth-mcp)
 
 ## License
 
