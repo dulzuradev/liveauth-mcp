@@ -1,0 +1,30 @@
+Redesign developer dashboard: cards, stats, better UX
+
+Major improvements:
+- Card-based project layout (instead of overwhelming table)
+- Separate login section (cleaner flow)
+- Dashboard stats at top (total/active/paused projects)
+- Better empty state for first-time users
+- Prominent quick actions per project
+- Responsive grid (1/2/3 columns)
+- Modern design with hover effects
+
+Files:
+- developer-projects-redesign.html (new UI structure)
+- dashboard-redesign.css (card-based styles)
+
+VERY IMPORTANT INTEGRATION STEPS:
+1.  In `developer-projects.ts`, move the following getter functions *INSIDE* the `DeveloperProjectsComponent` class, just *BEFORE* the `remainingSeconds` property:
+
+```typescript
+  // Dashboard stats helpers
+  get activeProjectsCount(): number {
+    return this.projects.filter(p => p.active).length;
+  }
+
+  get pausedProjectsCount(): number {
+    return this.projects.filter(p => !p.active).length;
+  }
+```
+2.  Replace the old HTML with the new HTML (`developer-projects-redesign.html`)
+3.  Replace the old CSS with the new CSS (`dashboard-redesign.css`)
