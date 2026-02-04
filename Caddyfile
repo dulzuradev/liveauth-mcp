@@ -4,6 +4,7 @@
 
 liveauth.app {
     root * /srv/browser
+    try_files {path} /index.html
     file_server
 }
 
