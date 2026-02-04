@@ -98,15 +98,6 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
     return this.projects.filter(p => !p.active).length;
   }
 
-  // Dashboard stats helpers
-  get activeProjectsCount(): number {
-    return this.projects.filter(p => p.active).length;
-  }
-
-  get pausedProjectsCount(): number {
-    return this.projects.filter(p => !p.active).length;
-  }
-
   // countdown
   remainingSeconds = 0;
   private countdownTimerId?: any;
@@ -1135,12 +1126,3 @@ console.log('onTimeRangeChange', range);
     return 'Something went wrong';
   }
 }
-
-  // Dashboard stats helpers
-  get activeProjectsCount(): number {
-    return this.projects.filter(p => p.active).length;
-  }
-
-  get pausedProjectsCount(): number {
-    return this.projects.filter(p => !p.active).length;
-  }
