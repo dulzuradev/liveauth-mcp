@@ -20,12 +20,12 @@ var connectionString =
     builder.Configuration.GetConnectionString("LiveAuth")
     ?? throw new InvalidOperationException("Missing LiveAuth connection string");
 
-builder.Services.AddDbContext<LiveAuthDbContext>(opts =>
-    opts.UseSqlite(connectionString));
+builder.Services.AddDbContextFactory<LiveAuthDbContext>(
+    opts => opts.UseSqlite(connectionString),
+    ServiceLifetime.Scoped);
 
-// Add DbContextFactory for services that need isolated contexts
-builder.Services.AddDbContextFactory<LiveAuthDbContext>(opts =>
-    opts.UseSqlite(connectionString));
+builder.Services.AddDbContext<LiveAuthDbContext>(
+    opts => opts.UseSqlite(connectionString));
 
 // --------------------------------------------------
 // Core services
@@ -34,7 +34,6 @@ builder.Services.AddControllers();
 
 builder.Services.AddSingleton<StripeService>();
 builder.Services.AddSingleton<OpenNodeService>();
-builder.Services.AddSingleton<PowReplayProtectionService>();
 builder.Services.AddSingleton<PowAttemptLogger>();
 builder.Services.AddSingleton<PowChallengeSigner>();
 builder.Services.AddSingleton<PowRateLimitService>();
@@ -131,7 +130,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
                 "https://liveauth.app",
                 "https://dev.liveauth.app",
-                "http://localhost:52059"
+                "http://localhost:4200"
             )
             .AllowAnyHeader()
             .AllowAnyMethod());
