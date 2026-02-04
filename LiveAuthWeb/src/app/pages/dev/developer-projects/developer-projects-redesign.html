@@ -1,0 +1,333 @@
+<div class="dashboard-container">
+  
+  <!-- ============================================
+       HEADER with Quick Actions
+       ============================================ -->
+  <div class="dashboard-header">
+    <div class="header-left">
+      <h1 class="dashboard-title">Developer Dashboard</h1>
+      <p class="dashboard-subtitle" *ngIf="loggedIn">
+        Welcome back, {{ developerEmail }}
+      </p>
+      <p class="dashboard-subtitle" *ngIf="!loggedIn">
+        Sign in with Lightning to manage your projects
+      </p>
+    </div>
+    
+    <div class="header-actions">
+      <button
+        *ngIf="!loggedIn"
+        (click)="openLoginDialog()"
+        [disabled]="!developerEmail || loginInProgress || polling"
+        [loading]="loginInProgress || polling"
+        icon="pi pi-bolt"
+        label="Sign In"
+        class="p-button-lg"
+        pButton>
+      </button>
+
+      <button
+        *ngIf="loggedIn"
+        (click)="logout()"
+        class="p-button-text"
+        icon="pi pi-sign-out"
+        label="Sign Out"
+        pButton>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================
+       LOGIN CARD (when not logged in)
+       ============================================ -->
+  <div class="login-card-wrapper" *ngIf="!loggedIn">
+    <div class="login-card">
+      <div class="login-card-icon">
+        <i class="pi pi-bolt"></i>
+      </div>
+      <h2>Connect Your Account</h2>
+      <p>Enter your developer email and verify with a Lightning payment</p>
+      
+      <div class="login-form">
+        <div class="form-field">
+          <label>Developer Email</label>
+          <input
+            [(ngModel)]="developerEmail"
+            [disabled]="loginInProgress || polling"
+            class="w-full"
+            pInputText
+            placeholder="dev@example.com"
+            type="email"/>
+        </div>
+
+        <button
+          (click)="openLoginDialog()"
+          [disabled]="!developerEmail || loginInProgress || polling"
+          [loading]="loginInProgress || polling"
+          icon="pi pi-bolt"
+          label="Sign In with Lightning"
+          class="w-full p-button-lg"
+          pButton>
+        </button>
+      </div>
+
+      <p-message *ngIf="error" [text]="error" severity="warn" class="mt-3"></p-message>
+    </div>
+  </div>
+
+  <!-- ============================================
+       DASHBOARD STATS (when logged in)
+       ============================================ -->
+  <div class="dashboard-stats" *ngIf="loggedIn">
+    <div class="stat-card">
+      <div class="stat-icon">
+        <i class="pi pi-folder"></i>
+      </div>
+      <div class="stat-content">
+        <div class="stat-value">{{ projects.length }}</div>
+        <div class="stat-label">Total Projects</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon active">
+        <i class="pi pi-check-circle"></i>
+      </div>
+      <div class="stat-content">
+        <div class="stat-value">{{ activeProjectsCount }}</div>
+        <div class="stat-label">Active Projects</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon warning">
+        <i class="pi pi-clock"></i>
+      </div>
+      <div class="stat-content">
+        <div class="stat-value">{{ pausedProjectsCount }}</div>
+        <div class="stat-label">Paused Projects</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       CREATE PROJECT SECTION (when logged in)
+       ============================================ -->
+  <div class="create-project-section" *ngIf="loggedIn">
+    <div class="section-header">
+      <h2 class="section-title">Create New Project</h2>
+    </div>
+
+    <div class="create-project-card">
+      <div class="form-inline">
+        <div class="form-field flex-grow">
+          <label>Project Name</label>
+          <input
+            [(ngModel)]="projectName"
+            class="w-full"
+            pInputText
+            placeholder="My App"/>
+        </div>
+
+        <button
+          (click)="createProject()"
+          [disabled]="!projectName || loading"
+          [loading]="loading"
+          icon="pi pi-plus"
+          label="Create Project"
+          class="align-self-end"
+          pButton>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       PROJECTS GRID (when logged in)
+       ============================================ -->
+  <div class="projects-section" *ngIf="loggedIn">
+    <!-- Empty State -->
+    <div class="empty-state" *ngIf="projects.length === 0">
+      <div class="empty-state-icon">
+        <i class="pi pi-folder-open"></i>
+      </div>
+      <h3>No projects yet</h3>
+      <p>Create your first project to get started with LiveAuth</p>
+    </div>
+
+    <!-- Projects Grid -->
+    <div class="projects-grid" *ngIf="projects.length > 0">
+      <div class="project-card" *ngFor="let p of projects">
+        <!-- Card Header -->
+        <div class="project-card-header">
+          <div class="project-card-title">
+            <h3>{{ p.name }}</h3>
+            <div class="project-badges">
+              <p-tag
+                [value]="p.environment || 'TEST'"
+                [severity]="(p.environment || 'TEST') === 'LIVE' ? 'danger' : 'info'">
+              </p-tag>
+              <p-tag
+                [value]="p.active ? 'Active' : 'Paused'"
+                [severity]="p.active ? 'success' : 'warn'">
+              </p-tag>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card Body -->
+        <div class="project-card-body">
+          <div class="project-field">
+            <label>Project ID</label>
+            <code class="project-code">{{ p.projectId }}</code>
+          </div>
+
+          <div class="project-field">
+            <label>Public Key</label>
+            <code class="project-code">{{ p.publicKey }}</code>
+          </div>
+
+          <div class="project-field">
+            <label>Billing</label>
+            <span class="project-billing">{{ getProjectBillingLabel(p) }}</span>
+          </div>
+        </div>
+
+        <!-- Card Actions -->
+        <div class="project-card-actions">
+          <button
+            pButton
+            label="View Details"
+            icon="pi pi-eye"
+            class="p-button-outlined"
+            (click)="openProjectDetails(p)">
+          </button>
+
+          <button
+            pButton
+            icon="pi pi-key"
+            class="p-button-outlined p-button-warning"
+            pTooltip="Rotate Secret"
+            (click)="rotateSecret(p.projectId)"
+            [disabled]="loading">
+          </button>
+
+          <button
+            pButton
+            [icon]="p.active ? 'pi pi-pause' : 'pi pi-play'"
+            class="p-button-outlined p-button-secondary"
+            [pTooltip]="p.active ? 'Pause Project' : 'Activate Project'"
+            (click)="toggleProjectActive(p)">
+          </button>
+
+          <button
+            pButton
+            [icon]="p.environment === 'LIVE' ? 'pi pi-arrow-down' : 'pi pi-arrow-up'"
+            class="p-button-outlined"
+            [pTooltip]="p.environment === 'LIVE' ? 'Switch to TEST' : 'Switch to LIVE'"
+            (click)="toggleProjectEnvironment(p)"
+            [disabled]="p.environment !== 'LIVE' && p.plan === 'pro' && p.proPaidUntil && getDate(p.proPaidUntil)">
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       DIALOGS (kept from original)
+       ============================================ -->
+  
+  <!-- LOGIN MODAL -->
+  <p-dialog
+    [(visible)]="loginDialogVisible"
+    (onHide)="stopPolling(); stopCountdown();"
+    [closable]="true"
+    [modal]="true"
+    [style]="{ width: '520px' }"
+    header="Developer Login (Lightning)">
+
+    <div class="p-fluid">
+      <p class="mb-3">
+        Pay a tiny Lightning invoice to verify you control this developer account.
+      </p>
+
+      <button
+        (click)="startLogin()"
+        [disabled]="!!loginSession"
+        [loading]="loginInProgress"
+        class="mb-3"
+        icon="pi pi-bolt"
+        label="Generate Invoice"
+        pButton>
+      </button>
+
+      <!-- Show invoice once created -->
+      <div *ngIf="loginSession">
+        <div class="flex justify-content-between align-items-center mb-2">
+          <div>
+            <b>Amount:</b> {{ loginSession.amountSats }} sats
+          </div>
+          <div>
+            <b>Expires in:</b> {{ remainingTimeLabel }}
+          </div>
+        </div>
+
+        <!-- QR (qrcode-angular) -->
+        <div class="flex justify-content-center mb-3">
+          <div class="ln-qr-svg-box" aria-label="Lightning invoice QR">
+            <qrcode
+              class="ln-qr-svg"
+              [value]="lightningQrValue"
+              [size]="320"
+              [errorLevel]="'M'"
+              [mode]="'svg'">
+            </qrcode>
+          </div>
+        </div>
+
+        <a
+          class="block mt-2 text-sm text-primary text-center"
+          [href]="'LIGHTNING:' + lightningQrValue">
+          Open in Lightning wallet
+        </a>
+
+        <!-- Invoice + copy -->
+        <p><b>Invoice (BOLT11):</b></p>
+        <div class="invoice-row" style="display:flex; gap:8px; align-items:center;">
+          <input
+            #loginInvoiceInput
+            (click)="loginInvoiceInput.select()"
+            [value]="loginSession.invoice"
+            class="invoice-input"
+            readonly
+            style="flex:1; padding:8px; border-radius:6px; background:#222; color:#fff; border:1px solid #444; font-family: monospace;"/>
+
+          <button
+            (click)="copyLoginInvoice()"
+            aria-label="Copy invoice"
+            class="p-button-rounded p-button-secondary"
+            icon="pi pi-copy"
+            pButton>
+          </button>
+        </div>
+
+        <!-- Copied notice -->
+        <p *ngIf="copiedLoginInvoice" style="color:#64ff8f; margin-top:6px;">
+          Copied!
+        </p>
+
+        <p *ngIf="polling" class="mt-2 text-primary">
+          Waiting for payment confirmation…
+        </p>
+
+        <p *ngIf="remainingSeconds <= 0" class="mt-2 text-red-500">
+          Invoice expired. Close and try again.
+        </p>
+      </div>
+    </div>
+  </p-dialog>
+
+  <!-- Note: Other dialogs (rotate secret, project details, etc.) remain unchanged 
+       from the original file. Include them here or reference the original file. -->
+
+</div>
