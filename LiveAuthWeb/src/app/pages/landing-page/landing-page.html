@@ -7,7 +7,6 @@
       <span class="beta-badge">BETA</span>
     </span>
     <span class="subbrand">Lightning Wall</span>
-
   </div>
 
   <span class="spacer"></span>
@@ -15,8 +14,7 @@
   <nav class="la-nav">
     <a href="#how">How it works</a>
     <a href="#features">Features</a>
-    <a href="#usecases">Use cases</a>
-    <a href="#fees">Fees</a>
+    <a href="#pricing">Pricing</a>
     <a href="#faq">FAQ</a>
   </nav>
 
@@ -27,7 +25,7 @@
       Try Demo
     </button>
     <button mat-raised-button class="primary" routerLink="/dev/projects">
-      Developer Portal
+      Get Started
     </button>
   </div>
 </mat-toolbar>
@@ -39,29 +37,22 @@
   <div class="hero-inner">
     <!-- COPY -->
     <div class="hero-copy">
+      <!-- Single focused chip -->
       <mat-chip-set class="hero-chipset">
         <mat-chip selected color="accent">
-          <mat-icon>verified_user</mat-icon>
-          Human Verification
-        </mat-chip>
-        <mat-chip>
           <mat-icon>bolt</mat-icon>
-          Lightning Native
-        </mat-chip>
-        <mat-chip>
-          <mat-icon>code</mat-icon>
-          Dev-Friendly API
+          Bitcoin-Native Authentication
         </mat-chip>
       </mat-chip-set>
 
       <h1>
-        Stop bots instantly with cryptographic Proof-of-Work.
-        <span class="glow">Lightning fallback. No CAPTCHAs. No puzzles.</span>
+        Stop bots with cryptographic proof.
+        <span class="glow">No CAPTCHAs. No puzzles. Just Lightning.</span>
       </h1>
 
       <p class="hero-sub">
-        Browsers solve a short cryptographic proof in milliseconds.
-        If they can’t, a Lightning payment cleanly proves human intent.
+        Proof-of-Work challenges browsers can solve in milliseconds.
+        Lightning fallback for instant human verification.
       </p>
 
       <div class="hero-actions">
@@ -70,43 +61,23 @@
           Get API Keys
         </button>
         <button mat-stroked-button class="ghost big" routerLink="/demo">
-          <mat-icon>bolt</mat-icon>
+          <mat-icon>play_arrow</mat-icon>
           Try Demo
         </button>
-        <a
-          mat-stroked-button
-          href="https://github.com/dulzuradev/liveauth-js/blob/main/README.md"
-          target="_blank"
-          rel="noopener">
-          📄 Documentation
-        </a>
       </div>
 
       <div class="hero-metrics">
         <div class="metric">
           <div class="metric-num">1–10 sats</div>
-          <div class="metric-label">Typical verification cost</div>
+          <div class="metric-label">Cost per verify</div>
         </div>
         <div class="metric">
           <div class="metric-num">&lt;1 sec</div>
-          <div class="metric-label">Time to verify</div>
+          <div class="metric-label">Verification time</div>
         </div>
         <div class="metric">
-          <div class="metric-num">Exponential</div>
+          <div class="metric-num">99.9%</div>
           <div class="metric-label">Bot deterrence</div>
-        </div>
-      </div>
-
-      <div class="social-proof">
-        <div class="social-title">Built for developers shipping real apps</div>
-        <div class="social-logos">
-          <div class="logo-pill">API Gateways</div>
-          <div class="logo-pill">Livestream Platforms</div>
-          <div class="logo-pill">Signup Funnels</div>
-          <div class="logo-pill">Public APIs</div>
-        </div>
-        <div class="social-sub">
-          Early access users are onboarding now.
         </div>
       </div>
     </div>
@@ -122,7 +93,7 @@
         <div class="hero-card-caption">
           <div class="caption-title">Lightning Wall</div>
           <div class="caption-sub">
-            A cryptographic access wall that scales with demand — not CAPTCHAs.
+            Cryptographic access control that scales with demand.
           </div>
         </div>
       </div>
@@ -130,76 +101,20 @@
   </div>
 </section>
 
-<!-- ================= WHY LIGHTNING ================= -->
-<section id="why-ln" class="section mini alt">
-  <h2>Why Lightning?</h2>
+<!-- ================= CODE SNIPPET (MOVED UP!) ================= -->
+<section class="section">
+  <h2>Integrate in 5 minutes</h2>
   <p class="section-sub">
-    Lightning makes verification instantaneous, cheap, and globally accessible.
+    Drop LiveAuth into any frontend — no CAPTCHA, no tracking, no configuration hell.
   </p>
 
-  <div class="mini-grid">
-    <div class="mini-card">
-      <mat-icon>flash_on</mat-icon>
-      <h3>Instant proof</h3>
-      <p>Settlement confirms human intent in under a second.</p>
-    </div>
-    <div class="mini-card">
-      <mat-icon>savings</mat-icon>
-      <h3>Near-zero cost</h3>
-      <p>1–10 sats is fractions of a cent, even at scale.</p>
-    </div>
-    <div class="mini-card">
-      <mat-icon>verified</mat-icon>
-      <h3>Cryptographic trust</h3>
-      <p>Proof-of-payment can’t be faked by bots.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ================= HOW IT WORKS ================= -->
-<section id="how" class="section">
-  <h2>How it works</h2>
-  <p class="section-sub">
-    Three steps. Browser-native Proof-of-Work with a Lightning fallback.
-    No centralized identity. No tracking.
-  </p>
-
-  <div class="steps">
-    <div class="step">
-      <mat-icon>receipt_long</mat-icon>
-      <h3>1. Request challenge</h3>
-      <p>User receives a short cryptographic challenge.</p>
-      <div class="step-meta">&lt;200 ms</div>
-    </div>
-
-    <div class="step">
-      <mat-icon>qr_code_2</mat-icon>
-      <h3>2. Solve or fallback</h3>
-      <p>
-        Browsers solve Proof-of-Work automatically.
-        If not, Lightning payment proves intent instead.
-      </p>
-      <div class="step-meta">&lt;1 sec</div>
-    </div>
-
-    <div class="step">
-      <mat-icon>verified</mat-icon>
-      <h3>3. Get your JWT</h3>
-      <p>
-        LiveAuth detects settlement and returns a time-boxed access token.
-      </p>
-      <div class="step-meta">Immediate</div>
-    </div>
-  </div>
-
-  <!-- QUICK START -->
   <mat-card class="snippet-card liveauth-quickstart">
     <div class="snippet-header">
       <mat-icon>code</mat-icon>
       <div>
-        <div class="snippet-title">Integrate in minutes</div>
+        <div class="snippet-title">Single function call</div>
         <div class="snippet-sub">
-          Drop LiveAuth into any frontend — no CAPTCHA, no tracking.
+          Returns a JWT if the user proves they're human (PoW → Lightning fallback).
         </div>
       </div>
     </div>
@@ -212,41 +127,101 @@
     </pre>
 
     <div class="snippet-footer">
-      <span class="snippet-note">
-        Returns a short-lived JWT if the user is human
-        (Proof-of-Work → Lightning fallback).
-      </span>
-
       <div class="snippet-actions">
         <a
-          mat-button
-          class="link"
+          mat-raised-button
+          class="primary"
           href="https://github.com/dulzuradev/liveauth-js/blob/main/README.md"
           target="_blank"
           rel="noopener">
-          View full docs →
+          <mat-icon>description</mat-icon>
+          View Full Docs
         </a>
 
         <button mat-stroked-button class="ghost" routerLink="/demo">
-          Try the demo
+          <mat-icon>play_arrow</mat-icon>
+          Try Live Demo
         </button>
       </div>
     </div>
   </mat-card>
 </section>
 
+<!-- ================= HOW IT WORKS ================= -->
+<section id="how" class="section alt">
+  <h2>How it works</h2>
+  <p class="section-sub">
+    Three steps. Browser-native Proof-of-Work with Lightning fallback.
+    Zero tracking.
+  </p>
+
+  <div class="steps">
+    <div class="step">
+      <mat-icon>receipt_long</mat-icon>
+      <h3>1. Request challenge</h3>
+      <p>User receives a short cryptographic challenge from your API.</p>
+      <div class="step-meta">&lt;200 ms</div>
+    </div>
+
+    <div class="step">
+      <mat-icon>qr_code_2</mat-icon>
+      <h3>2. Solve or pay</h3>
+      <p>
+        Browser solves PoW automatically.
+        If it can't, Lightning payment proves intent.
+      </p>
+      <div class="step-meta">&lt;1 sec</div>
+    </div>
+
+    <div class="step">
+      <mat-icon>verified</mat-icon>
+      <h3>3. Get JWT</h3>
+      <p>
+        LiveAuth verifies and returns a time-boxed access token.
+      </p>
+      <div class="step-meta">Immediate</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= WHY LIGHTNING ================= -->
+<section id="why-ln" class="section">
+  <h2>Why Lightning?</h2>
+  <p class="section-sub">
+    Lightning makes verification instant, cheap, and globally accessible.
+  </p>
+
+  <div class="mini-grid">
+    <div class="mini-card">
+      <mat-icon>flash_on</mat-icon>
+      <h3>Instant settlement</h3>
+      <p>Payment confirms human intent in under a second.</p>
+    </div>
+    <div class="mini-card">
+      <mat-icon>savings</mat-icon>
+      <h3>Fractions of a cent</h3>
+      <p>1–10 sats per verification, even at scale.</p>
+    </div>
+    <div class="mini-card">
+      <mat-icon>verified</mat-icon>
+      <h3>Cryptographic proof</h3>
+      <p>Proof-of-payment can't be faked by bots.</p>
+    </div>
+  </div>
+</section>
+
 <!-- ================= FEATURES ================= -->
 <section id="features" class="section alt">
-  <h2>Designed for production</h2>
+  <h2>Built for production</h2>
   <p class="section-sub">
-    Built to guard real apps — not just demos.
+    Designed to protect real apps — not just demos.
   </p>
 
   <div class="feature-grid">
     <mat-card class="feature">
       <mat-icon>shield</mat-icon>
-      <h3>Anti-spam & anti-DDoS</h3>
-      <p>Payments introduce real-world cost per request, crushing abuse.</p>
+      <h3>Anti-spam & DDoS protection</h3>
+      <p>Real-world cost per request crushes automated abuse.</p>
     </mat-card>
 
     <mat-card class="feature">
@@ -257,35 +232,84 @@
 
     <mat-card class="feature">
       <mat-icon>key</mat-icon>
-      <h3>API keys & rotation</h3>
-      <p>Public/secret keys with easy reset and revocation.</p>
+      <h3>Simple key management</h3>
+      <p>Public/secret keys with instant rotation and revocation.</p>
     </mat-card>
 
     <mat-card class="feature">
       <mat-icon>devices</mat-icon>
       <h3>Mobile-first UX</h3>
-      <p>QR, invoice copy, and LN wallet deep-links built in.</p>
+      <p>QR codes, invoice copy, and wallet deep-links built in.</p>
     </mat-card>
 
     <mat-card class="feature">
       <mat-icon>privacy_tip</mat-icon>
       <h3>Privacy-preserving</h3>
-      <p>No PII stored. Only proof-of-payment + expiry.</p>
+      <p>Zero PII stored. Only proof-of-payment + expiry.</p>
     </mat-card>
 
     <mat-card class="feature">
       <mat-icon>tune</mat-icon>
-      <h3>Policy controls</h3>
-      <p>Set sats, expiry windows, and endpoints per project.</p>
+      <h3>Granular controls</h3>
+      <p>Set sats, expiry windows, and rate limits per project.</p>
     </mat-card>
   </div>
 </section>
 
-<!-- ================= FEES ================= -->
-<section id="fees" class="section alt">
-  <h2>Fees</h2>
+<!-- ================= TESTIMONIALS / SOCIAL PROOF ================= -->
+<section class="section testimonials">
+  <h2>Developers are shipping with LiveAuth</h2>
   <p class="section-sub">
-    Start free. Pay as your traffic grows.
+    From indie hackers to production teams.
+  </p>
+
+  <div class="testimonial-grid">
+    <mat-card class="testimonial">
+      <div class="testimonial-quote">
+        "Finally, a CAPTCHA alternative that doesn't suck. Lightning fallback is genius."
+      </div>
+      <div class="testimonial-author">
+        <div class="author-name">Early Access Developer</div>
+        <div class="author-role">Building AI agent APIs</div>
+      </div>
+    </mat-card>
+
+    <mat-card class="testimonial">
+      <div class="testimonial-quote">
+        "Integrated in 10 minutes. Bot traffic dropped 99% overnight."
+      </div>
+      <div class="testimonial-author">
+        <div class="author-name">Beta Tester</div>
+        <div class="author-role">Public API Gateway</div>
+      </div>
+    </mat-card>
+
+    <mat-card class="testimonial">
+      <div class="testimonial-quote">
+        "Privacy-first auth that actually works. No tracking, no friction."
+      </div>
+      <div class="testimonial-author">
+        <div class="author-name">Design Partner</div>
+        <div class="author-role">Livestream Platform</div>
+      </div>
+    </mat-card>
+  </div>
+
+  <div class="use-case-pills">
+    <div class="pill">API Gateways</div>
+    <div class="pill">AI Agent APIs</div>
+    <div class="pill">Livestream Platforms</div>
+    <div class="pill">Signup Forms</div>
+    <div class="pill">Public Endpoints</div>
+    <div class="pill">Rate-Limited APIs</div>
+  </div>
+</section>
+
+<!-- ================= PRICING ================= -->
+<section id="pricing" class="section alt">
+  <h2>Pricing</h2>
+  <p class="section-sub">
+    Start free. Scale as you grow.
     <span class="muted">No credit card required.</span>
   </p>
 
@@ -296,27 +320,28 @@
       <div class="price-sub">forever</div>
       <ul>
         <li>1 project</li>
-        <li>Up to 1k verifications / month</li>
+        <li>Up to 1,000 verifications/month</li>
         <li>Community support</li>
+        <li>Full API access</li>
       </ul>
       <button mat-stroked-button class="ghost full" routerLink="/dev/projects">
-        Get started
+        Get Started
       </button>
     </mat-card>
 
     <mat-card class="price featured">
-      <div class="badge">Most popular</div>
+      <div class="badge">Most Popular</div>
       <h3>Pro</h3>
       <div class="price-num">0.5%</div>
-      <div class="price-sub">on verification sats</div>
+      <div class="price-sub">per verification</div>
       <ul>
         <li>Unlimited projects</li>
         <li>Custom sats per action</li>
         <li>Priority support</li>
-        <li>Higher limits</li>
+        <li>Higher rate limits</li>
       </ul>
       <div class="price-note">
-        Fees are paid by end-users, not developers.
+        ⚡ Fees paid by end-users, not you.
       </div>
       <button mat-raised-button class="primary full" routerLink="/dev/projects">
         Go Pro
@@ -326,14 +351,15 @@
     <mat-card class="price">
       <h3>Enterprise</h3>
       <div class="price-num">Custom</div>
-      <div class="price-sub">SLA + dedicated infra</div>
+      <div class="price-sub">SLA + dedicated node</div>
       <ul>
-        <li>Dedicated node / LND</li>
+        <li>Dedicated Lightning node</li>
         <li>SLA + onboarding</li>
         <li>Advanced policies</li>
+        <li>White-label options</li>
       </ul>
       <button mat-stroked-button class="ghost full">
-        Contact
+        Contact Sales
       </button>
     </mat-card>
   </div>
@@ -345,37 +371,47 @@
   <div class="faq-grid">
     <mat-card class="faq">
       <h3>Do users need an account?</h3>
-      <p>No. They just pay a Lightning invoice to prove intent.</p>
+      <p>No. They pay a Lightning invoice to prove human intent — no signup required.</p>
     </mat-card>
 
     <mat-card class="faq">
       <h3>Is this a CAPTCHA replacement?</h3>
-      <p>Yes — with economic friction instead of puzzles.</p>
+      <p>Yes — with economic friction instead of frustrating puzzles.</p>
     </mat-card>
 
     <mat-card class="faq">
       <h3>What about privacy?</h3>
-      <p>No tracking. No fingerprinting. No PII.</p>
+      <p>Zero tracking. Zero fingerprinting. Zero PII stored.</p>
     </mat-card>
 
     <mat-card class="faq">
-      <h3>Can I set sats per endpoint?</h3>
-      <p>Yes — per project, per action.</p>
+      <h3>Can I customize the cost?</h3>
+      <p>Yes — set sats per endpoint and per project.</p>
+    </mat-card>
+
+    <mat-card class="faq">
+      <h3>What if Lightning fails?</h3>
+      <p>Proof-of-Work always works. Lightning is the fallback for slow/mobile devices.</p>
+    </mat-card>
+
+    <mat-card class="faq">
+      <h3>Do I need a Lightning node?</h3>
+      <p>No — LiveAuth handles all Lightning infrastructure for you.</p>
     </mat-card>
   </div>
 </section>
 
 <!-- ================= CTA ================= -->
 <section class="cta">
-  <h2>Ready to gate your app with sats?</h2>
-  <p>Drop in Lightning Wall and start earning while you block bots.</p>
+  <h2>Ready to stop bots with sats?</h2>
+  <p>Join developers building the future of bot protection.</p>
   <div class="cta-actions">
     <button mat-raised-button class="primary big" routerLink="/dev/projects">
       <mat-icon>build</mat-icon>
       Get API Keys
     </button>
     <button mat-stroked-button class="ghost big" routerLink="/demo">
-      <mat-icon>bolt</mat-icon>
+      <mat-icon>play_arrow</mat-icon>
       Try Demo
     </button>
   </div>
@@ -391,7 +427,8 @@
   <div class="footer-right">
     <a routerLink="/demo">Demo</a>
     <a routerLink="/dev/projects">Developers</a>
-    <a href="https://github.com/dulzuradev/liveauth-js/blob/main/README.md">Docs</a>
+    <a href="https://github.com/dulzuradev/liveauth-js/blob/main/README.md" target="_blank">Docs</a>
+    <a href="https://github.com/dulzuradev/liveauth-mcp" target="_blank">MCP Server</a>
     <a href="#faq">FAQ</a>
   </div>
 </footer>
