@@ -1,0 +1,222 @@
+.admin-shell {
+  padding: 32px;
+  color: #e6edf3;
+  background: #0a0d12;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+/* HEADER */
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.admin-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status.ok {
+  background: rgba(0, 255, 128, 0.15);
+  color: #64ff8f;
+}
+
+/* GRID */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.grid.kpis {
+  margin-bottom: 16px;
+}
+
+.grid.charts {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* ✅ Logs grid (Project Usage + Subscriptions side-by-side) */
+.grid.logs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (max-width: 1100px) {
+  .grid.charts {
+    grid-template-columns: 1fr;
+  }
+
+  .grid.logs {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell {
+    padding: 18px;
+  }
+}
+
+/* CARD */
+.card {
+  background: #121722;
+  border: 1px solid #1c2333;
+  border-radius: 14px;
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+.card h4 {
+  margin: 0 0 10px 0;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.card-header {
+  margin-bottom: 10px;
+}
+
+.card-header h3,
+.card-header h4 {
+  margin: 0;
+}
+
+/* KPI METRICS */
+.metric {
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.metric.success { color: #64ff8f; }
+.metric.danger  { color: #ff6b6b; }
+.metric.warn    { color: #f6c177; }
+
+/* STATE */
+.loading,
+.error {
+  margin: 18px 0;
+  font-size: 1.05rem;
+}
+
+.error {
+  color: #ff6b6b;
+}
+
+.window {
+  margin-top: 24px;
+  opacity: 0.65;
+  font-size: 0.85rem;
+}
+
+/* ✅ CHART CARDS (fix overflow) */
+.chart-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;              /* 🔥 important inside grid */
+  overflow: hidden;           /* prevents bleed */
+}
+
+.chart-card.wide {
+  height: 360px;
+}
+
+.chart-card:not(.wide) {
+  height: 360px;              /* donut card same height */
+}
+
+/* If your chart components render a wrapper div, this helps.
+   If not, it still won't hurt anything. */
+.chart-wrapper {
+  position: relative;
+  flex: 1;
+  min-height: 0;              /* 🔥 prevents flex overflow */
+}
+
+/* 🔥 Remove forced canvas height — let Chart.js size to parent */
+.chart-card canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+/* Empty states */
+.empty-state,
+.empty-chart {
+  margin-top: 10px;
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+
+/* TABLES */
+.table-section {
+  margin-top: 16px;
+}
+
+.section-header {
+  margin: 6px 0 10px 0;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;     /* keeps columns from exploding layout */
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #1c2333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-table th {
+  text-align: left;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.admin-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.admin-table.dense th,
+.admin-table.dense td {
+  padding: 6px 8px;
+}
+
+.muted {
+  opacity: 0.65;
+  text-align: center;
+}
+
+/* Badge helpers (you referenced badge-pro) */
+.badge-pro {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(100, 255, 143, 0.12);
+  color: #64ff8f;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
