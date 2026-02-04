@@ -1,0 +1,305 @@
+<div class="admin-shell">
+
+  <!-- HEADER -->
+  <header class="admin-header">
+    <div class="title">
+      <h1>LiveAuth Admin</h1>
+      <span class="status ok">CONNECTED</span>
+    </div>
+
+    <div class="controls">
+      <label>
+        Window
+        <select
+          [value]="windowHours"
+          (change)="reload($any($event.target).value)">
+          <option value="24">24h</option>
+          <option value="168">7d</option>
+          <option value="720">30d</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <!-- STATE -->
+  <section *ngIf="loading" class="loading">
+    Loading analytics…
+  </section>
+
+  <section *ngIf="error" class="error">
+    {{ error }}
+  </section>
+
+  <!-- ================= KPI SUMMARY ================= -->
+  <section *ngIf="data" class="grid kpis">
+    <div class="card">
+      <h4>Total Projects</h4>
+      <div class="metric">{{ data.totalProjects }}</div>
+    </div>
+
+    <div class="card">
+      <h4>Pro Projects</h4>
+      <div class="metric success">{{ data.proProjects }}</div>
+    </div>
+
+    <div class="card">
+      <h4>Free Projects</h4>
+      <div class="metric">{{ data.freeProjects }}</div>
+    </div>
+
+    <div class="card">
+      <h4>Auth Requests</h4>
+      <div class="metric">{{ data.totalAuths | number }}</div>
+    </div>
+
+    <div class="card">
+      <h4>Successful</h4>
+      <div class="metric success">{{ data.successfulAuths | number }}</div>
+    </div>
+
+    <div class="card">
+      <h4>Failed</h4>
+      <div class="metric danger">{{ data.failedAuths | number }}</div>
+    </div>
+
+    <div class="card">
+      <h4>Sats Paid</h4>
+      <div class="metric">{{ data.totalSatsPaid | number }} sats</div>
+    </div>
+
+    <div class="card">
+      <h4>Rate Limits</h4>
+      <div class="metric warn">{{ data.rateLimitHits | number }}</div>
+    </div>
+  </section>
+
+  <!-- ================= CHARTS ================= -->
+  <section *ngIf="data" class="grid charts">
+
+    <div class="card chart-card wide">
+      <header class="card-header">
+        <h3>Auths Over Time</h3>
+      </header>
+
+      <admin-auths-line-chart
+        [series]="data.authsOverTime">
+      </admin-auths-line-chart>
+
+      <div *ngIf="isAuthSeriesEmpty" class="empty-state">
+        No authentication activity in this window
+      </div>
+    </div>
+
+    <div class="card chart-card">
+      <header class="card-header">
+        <h3>Projects (Pro vs Free)</h3>
+      </header>
+
+      <admin-projects-donut
+        [proFree]="{
+          pro: data.proProjects,
+          free: data.freeProjects
+        }">
+      </admin-projects-donut>
+    </div>
+
+  </section>
+
+  <!-- ================= LOGS GRID ================= -->
+  <section class="grid logs">
+
+    <!-- Project Usage -->
+    <div class="card">
+      <header class="card-header">
+        <h3>Project Usage</h3>
+      </header>
+
+      <p-table
+        [value]="projectUsage"
+        [scrollable]="true"
+        scrollHeight="300px"
+        sortMode="multiple"
+        dataKey="projectId"
+        styleClass="p-datatable-sm p-datatable-gridlines">
+
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="name">
+              Project <p-sortIcon field="name"></p-sortIcon>
+            </th>
+            <th pSortableColumn="plan">
+              Plan <p-sortIcon field="plan"></p-sortIcon>
+            </th>
+            <th pSortableColumn="auths">
+              Auths <p-sortIcon field="auths"></p-sortIcon>
+            </th>
+            <th pSortableColumn="successes">
+              Success <p-sortIcon field="successes"></p-sortIcon>
+            </th>
+            <th pSortableColumn="failures">
+              Failures <p-sortIcon field="failures"></p-sortIcon>
+            </th>
+            <th pSortableColumn="rateLimitHits">
+              Rate Limits <p-sortIcon field="rateLimitHits"></p-sortIcon>
+            </th>
+            <th pSortableColumn="satsPaid">
+              Sats Paid <p-sortIcon field="satsPaid"></p-sortIcon>
+            </th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-p>
+          <tr>
+            <td>{{ p.name }}</td>
+            <td>
+              <p-tag
+                [value]="p.plan.toUpperCase()"
+                [severity]="p.plan === 'pro' ? 'success' : 'secondary'">
+              </p-tag>
+            </td>
+            <td>{{ p.auths }}</td>
+            <td class="success">{{ p.successes }}</td>
+            <td class="danger">{{ p.failures }}</td>
+            <td class="warn">{{ p.rateLimitHits }}</td>
+            <td>{{ p.satsPaid | number }}</td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="7" class="muted">No project usage data</td>
+          </tr>
+        </ng-template>
+
+      </p-table>
+    </div>
+
+    <!-- Subscriptions -->
+    <div class="card">
+      <header class="card-header">
+        <h3>Subscriptions</h3>
+      </header>
+
+      <p-table
+        [value]="subscriptions"
+        [scrollable]="true"
+        scrollHeight="300px"
+        sortMode="multiple"
+        dataKey="projectId"
+        styleClass="p-datatable-sm p-datatable-gridlines">
+
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="projectName">
+              Project <p-sortIcon field="projectName"></p-sortIcon>
+            </th>
+            <th pSortableColumn="plan">
+              Plan <p-sortIcon field="plan"></p-sortIcon>
+            </th>
+            <th pSortableColumn="isPaid">
+              Status <p-sortIcon field="isPaid"></p-sortIcon>
+            </th>
+            <th pSortableColumn="amountSats">
+              Sats <p-sortIcon field="amountSats"></p-sortIcon>
+            </th>
+            <th pSortableColumn="createdAt">
+              Created <p-sortIcon field="createdAt"></p-sortIcon>
+            </th>
+            <th pSortableColumn="expiresAt">
+              Expires <p-sortIcon field="expiresAt"></p-sortIcon>
+            </th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-s>
+          <tr>
+            <td>{{ s.projectName }}</td>
+            <td>{{ s.plan | uppercase }}</td>
+            <td>
+              <p-tag
+                [value]="s.isPaid ? 'PAID' : 'PENDING'"
+                [severity]="s.isPaid ? 'success' : 'danger'">
+              </p-tag>
+            </td>
+            <td>{{ s.amountSats | number }}</td>
+            <td>{{ s.createdAt | date:'short' }}</td>
+            <td>{{ s.expiresAt | date:'short' }}</td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="6" class="muted">No subscriptions</td>
+          </tr>
+        </ng-template>
+
+      </p-table>
+    </div>
+  </section>
+
+  <!-- ================= AUTH EVENTS (FULL WIDTH) ================= -->
+  <section class="card">
+    <header class="card-header">
+      <h3>Auth Events</h3>
+    </header>
+
+    <p-table
+      [value]="authEvents"
+      [scrollable]="true"
+      scrollHeight="400px"
+      sortMode="multiple"
+      dataKey="timestamp"
+      styleClass="p-datatable-sm p-datatable-gridlines">
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="timestamp">
+            Time <p-sortIcon field="timestamp"></p-sortIcon>
+          </th>
+          <th pSortableColumn="projectName">
+            Project <p-sortIcon field="projectName"></p-sortIcon>
+          </th>
+          <th pSortableColumn="eventType">
+            Type <p-sortIcon field="eventType"></p-sortIcon>
+          </th>
+          <th pSortableColumn="success">
+            Status <p-sortIcon field="success"></p-sortIcon>
+          </th>
+          <th pSortableColumn="satsPaid">
+            Sats <p-sortIcon field="satsPaid"></p-sortIcon>
+          </th>
+          <th>IP</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-e>
+        <tr>
+          <td>{{ e.timestamp | date:'shortTime' }}</td>
+          <td>{{ e.projectName }}</td>
+          <td>{{ e.eventType }}</td>
+          <td>
+            <p-tag
+              [value]="e.success ? 'OK' : 'FAIL'"
+              [severity]="e.success ? 'success' : 'danger'">
+            </p-tag>
+          </td>
+          <td>{{ e.satsPaid ?? '-' }}</td>
+          <td>{{ e.clientIpMasked }}</td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6" class="muted">No auth events</td>
+        </tr>
+      </ng-template>
+
+    </p-table>
+  </section>
+
+  <!-- FOOTER -->
+  <footer *ngIf="data" class="window">
+    Generated {{ data.generatedAtUtc | date:'short' }}
+  </footer>
+
+</div>
