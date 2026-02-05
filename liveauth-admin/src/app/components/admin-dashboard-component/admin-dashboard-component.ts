@@ -17,7 +17,8 @@ import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
-import { DropdownModule } from 'primeng/dropdown';
+// PrimeNG v21 replaced DropdownModule with SelectModule
+import { SelectModule } from 'primeng/select';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 @Component({
@@ -33,11 +34,11 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
     TagModule,
     ButtonModule,
     InputTextModule,
-    DropdownModule,
+    SelectModule,
     ProgressSpinnerModule
   ],
-  templateUrl: './admin-dashboard-enhanced.html',
-  styleUrls: ['./admin-dashboard-enhanced.css']
+  templateUrl: './admin-dashboard-component.html',
+  styleUrls: ['./admin-dashboard-component.css']
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   data?: AdminAnalyticsOverviewResponse;
