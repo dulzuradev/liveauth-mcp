@@ -16,15 +16,15 @@
     </div>
 
     <div class="controls">
-      <p-dropdown
+      <p-select
         [options]="windowOptions"
         [(ngModel)]="windowHours"
         (onChange)="reload(windowHours)"
         optionLabel="label"
         optionValue="value"
         [style]="{'min-width':'150px'}">
-      </p-dropdown>
-      
+      </p-select>
+
       <button
         pButton
         icon="pi pi-refresh"
@@ -185,7 +185,7 @@
 
     <!-- ================= DATA TABLES ================= -->
     <section class="tables-grid">
-      
+
       <!-- Project Usage Table -->
       <div class="table-card">
         <div class="card-header">
