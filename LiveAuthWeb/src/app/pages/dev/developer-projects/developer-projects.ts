@@ -864,7 +864,11 @@ console.log('onTimeRangeChange', range);
       },
       error: (err) => {
         this.loading = false;
-        this.error = this.extractErrorMessage(err)  || 'Failed to update project environment.';
+        const errorMsg = this.extractErrorMessage(err) || 'Failed to update project environment.';
+        this.error = errorMsg;
+        
+        // 🐛 FIX: Surface error to user immediately
+        alert(errorMsg);
       }
     });
   }
