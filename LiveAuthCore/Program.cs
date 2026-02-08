@@ -1,6 +1,7 @@
 using System.Text;
 using System.Security.Claims;
 using LiveAuthCore.Auth;
+using LiveAuthCore.Controllers;
 using LiveAuthCore.Data;
 using LiveAuthCore.Middleware;
 using LiveAuthCore.Services;
