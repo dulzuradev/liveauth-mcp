@@ -90,18 +90,27 @@ await db.SaveChangesAsync();
 
 ## Current Coverage
 
-### ✅ Tested
-- HealthController (3 tests)
-- PublicAuthController (4 tests - basic structure)
+### ✅ Tested (7 controllers, 50+ tests)
+- **HealthController** (3 tests) - Health check endpoint
+- **PublicAuthController** (4 tests) - PoW challenge/verification
+- **PublicPowController** (8 tests) - PoW difficulty, replay protection, uniqueness
+- **DeveloperProjectsController** (10 tests) - **Webhook testing!**, project CRUD, authorization
+- **DeveloperAuthController** (9 tests) - Registration, login, password reset
+- **AdminController** (7 tests) - Admin dashboard, user management, authorization
+- **SubscriptionController** (6 tests) - Subscription management, billing
 
-### 🚧 TODO
-- PublicPowController
-- DeveloperProjectsController (webhook tests!)
-- DeveloperAuthController
-- AdminController
-- AdminAuthController
-- AdminAnalyticsController
-- (10+ more controllers)
+### 🚧 TODO (9 controllers)
+- AdminAuthController (admin login)
+- AdminAnalyticsController (metrics)
+- AdminSubscriptionAnalyticsController (revenue analytics)
+- AdminAnalyticsOverviewController (dashboard overview)
+- AdminAuthEventsController (audit logs)
+- AuthController (general auth)
+- LoginController (login UI)
+- PublicDemoAuthController (public demo)
+- MockLoginController (test auth)
+
+See `Controllers/_RemainingControllersTemplate.cs` for template and implementation notes.
 
 ## CI/CD Integration
 
