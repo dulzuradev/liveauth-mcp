@@ -30,7 +30,7 @@ builder.Services.AddDbContext<LiveAuthDbContext>(
 // --------------------------------------------------
 // Core services
 // --------------------------------------------------
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddApplicationPart(typeof(HealthController).Assembly);
 
 builder.Services.AddSingleton<StripeService>();
 builder.Services.AddSingleton<OpenNodeService>();
