@@ -63,12 +63,10 @@ public class PublicDemoAuthController : ControllerBase
         const long demoSats = 3;
         const int expiryMinutes = 15;
 
-        var memo = $"LiveAuth Demo – Lightning Verification";
-
-        var invoice = await _lightning.CreateInvoice(
-            project.Id.ToString(),
+        var invoice = await _lightning.CreateLoginInvoiceAsync(
+            "demo@liveauth.app",
             demoSats,
-            memo);
+            expiryMinutes);
 
         var session = new AuthSession
         {
@@ -76,8 +74,8 @@ public class PublicDemoAuthController : ControllerBase
             ProjectId = project.Id,
             Environment = "DEMO",
             AmountSats = demoSats,
-            InvoiceRHash = invoice.RHash,
-            InvoiceBolt11 = invoice.PaymentRequest,
+            InvoiceRHash = invoice.InvoiceId,
+            InvoiceBolt11 = invoice.Bolt11,
             ExpiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes),
             IsPaid = false,
             ClientIp = GetClientIp(),
@@ -104,9 +102,9 @@ public class PublicDemoAuthController : ControllerBase
         return Ok(new PublicStartAuthResponse
         {
             SessionId = session.Id,
-            Invoice = invoice.PaymentRequest,
+            Invoice = invoice.Bolt11,
             AmountSats = demoSats,
-            ExpiresAtUnix = new DateTimeOffset(session.ExpiresAt).ToUnixTimeSeconds(),
+            ExpiresAtUnix = invoice.ExpiresAtUnix,
             Mode = "DEMO"
         });
     }
