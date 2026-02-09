@@ -7,26 +7,26 @@ using LiveAuthCore.Middleware;
 using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // --------------------------------------------------
-// DbContext (SINGLE SQLite DB)
+// DbContext (PostgreSQL)
 // --------------------------------------------------
 var connectionString =
     builder.Configuration.GetConnectionString("LiveAuth")
     ?? throw new InvalidOperationException("Missing LiveAuth connection string");
 
 builder.Services.AddDbContextFactory<LiveAuthDbContext>(
-    opts => opts.UseSqlite(connectionString),
+    opts => opts.UseNpgsql(connectionString),
     ServiceLifetime.Scoped);
 
 builder.Services.AddDbContext<LiveAuthDbContext>(
-    opts => opts.UseSqlite(connectionString));
+    opts => opts.UseNpgsql(connectionString));
 
 // --------------------------------------------------
 // Core services
