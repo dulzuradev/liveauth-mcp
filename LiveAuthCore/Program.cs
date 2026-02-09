@@ -155,14 +155,6 @@ if (builder.Environment.IsDevelopment())
 
 var app = builder.Build();
 
-var dbPath = new SqliteConnectionStringBuilder(connectionString).DataSource;
-var dir = Path.GetDirectoryName(dbPath);
-
-if (!string.IsNullOrEmpty(dir))
-{
-    Directory.CreateDirectory(dir);
-}
-
 // --------------------------------------------------
 // DB initialization
 // --------------------------------------------------
