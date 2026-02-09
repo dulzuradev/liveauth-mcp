@@ -43,7 +43,7 @@ public class Project
     public DateTime? ProPaidUntil { get; set; }
 
     // ✅ FIX: nullable disables EF concurrency + RETURNING
-    [Column(TypeName = "BLOB")]
+    // Removed TypeName to allow EF Core to map correctly for each DB provider (bytea for Postgres, BLOB for SQLite)
     public byte[]? RowVersion { get; set; } = Guid.NewGuid().ToByteArray();
 }
 
