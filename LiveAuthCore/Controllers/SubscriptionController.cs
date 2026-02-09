@@ -10,7 +10,6 @@ namespace LiveAuthCore.Controllers
 {
     [ApiController]
     [Route("api/dev/billing")]
-    [Authorize]
     public class BillingController : ControllerBase
     {
         private readonly LiveAuthDbContext _db;
@@ -104,6 +103,7 @@ namespace LiveAuthCore.Controllers
             });
         }
 
+        [AllowAnonymous]
         [HttpPost("confirm")]
         public async Task<ActionResult<ConfirmSubscriptionResponse>> Confirm(
             [FromBody] ConfirmSubscriptionRequest request,
