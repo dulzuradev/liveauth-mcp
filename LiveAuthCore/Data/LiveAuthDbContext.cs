@@ -53,7 +53,7 @@ public class LiveAuthDbContext : DbContext
         modelBuilder.Entity<Developer>()
             .HasIndex(d => d.LightningAuthKey)
             .IsUnique()
-            .HasFilter("LightningAuthKey IS NOT NULL");
+            .HasFilter("\"LightningAuthKey\" IS NOT NULL");
 
         modelBuilder.Entity<Developer>()
             .HasIndex(d => d.Email)
@@ -83,7 +83,7 @@ public class LiveAuthDbContext : DbContext
         modelBuilder.Entity<BillingSubscription>()
             .HasIndex(x => x.InvoiceRHash)
             .IsUnique()
-            .HasFilter("InvoiceRHash IS NOT NULL");
+            .HasFilter("\"InvoiceRHash\" IS NOT NULL");
         
         modelBuilder.Entity<BillingSubscription>()
             .HasIndex(x => x.ProjectId);
