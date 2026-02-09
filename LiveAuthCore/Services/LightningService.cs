@@ -17,7 +17,7 @@ public class LightningService
     private readonly bool _useMock;
     private readonly bool _mockLoginIdentity;
 
-    // Cache macaroon so we don’t read disk every call
+    // Cache macaroon so we don't read disk every call
     private string? _macaroonHexCache;
 
     public LightningService(IConfiguration configuration)
@@ -110,10 +110,10 @@ public class LightningService
 
         var requestBody = new
         {
-            memo = $"LightningWall dev login for {email}",
+            memo = $"LiveAuth dev login for {email}",
             value_msat = amountSats * 1000L,
             expiry = (expiryMinutes * 60).ToString(),
-            // keep it private (don’t broadcast channels)
+            // keep it private (don't broadcast channels)
             @private = true
         };
 
@@ -141,7 +141,7 @@ public class LightningService
 
         return new LoginInvoiceResult
         {
-            // r_hash is base64; we treat that as “InvoiceId” for lookup
+            // r_hash is base64; we treat that as "InvoiceId" for lookup
             InvoiceId = invoice.RHash,
             Bolt11 = invoice.PaymentRequest,
             AmountSats = amountSats,
@@ -365,7 +365,7 @@ public class LightningService
     }
 
     /// <summary>
-    /// Legacy helper – now delegates to GetInvoiceStatusAsync.
+    /// Legacy helper - now delegates to GetInvoiceStatusAsync.
     /// </summary>
     public async Task<bool> CheckPaymentStatus(string paymentHashB64)
     {
@@ -442,8 +442,8 @@ public class LightningService
         var issuer = _configuration["Jwt:Issuer"];
         var audience =
             audienceOverride ??
-            _configuration["Jwt:Audience"]; 
-        
+            _configuration["Jwt:Audience"];
+
         if (string.IsNullOrWhiteSpace(issuer))
             throw new InvalidOperationException("Jwt:Issuer is not configured.");
         if (string.IsNullOrWhiteSpace(audience))
@@ -610,7 +610,7 @@ public class LightningService
         var bytes = await File.ReadAllBytesAsync(macaroonPath);
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
-    
+
     public string GenerateAdminJwtToken(
         string adminId,
         IEnumerable<Claim>? extraClaims = null)
@@ -623,7 +623,7 @@ public class LightningService
             audienceOverride: "LiveAuthAdmin"
         );
     }
-    
+
     public string GenerateDeveloperJwtToken(
         string developerId,
         IEnumerable<Claim>? extraClaims = null)
