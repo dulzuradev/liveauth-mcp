@@ -225,8 +225,7 @@
             [icon]="p.environment === 'LIVE' ? 'pi pi-arrow-down' : 'pi pi-arrow-up'"
             class="p-button-outlined"
             [pTooltip]="p.environment === 'LIVE' ? 'Switch to TEST' : 'Switch to LIVE'"
-            (click)="toggleProjectEnvironment(p)"
-            [disabled]="p.environment !== 'LIVE' && p.plan === 'pro' && p.proPaidUntil && getDate(p.proPaidUntil)">
+            (click)="toggleProjectEnvironment(p)">
           </button>
         </div>
       </div>
