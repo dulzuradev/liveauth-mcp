@@ -57,13 +57,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,213,79,0.15);
+  background: rgba(0,194,255,0.15);
   border-radius: 50%;
 }
 
 .login-card-icon i {
   font-size: 32px;
-  color: #ffd54f;
+  color: #00C2FF;
 }
 
 .login-card h2 {
@@ -120,12 +120,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,213,79,0.15);
+  background: rgba(0,194,255,0.15);
 }
 
 .stat-icon i {
   font-size: 24px;
-  color: #ffd54f;
+  color: #00C2FF;
 }
 
 .stat-icon.active {
@@ -137,11 +137,11 @@
 }
 
 .stat-icon.warning {
-  background: rgba(255,159,10,0.15);
+  background: rgba(242,169,0,0.15);
 }
 
 .stat-icon.warning i {
-  color: #ff9f0a;
+  color: #F2A900;
 }
 
 .stat-value {
@@ -315,7 +315,7 @@
   border-radius: 6px;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #ffd54f;
+  color: #00C2FF;
 }
 
 .project-card-actions {
