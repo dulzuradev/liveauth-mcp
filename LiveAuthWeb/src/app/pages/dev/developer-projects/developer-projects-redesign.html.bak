@@ -845,6 +845,7 @@
             <p *ngIf="!loadingWebhooks">No webhook events yet.</p>
             <p *ngIf="loadingWebhooks">Loading webhooks…</p>
 
+</div>
           </ng-template>
         </p-tabpanel>
 

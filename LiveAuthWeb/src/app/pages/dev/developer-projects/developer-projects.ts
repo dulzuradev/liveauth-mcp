@@ -72,7 +72,7 @@ export interface ProjectSettingsForm {
     TabPanel,
     LocalTimePipe
   ],
-  templateUrl: './developer-projects.html',
+  templateUrl: './developer-projects-redesign.html',
   styleUrls: ['./developer-projects.css']
 })
 export class DeveloperProjectsComponent implements OnInit, OnDestroy {
