@@ -846,3 +846,14 @@
             <p *ngIf="loadingWebhooks">Loading webhooks…</p>
 
 </div>
+          </ng-template>
+        </p-tabpanel>
+
+      </p-tabpanels>
+    </p-tabs>
+
+    <p-message *ngIf="error" [text]="error" severity="warn" class="mt-3"></p-message>
+
+  </p-dialog>
+
+</div>
