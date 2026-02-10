@@ -8,6 +8,7 @@ import { ButtonModule } from 'primeng/button';
 import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
 import { MessageModule } from 'primeng/message';
+import { TooltipModule } from 'primeng/tooltip';
 import { Tag } from 'primeng/tag';
 
 // QR
@@ -61,6 +62,7 @@ export interface ProjectSettingsForm {
     TableModule,
     DialogModule,
     MessageModule,
+    TooltipModule,
     QrcodeComponent,
     Tag,
     TabPanels,
