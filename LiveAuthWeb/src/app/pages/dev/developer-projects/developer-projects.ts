@@ -73,9 +73,18 @@ export interface ProjectSettingsForm {
     LocalTimePipe
   ],
   templateUrl: './developer-projects-redesign.html',
-  styleUrls: ['./developer-projects.css']
+  styleUrls: ['./dashboard-redesign.css']
 })
 export class DeveloperProjectsComponent implements OnInit, OnDestroy {
+
+  // 🎯 Onboarding State
+  onboardingStep = 1;
+  selectedUseCase: 'agent-auth' | 'micropayment' | 'bot-mgmt' | 'custom' | '' = '';
+
+  copyToClipboard(text: string) {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+  }
 
   // 🔐 Dev Login State
   developerEmail = '';
