@@ -241,7 +241,6 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
         {
             Id = Guid.NewGuid(),
             Email = $"dev{Guid.NewGuid():N}@liveauth.app",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("SecurePassword123!"),
             CreatedAt = DateTime.UtcNow
         };
 
