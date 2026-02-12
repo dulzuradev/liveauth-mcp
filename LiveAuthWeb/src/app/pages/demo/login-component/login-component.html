@@ -1,227 +1,275 @@
-<mat-toolbar class="btc-toolbar" color="primary">
-  <span class="material-icons" aria-hidden="true">bolt</span>
-  <span class="title">LiveAuth</span>
+<!-- ================= TOP NAV (matches landing) ================= -->
+<mat-toolbar class="la-toolbar" color="primary">
+  <div class="la-toolbar-left">
+    <mat-icon class="bolt">bolt</mat-icon>
+    <span class="brand">
+      LiveAuth
+      <span class="beta-badge">BETA</span>
+    </span>
+  </div>
+
   <span class="spacer"></span>
-  <span class="toolbar-sub">Bot resistance without CAPTCHAs</span>
+
+  <div class="la-toolbar-cta">
+    <button mat-stroked-button class="ghost" routerLink="/">
+      <mat-icon>home</mat-icon>
+      Home
+    </button>
+    <button mat-raised-button class="primary" routerLink="/dev/projects">
+      Get API Keys
+    </button>
+  </div>
 </mat-toolbar>
 
-<div class="auth-center">
-  <div class="lighting-strike" aria-hidden="true"></div>
+<!-- ================= DEMO HERO SECTION ================= -->
+<div class="demo-container">
+  <div class="demo-bg"></div>
 
-  <mat-card class="auth-card">
-
+  <div class="demo-inner">
+    
     <!-- HEADER -->
-    <mat-card-header>
-      <div mat-card-avatar class="logo-avatar">
-        <span class="material-icons" aria-hidden="true">shield</span>
-      </div>
-      <mat-card-title>Human Verification</mat-card-title>
-      <mat-card-subtitle>
-        Proof-of-Work first · Lightning fallback
-      </mat-card-subtitle>
-    </mat-card-header>
+    <div class="demo-header">
+      <mat-chip-set class="demo-chipset">
+        <mat-chip selected color="accent">
+          <mat-icon>science</mat-icon>
+          Interactive Demo
+        </mat-chip>
+      </mat-chip-set>
 
-    <mat-card-content>
-
-      <!-- INTRO -->
-      <p class="intro">
-        LiveAuth stops bots economically instead of heuristically.
-        Your browser performs a short cryptographic proof.
-        <strong>No tracking. No puzzles. No friction.</strong>
+      <h1>Experience Bot-Resistant Authentication</h1>
+      <p class="demo-subtitle">
+        Try both verification methods: instant Proof-of-Work or Lightning fallback. 
+        No tracking. No puzzles. No friction.
       </p>
+    </div>
 
-      <!-- PRIMARY ACTION -->
-      <div class="actions" *ngIf="status === 'idle'">
-        <button
-          mat-raised-button
-          class="btc-accent"
-          (click)="initiateLogin()">
-          <mat-icon>verified_user</mat-icon>
-          Verify I’m Human
-        </button>
+    <!-- MAIN DEMO CARD -->
+    <mat-card class="auth-card">
 
-        <div class="alt-options" *ngIf="!loading && !invoiceUri">
-          <button
-            mat-button
-            color="primary"
-            (click)="forceLightningDemo()">
-            <mat-icon>bolt</mat-icon>
-            Try Lightning verification (demo)
-          </button>
-
-          <p class="alt-hint">
-            Lightning is used when Proof-of-Work fails or is disabled.
-          </p>
+      <mat-card-header>
+        <div mat-card-avatar class="logo-avatar">
+          <mat-icon>shield</mat-icon>
         </div>
+        <mat-card-title>Human Verification</mat-card-title>
+        <mat-card-subtitle>
+          Proof-of-Work first · Lightning fallback
+        </mat-card-subtitle>
+      </mat-card-header>
 
-      </div>
+      <mat-card-content>
 
-      <!-- PROGRESS -->
-      <mat-progress-bar
-        *ngIf="loading"
-        mode="indeterminate"
-        color="accent">
-      </mat-progress-bar>
-
-      <!-- STATUS -->
-      <div class="status" *ngIf="status !== 'idle'">
-        <mat-icon class="status-icon">
-          {{
-            status === 'success'
-              ? 'verified'
-              : status === 'failed'
-                ? 'error'
-                : 'hourglass_empty'
-          }}
-        </mat-icon>
-        <span aria-live="polite">{{ statusMessage }}</span>
-      </div>
-
-      <!-- DEBUG TOGGLE -->
-      <div class="dev-proof-toggle" *ngIf="debugEnabled && lastMethod">
-        <button
-          mat-stroked-button
-          color="primary"
-          (click)="showDetails = !showDetails">
-          <mat-icon>info</mat-icon>
-          How was I verified?
-        </button>
-
-        <div class="alt-options">
-          <button
-            mat-button
-            color="primary"
-            (click)="forceLightningDemo()">
-            <mat-icon>bolt</mat-icon>
-            Try Lightning verification (demo)
-          </button>
-
-          <p class="alt-hint">
-            Lightning is used when Proof-of-Work fails or is disabled.
-          </p>
-        </div>
-
-      </div>
-
-      <!-- PROOF DETAILS -->
-      <div class="proof-details" *ngIf="debugEnabled && showDetails">
-        <mat-divider></mat-divider>
-
-        <div class="proof-row">
-          <strong>Method</strong>
-          <span>{{ lastMethod === 'pow' ? 'Proof-of-Work' : 'Lightning fallback' }}</span>
-        </div>
-
-        <div class="proof-row" *ngIf="lastMethod === 'pow'">
-          <strong>Difficulty</strong>
-          <span>{{ lastDifficultyBits }} bits</span>
-        </div>
-
-        <div class="proof-row" *ngIf="lastMethod === 'pow'">
-          <strong>Solve time</strong>
-          <span>{{ lastSolveMs }} ms</span>
-        </div>
-
-        <div class="proof-note">
-          No cookies · No fingerprinting · No tracking
-        </div>
-      </div>
-
-      <!-- PROOF SUMMARY -->
-      <div class="proof-summary" *ngIf="status === 'success'">
-        <p>
-          Verified via
-          <strong>{{ lastMethod === 'pow' ? 'Proof-of-Work' : 'Lightning' }}</strong>
-          <span *ngIf="lastSolveMs"> · {{ lastSolveMs }} ms</span>
+        <!-- INTRO -->
+        <p class="intro">
+          LiveAuth stops bots economically instead of heuristically.
+          Your browser performs a short cryptographic proof.
+          <strong>No tracking. No puzzles. No friction.</strong>
         </p>
 
-        <button
-          mat-button
-          color="primary"
-          class="info-link"
-          (click)="showProofInfo()">
-          What just happened?
-        </button>
-      </div>
+        <!-- PRIMARY ACTION -->
+        <div class="actions" *ngIf="status === 'idle'">
+          <button
+            mat-raised-button
+            class="primary-action"
+            (click)="initiateLogin()">
+            <mat-icon>verified_user</mat-icon>
+            Verify I'm Human (Proof-of-Work)
+          </button>
 
-      <!-- LIGHTNING FALLBACK -->
-      <div class="qr-wrap" *ngIf="invoiceUri">
-        <div class="qr-frame">
-<!--          <qrcode-->
-<!--            [value]="lightningQrValue"-->
-<!--            [size]="qrSize"-->
-<!--            [errorLevel]="'M'"-->
-<!--            [mode]="'canvas'">-->
-<!--          </qrcode>-->
-          <qrcode
-            class="ln-qr-svg"
-            [value]="lightningQrValue"
-            [size]="320"
-            [errorLevel]="'M'"
-            [mode]="'svg'">
-          </qrcode>
-        </div>
-
-        <div class="qr-info">
-          <mat-chip-set>
-            <mat-chip color="accent" selected>
+          <div class="alt-options" *ngIf="!loading && !invoiceUri">
+            <button
+              mat-stroked-button
+              class="alt-action"
+              (click)="forceLightningDemo()">
               <mat-icon>bolt</mat-icon>
-              Lightning fallback
-            </mat-chip>
-            <mat-chip>{{ amount }} sats</mat-chip>
-          </mat-chip-set>
+              Try Lightning verification (demo)
+            </button>
 
-          <p class="hint">
-            Most humans never see this.
-            Scan only if required.
-          </p>
+            <p class="alt-hint">
+              Lightning is used when Proof-of-Work fails or is disabled.
+            </p>
+          </div>
+
         </div>
-      </div>
 
-      <!-- INVOICE COPY -->
-      <div class="invoice-wrap" *ngIf="invoiceUri">
-        <label class="invoice-label">Lightning Invoice (BOLT11)</label>
+        <!-- PROGRESS -->
+        <mat-progress-bar
+          *ngIf="loading"
+          mode="indeterminate"
+          color="accent"
+          class="progress-glow">
+        </mat-progress-bar>
 
-        <div class="invoice-row">
-          <mat-form-field appearance="outline" class="invoice-field">
-            <input
-              matInput
-              [value]="invoiceUri"
-              readonly
-            >
-          </mat-form-field>
+        <!-- STATUS -->
+        <div class="status" *ngIf="status !== 'idle'">
+          <mat-icon class="status-icon" [class.success]="status === 'success'" [class.error]="status === 'failed'">
+            {{
+              status === 'success'
+                ? 'verified'
+                : status === 'failed'
+                  ? 'error'
+                  : 'hourglass_empty'
+            }}
+          </mat-icon>
+          <span aria-live="polite">{{ statusMessage }}</span>
+        </div>
+
+        <!-- PROOF SUMMARY -->
+        <div class="proof-summary" *ngIf="status === 'success'">
+          <div class="proof-badge">
+            <mat-icon>{{ lastMethod === 'pow' ? 'flash_on' : 'bolt' }}</mat-icon>
+            <div class="proof-info">
+              <strong>Verified via {{ lastMethod === 'pow' ? 'Proof-of-Work' : 'Lightning' }}</strong>
+              <span *ngIf="lastSolveMs" class="proof-time">Solved in {{ lastSolveMs }}ms</span>
+            </div>
+          </div>
 
           <button
-            mat-icon-button
-            color="primary"
-            (click)="copyInvoice()">
-            <mat-icon>content_copy</mat-icon>
+            mat-button
+            class="info-link"
+            (click)="showProofInfo()">
+            <mat-icon>info</mat-icon>
+            What just happened?
           </button>
         </div>
 
-        <div class="copy-hint" *ngIf="copied">
-          Copied
+        <!-- DEBUG TOGGLE -->
+        <div class="dev-proof-toggle" *ngIf="debugEnabled && lastMethod && status === 'success'">
+          <button
+            mat-stroked-button
+            class="ghost"
+            (click)="showDetails = !showDetails">
+            <mat-icon>info</mat-icon>
+            {{ showDetails ? 'Hide' : 'Show' }} Technical Details
+          </button>
         </div>
-      </div>
 
-      <!-- VALUE PROPS -->
-      <div class="value-props">
-        <div><mat-icon>visibility_off</mat-icon> No tracking</div>
-        <div><mat-icon>speed</mat-icon> Sub-second for humans</div>
-        <div><mat-icon>bolt</mat-icon> Bots pay real cost</div>
-      </div>
+        <!-- PROOF DETAILS -->
+        <div class="proof-details" *ngIf="debugEnabled && showDetails">
+          <mat-divider></mat-divider>
 
-      <!-- DEV CTA -->
-      <div class="dev-link">
-        <a
-          mat-stroked-button
-          color="primary"
-          routerLink="/dev/projects">
-          <mat-icon>build</mat-icon>
-          Developer Dashboard
-        </a>
-      </div>
+          <div class="proof-row">
+            <strong>Method</strong>
+            <span>{{ lastMethod === 'pow' ? 'Proof-of-Work' : 'Lightning fallback' }}</span>
+          </div>
 
-    </mat-card-content>
-  </mat-card>
+          <div class="proof-row" *ngIf="lastMethod === 'pow'">
+            <strong>Difficulty</strong>
+            <span>{{ lastDifficultyBits }} bits</span>
+          </div>
+
+          <div class="proof-row" *ngIf="lastMethod === 'pow'">
+            <strong>Solve time</strong>
+            <span>{{ lastSolveMs }} ms</span>
+          </div>
+
+          <div class="proof-note">
+            <mat-icon class="proof-note-icon">security</mat-icon>
+            No cookies · No fingerprinting · No tracking
+          </div>
+        </div>
+
+        <!-- LIGHTNING FALLBACK -->
+        <div class="lightning-section" *ngIf="invoiceUri">
+          
+          <div class="lightning-header">
+            <mat-chip-set>
+              <mat-chip color="accent" selected>
+                <mat-icon>bolt</mat-icon>
+                Lightning Verification
+              </mat-chip>
+              <mat-chip>{{ amount }} sats</mat-chip>
+            </mat-chip-set>
+
+            <p class="lightning-hint">
+              Most humans never see this. Scan only if PoW is unavailable.
+            </p>
+          </div>
+
+          <div class="qr-wrap">
+            <div class="qr-frame">
+              <qrcode
+                class="ln-qr-svg"
+                [value]="lightningQrValue"
+                [size]="280"
+                [errorLevel]="'M'"
+                [mode]="'svg'">
+              </qrcode>
+            </div>
+          </div>
+
+          <!-- INVOICE COPY -->
+          <div class="invoice-wrap">
+            <label class="invoice-label">Lightning Invoice (BOLT11)</label>
+
+            <div class="invoice-row">
+              <mat-form-field appearance="outline" class="invoice-field">
+                <input
+                  matInput
+                  [value]="invoiceUri"
+                  readonly
+                >
+              </mat-form-field>
+
+              <button
+                mat-icon-button
+                class="copy-btn"
+                (click)="copyInvoice()">
+                <mat-icon>content_copy</mat-icon>
+              </button>
+            </div>
+
+            <div class="copy-hint" *ngIf="copied">
+              ✓ Copied to clipboard
+            </div>
+          </div>
+
+        </div>
+
+        <!-- VALUE PROPS -->
+        <div class="value-props">
+          <div class="value-prop">
+            <mat-icon>visibility_off</mat-icon>
+            <span>No tracking</span>
+          </div>
+          <div class="value-prop">
+            <mat-icon>speed</mat-icon>
+            <span>Sub-second for humans</span>
+          </div>
+          <div class="value-prop">
+            <mat-icon>bolt</mat-icon>
+            <span>Bots pay real cost</span>
+          </div>
+        </div>
+
+      </mat-card-content>
+    </mat-card>
+
+    <!-- INFO CARDS -->
+    <div class="info-grid">
+      
+      <mat-card class="info-card">
+        <mat-icon class="info-icon">flash_on</mat-icon>
+        <h3>Proof-of-Work</h3>
+        <p>Your browser solves a cryptographic puzzle in milliseconds. No server-side tracking needed.</p>
+      </mat-card>
+
+      <mat-card class="info-card">
+        <mat-icon class="info-icon">bolt</mat-icon>
+        <h3>Lightning Fallback</h3>
+        <p>If PoW fails, pay a tiny Lightning micropayment. Bots face real economic cost.</p>
+      </mat-card>
+
+      <mat-card class="info-card">
+        <mat-icon class="info-icon">code</mat-icon>
+        <h3>Developer-Friendly</h3>
+        <p>Simple REST API. No OAuth complexity. Get started in minutes with our SDK.</p>
+        <button mat-button class="ghost" routerLink="/dev/projects">
+          <mat-icon>arrow_forward</mat-icon>
+          Get API Keys
+        </button>
+      </mat-card>
+
+    </div>
+
+  </div>
 </div>
