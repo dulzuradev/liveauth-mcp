@@ -253,18 +253,18 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
         };
 
         var apiKey = $"la_sk_{Guid.NewGuid():N}";
-        var apiKeyEntity = new ApiKey
+        var apiKeyEntity = new ProjectApiKey
         {
             Id = Guid.NewGuid(),
             ProjectId = project.Id,
-            KeyHash = BCrypt.Net.BCrypt.HashPassword(apiKey),
-            Prefix = apiKey[..12],
+            SecretKeyHash = BCrypt.Net.BCrypt.HashPassword(apiKey),
+            PublicKey = apiKey[..20],
             CreatedAt = DateTime.UtcNow
         };
 
         db.Developers.Add(developer);
         db.Projects.Add(project);
-        db.ApiKeys.Add(apiKeyEntity);
+        db.ProjectApiKeys.Add(apiKeyEntity);
         await db.SaveChangesAsync();
 
         return (project, apiKey);

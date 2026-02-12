@@ -203,7 +203,6 @@ public class DeveloperProjectsControllerTests : IClassFixture<LiveAuthWebApplica
         {
             Id = Guid.NewGuid(),
             Email = email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -230,7 +229,6 @@ public class DeveloperProjectsControllerTests : IClassFixture<LiveAuthWebApplica
             Id = Guid.NewGuid(),
             DeveloperId = developerId,
             Name = "Test Project " + Guid.NewGuid().ToString().Substring(0, 8),
-            Description = "A test project",
             WebhookUrl = webhookUrl,
             CreatedAt = DateTime.UtcNow,
             IsActive = true

@@ -143,7 +143,7 @@ public class SubscriptionControllerTests : IClassFixture<LiveAuthWebApplicationF
         {
             Id = Guid.NewGuid(),
             Email = $"test-{Guid.NewGuid().ToString().Substring(0, 8)}@liveauth.app",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
+            // Lightning-based auth, no password
             CreatedAt = DateTime.UtcNow
         };
 

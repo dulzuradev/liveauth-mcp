@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>EndianBinaryIO</id>
+    <version>1.1.2</version>
+    <authors>Kermalis</authors>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectUrl>https://github.com/Kermalis/EndianBinaryIO</projectUrl>
+    <description>A .NET Standard library that can read and write primitives, enums, arrays, and strings to streams and byte arrays using specified endianness, string encoding, and boolean sizes.
+Objects can also be read from/written to streams via reflection and attributes.
+Project URL ― https://github.com/Kermalis/EndianBinaryIO</description>
+    <copyright>Kermalis</copyright>
+    <tags>Serialization Reflection Endianness LittleEndian BigEndian EndianBinaryIO</tags>
+    <repository type="git" url="https://github.com/Kermalis/EndianBinaryIO" />
+    <dependencies>
+      <group targetFramework=".NETStandard2.0" />
+    </dependencies>
+  </metadata>
+</package>
