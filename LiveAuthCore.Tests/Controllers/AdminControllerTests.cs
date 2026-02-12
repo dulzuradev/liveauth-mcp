@@ -152,8 +152,6 @@ public class AdminControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
         {
             Id = Guid.NewGuid(),
             Email = email ?? $"test-{Guid.NewGuid().ToString().Substring(0, 8)}@liveauth.app",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
-            IsAdmin = isAdmin,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -178,7 +176,6 @@ public class AdminControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
         {
             Id = Guid.NewGuid(),
             Email = email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -211,6 +208,6 @@ public class AdminControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
         return project;
     }
 
-    private record DeveloperDto(Guid Id, string Email, DateTime CreatedAt, bool IsAdmin);
+    private record DeveloperDto(Guid Id, string Email, DateTime CreatedAt);
     private record ProjectDto(Guid Id, string Name, Guid DeveloperId, DateTime CreatedAt);
 }

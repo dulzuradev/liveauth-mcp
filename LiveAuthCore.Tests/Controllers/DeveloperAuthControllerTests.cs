@@ -204,7 +204,6 @@ public class DeveloperAuthControllerTests : IClassFixture<LiveAuthWebApplication
         {
             Id = Guid.NewGuid(),
             Email = email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password ?? "DefaultPassword123!"),
             CreatedAt = DateTime.UtcNow
         };
 

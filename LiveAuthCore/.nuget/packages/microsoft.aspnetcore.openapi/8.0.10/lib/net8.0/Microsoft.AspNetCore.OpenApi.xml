@@ -1,0 +1,162 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Microsoft.AspNetCore.OpenApi</name>
+    </assembly>
+    <members>
+        <member name="T:Microsoft.AspNetCore.Builder.OpenApiEndpointConventionBuilderExtensions">
+            <summary>
+            Extension methods for annotating OpenAPI descriptions on an <see cref="T:Microsoft.AspNetCore.Http.Endpoint" />.
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.Builder.OpenApiEndpointConventionBuilderExtensions.WithOpenApi``1(``0)">
+            <summary>
+            Adds an OpenAPI annotation to <see cref="P:Microsoft.AspNetCore.Http.Endpoint.Metadata" /> associated
+            with the current endpoint.
+            </summary>
+            <param name="builder">The <see cref="T:Microsoft.AspNetCore.Builder.IEndpointConventionBuilder"/>.</param>
+            <returns>A <see cref="T:Microsoft.AspNetCore.Builder.IEndpointConventionBuilder"/> that can be used to further customize the endpoint.</returns>
+        </member>
+        <member name="M:Microsoft.AspNetCore.Builder.OpenApiEndpointConventionBuilderExtensions.WithOpenApi``1(``0,System.Func{Microsoft.OpenApi.Models.OpenApiOperation,Microsoft.OpenApi.Models.OpenApiOperation})">
+            <summary>
+            Adds an OpenAPI annotation to <see cref="P:Microsoft.AspNetCore.Http.Endpoint.Metadata" /> associated
+            with the current endpoint and modifies it with the given <paramref name="configureOperation"/>.
+            </summary>
+            <param name="builder">The <see cref="T:Microsoft.AspNetCore.Builder.IEndpointConventionBuilder"/>.</param>
+            <param name="configureOperation">An <see cref="T:System.Func`2"/> that returns a new OpenAPI annotation given a generated operation.</param>
+            <returns>A <see cref="T:Microsoft.AspNetCore.Builder.IEndpointConventionBuilder"/> that can be used to further customize the endpoint.</returns>
+        </member>
+        <member name="T:Microsoft.AspNetCore.OpenApi.OpenApiGenerator">
+            <summary>
+            Defines a set of methods for generating OpenAPI definitions for endpoints.
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.OpenApiGenerator.#ctor(Microsoft.Extensions.Hosting.IHostEnvironment,Microsoft.Extensions.DependencyInjection.IServiceProviderIsService)">
+            <summary>
+            Creates an <see cref="T:Microsoft.AspNetCore.OpenApi.OpenApiGenerator" /> instance given an <see cref="T:Microsoft.Extensions.Hosting.IHostEnvironment" />
+            and an <see cref="T:Microsoft.Extensions.DependencyInjection.IServiceProviderIsService" /> instance.
+            </summary>
+            <param name="environment">The host environment.</param>
+            <param name="serviceProviderIsService">The service to determine if the type is available from the <see cref="T:System.IServiceProvider"/>.</param>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.OpenApiGenerator.GetOpenApiOperation(System.Reflection.MethodInfo,Microsoft.AspNetCore.Http.EndpointMetadataCollection,Microsoft.AspNetCore.Routing.Patterns.RoutePattern)">
+            <summary>
+            Generates an <see cref="T:Microsoft.OpenApi.Models.OpenApiPathItem"/> for a given <see cref="T:Microsoft.AspNetCore.Http.Endpoint" />.
+            </summary>
+            <param name="methodInfo">The <see cref="T:System.Reflection.MethodInfo"/> associated with the route handler of the endpoint.</param>
+            <param name="metadata">The endpoint <see cref="T:Microsoft.AspNetCore.Http.EndpointMetadataCollection"/>.</param>
+            <param name="pattern">The route pattern.</param>
+            <returns>An <see cref="T:Microsoft.OpenApi.Models.OpenApiPathItem"/> annotation derived from the given inputs.</returns>
+        </member>
+        <member name="M:Microsoft.AspNetCore.Http.PropertyAsParameterInfo.Flatten(System.Reflection.ParameterInfo[],Microsoft.AspNetCore.Http.ParameterBindingMethodCache)">
+            <summary>
+            Unwraps all parameters that contains <see cref="T:Microsoft.AspNetCore.Http.AsParametersAttribute"/> and
+            creates a flat list merging the current parameters, not including the
+            parameters that contain a <see cref="T:Microsoft.AspNetCore.Http.AsParametersAttribute"/>, and all additional
+            parameters detected.
+            </summary>
+            <param name="parameters">List of parameters to be flattened.</param>
+            <param name="cache">An instance of the method cache class.</param>
+            <returns>Flat list of parameters.</returns>
+        </member>
+        <member name="M:Microsoft.Extensions.Internal.ObjectMethodExecutor.Execute(System.Object,System.Object[])">
+            <summary>
+            Executes the configured method on <paramref name="target"/>. This can be used whether or not
+            the configured method is asynchronous.
+            </summary>
+            <remarks>
+            Even if the target method is asynchronous, it's desirable to invoke it using Execute rather than
+            ExecuteAsync if you know at compile time what the return type is, because then you can directly
+            "await" that value (via a cast), and then the generated code will be able to reference the
+            resulting awaitable as a value-typed variable. If you use ExecuteAsync instead, the generated
+            code will have to treat the resulting awaitable as a boxed object, because it doesn't know at
+            compile time what type it would be.
+            </remarks>
+            <param name="target">The object whose method is to be executed.</param>
+            <param name="parameters">Parameters to pass to the method.</param>
+            <returns>The method return value.</returns>
+        </member>
+        <member name="M:Microsoft.Extensions.Internal.ObjectMethodExecutor.ExecuteAsync(System.Object,System.Object[])">
+             <summary>
+             Executes the configured method on <paramref name="target"/>. This can only be used if the configured
+             method is asynchronous.
+             </summary>
+             <remarks>
+             If you don't know at compile time the type of the method's returned awaitable, you can use ExecuteAsync,
+             which supplies an awaitable-of-object. This always works, but can incur several extra heap allocations
+             as compared with using Execute and then using "await" on the result value typecasted to the known
+             awaitable type. The possible extra heap allocations are for:
+            
+             1. The custom awaitable (though usually there's a heap allocation for this anyway, since normally
+                it's a reference type, and you normally create a new instance per call).
+             2. The custom awaiter (whether or not it's a value type, since if it's not, you need a new instance
+                of it, and if it is, it will have to be boxed so the calling code can reference it as an object).
+             3. The async result value, if it's a value type (it has to be boxed as an object, since the calling
+                code doesn't know what type it's going to be).
+             </remarks>
+             <param name="target">The object whose method is to be executed.</param>
+             <param name="parameters">Parameters to pass to the method.</param>
+             <returns>An object that you can "await" to get the method return value.</returns>
+        </member>
+        <member name="T:Microsoft.Extensions.Internal.ObjectMethodExecutorAwaitable">
+            <summary>
+            Provides a common awaitable structure that <see cref="M:Microsoft.Extensions.Internal.ObjectMethodExecutor.ExecuteAsync(System.Object,System.Object[])"/> can
+            return, regardless of whether the underlying value is a System.Task, an FSharpAsync, or an
+            application-defined custom awaitable.
+            </summary>
+        </member>
+        <member name="T:Microsoft.Extensions.Internal.ObjectMethodExecutorFSharpSupport">
+            <summary>
+            Helper for detecting whether a given type is FSharpAsync`1, and if so, supplying
+            an <see cref="T:System.Linq.Expressions.Expression"/> for mapping instances of that type to a C# awaitable.
+            </summary>
+            <remarks>
+            The main design goal here is to avoid taking a compile-time dependency on
+            FSharp.Core.dll, because non-F# applications wouldn't use it. So all the references
+            to FSharp types have to be constructed dynamically at runtime.
+            </remarks>
+        </member>
+        <member name="M:Microsoft.Extensions.Internal.TypeNameHelper.GetTypeDisplayName(System.Type,System.Boolean,System.Boolean,System.Boolean,System.Char)">
+            <summary>
+            Pretty print a type name.
+            </summary>
+            <param name="type">The <see cref="T:System.Type"/>.</param>
+            <param name="fullName"><c>true</c> to print a fully qualified name.</param>
+            <param name="includeGenericParameterNames"><c>true</c> to include generic parameter names.</param>
+            <param name="includeGenericParameters"><c>true</c> to include generic parameters.</param>
+            <param name="nestedTypeDelimiter">Character to use as a delimiter in nested type names</param>
+            <returns>The pretty printed type name.</returns>
+        </member>
+        <member name="M:System.Runtime.CompilerServices.TypeHelper.IsCompilerGeneratedType(System.Type)">
+            <summary>
+            Checks to see if a given type is compiler generated.
+            <remarks>
+            The compiler will annotate either the target type or the declaring type
+            with the CompilerGenerated attribute. We walk up the declaring types until
+            we find a CompilerGenerated attribute or declare the type as not compiler
+            generated otherwise.
+            </remarks>
+            </summary>
+            <param name="type">The type to evaluate.</param>
+            <returns><see langword="true" /> if <paramref name="type"/> is compiler generated.</returns>
+        </member>
+        <member name="M:System.Runtime.CompilerServices.TypeHelper.IsCompilerGeneratedMethod(System.Reflection.MethodInfo)">
+            <summary>
+            Checks to see if a given method is compiler generated.
+            </summary>
+            <param name="method">The method to evaluate.</param>
+            <returns><see langword="true" /> if <paramref name="method"/> is compiler generated.</returns>
+        </member>
+        <member name="M:System.Runtime.CompilerServices.TypeHelper.TryParseLocalFunctionName(System.String,System.String@)">
+            <summary>
+            Parses generated local function name out of a generated method name. This code is a stop-gap and exists to address the issues with extracting
+            original method names from generated local functions. See https://github.com/dotnet/roslyn/issues/55651 for more info.
+            </summary>
+        </member>
+        <member name="M:System.Runtime.CompilerServices.TypeHelper.TryGetNonCompilerGeneratedMethodName(System.Reflection.MethodInfo,System.String@)">
+            <summary>
+            Tries to get non-compiler-generated name of function. This parses generated local function names out of a generated method name if possible.
+            </summary>
+        </member>
+    </members>
+</doc>

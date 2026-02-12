@@ -212,7 +212,6 @@ public class PublicPowControllerTests : IClassFixture<LiveAuthWebApplicationFact
         {
             Id = Guid.NewGuid(),
             Email = "test@liveauth.app",
-            PasswordHash = "test-hash",
             CreatedAt = DateTime.UtcNow
         };
 
