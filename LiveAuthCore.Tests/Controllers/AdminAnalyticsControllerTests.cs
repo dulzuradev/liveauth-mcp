@@ -212,7 +212,6 @@ public class AdminAnalyticsControllerTests : IClassFixture<LiveAuthWebApplicatio
         {
             Id = Guid.NewGuid(),
             Email = $"dev{Guid.NewGuid():N}@liveauth.app",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -283,7 +282,6 @@ public class AdminAnalyticsControllerTests : IClassFixture<LiveAuthWebApplicatio
         {
             Id = Guid.NewGuid(),
             Email = $"dev{Guid.NewGuid():N}@liveauth.app",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("SecurePassword123!"),
             CreatedAt = DateTime.UtcNow
         };
 

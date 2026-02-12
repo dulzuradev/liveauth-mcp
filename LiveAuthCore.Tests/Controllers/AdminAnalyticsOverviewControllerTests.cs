@@ -241,7 +241,6 @@ public class AdminAnalyticsOverviewControllerTests : IClassFixture<LiveAuthWebAp
         {
             Id = Guid.NewGuid(),
             Email = $"dev{Guid.NewGuid():N}@liveauth.app",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
             CreatedAt = DateTime.UtcNow
         };
 

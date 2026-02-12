@@ -192,7 +192,6 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
         {
             Id = Guid.NewGuid(),
             Email = "demo@liveauth.app",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("DemoPassword123!"),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -227,7 +226,6 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
         {
             Id = Guid.NewGuid(),
             Email = $"{Guid.NewGuid():N}@liveauth.app",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
             CreatedAt = DateTime.UtcNow
         };
 
