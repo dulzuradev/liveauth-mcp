@@ -968,6 +968,37 @@
   color: var(--electric-blue) !important;
 }
 
+/* Make dialog internals transparent so the lightning-wall background actually shows */
+:host ::ng-deep .p-dialog .p-tabpanels,
+:host ::ng-deep .p-dialog .p-tabpanel {
+  background: transparent !important;
+}
+
+/* PrimeNG surfaces inside the dialog should be glassy/dark instead of white */
+:host ::ng-deep .p-dialog .p-card,
+:host ::ng-deep .p-dialog .p-panel,
+:host ::ng-deep .p-dialog .p-dataview,
+:host ::ng-deep .p-dialog .p-datatable,
+:host ::ng-deep .p-dialog .p-datatable .p-datatable-wrapper {
+  background: rgba(0, 0, 0, 0.18) !important;
+  border: 1px solid rgba(0, 194, 255, 0.12) !important;
+  box-shadow: inset 0 0 18px rgba(0, 194, 255, 0.06) !important;
+}
+
+:host ::ng-deep .p-dialog .p-inputtext,
+:host ::ng-deep .p-dialog textarea,
+:host ::ng-deep .p-dialog .p-dropdown,
+:host ::ng-deep .p-dialog .p-multiselect {
+  background: rgba(0, 0, 0, 0.35) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgba(0, 194, 255, 0.18) !important;
+}
+
+:host ::ng-deep .p-dialog .p-inputtext::placeholder,
+:host ::ng-deep .p-dialog textarea::placeholder {
+  color: rgba(230, 237, 243, 0.45) !important;
+}
+
 /* Tag styling */
 :host ::ng-deep .p-tag {
   border-radius: 6px !important;
