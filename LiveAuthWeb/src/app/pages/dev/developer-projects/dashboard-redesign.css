@@ -921,7 +921,35 @@
 }
 
 :host ::ng-deep .p-dialog .p-dialog-content {
-  background: var(--wall-deep) !important;
+  /* Match the landing/demo "lightning wall" background treatment */
+  position: relative;
+  background: radial-gradient(1200px 600px at 80% -10%, rgba(0, 194, 255, 0.15), transparent 60%),
+              radial-gradient(1000px 500px at 20% 120%, rgba(242, 169, 0, 0.12), transparent 60%),
+              linear-gradient(135deg, var(--wall-deep) 0%, var(--wall-surface) 100%) !important;
+}
+
+:host ::ng-deep .p-dialog .p-dialog-content::before {
+  /* Subtle animated lightning strokes (scoped to dialog) */
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.06) 0px,
+    rgba(255, 255, 255, 0.06) 1px,
+    transparent 2px,
+    transparent 10px
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.22;
+  animation: flicker 4s infinite ease-in-out;
+  z-index: 0;
+}
+
+:host ::ng-deep .p-dialog .p-dialog-content > * {
+  position: relative;
+  z-index: 1;
 }
 
 :host ::ng-deep .p-dialog .p-dialog-footer {
