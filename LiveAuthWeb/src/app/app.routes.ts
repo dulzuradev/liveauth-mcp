@@ -4,6 +4,7 @@ import { MockLoginComponent } from './pages/demo/mock-login/mock-login.component
 import {DeveloperProjectsComponent} from './pages/dev/developer-projects/developer-projects';
 import {LandingPageComponent} from './pages/landing-page/landing-page';
 import {AdminComponent} from './pages/dev/admin-component/admin-component';
+import {SatsPrinterComponent} from './pages/sats-printer/sats-printer.component';
 
 export const routes: Routes = [
   // Landing Page (new)
@@ -11,6 +12,9 @@ export const routes: Routes = [
 
   // Lightning Wall demo
   { path: 'demo', component: LoginComponent },
+
+  // Sats Printer
+  { path: 'sats', component: SatsPrinterComponent },
 
   // Developer console
   { path: 'dev/projects', component: DeveloperProjectsComponent },
