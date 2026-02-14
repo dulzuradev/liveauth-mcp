@@ -54,9 +54,14 @@ builder.Services.AddHostedService<WebhookDeliveryWorker>();
 builder.Services.AddHostedService<PowNonceCleanupService>();
 
 builder.Services.AddHttpClient("webhooks");
+builder.Services.AddHttpClient("cashu");
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 builder.Services.AddDistributedMemoryCache();
+
+// Sats Printer Service
+builder.Services.AddScoped<SatsPrinterService>(); // It will resolve IHttpClientFactory automatically
+
 
 // --------------------------------------------------
 // Authentication (API Key OR JWT)
