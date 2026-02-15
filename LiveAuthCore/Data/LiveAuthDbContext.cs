@@ -1,5 +1,6 @@
 using System.Text.Json;
 using LiveAuthCore.Data.Entities;
+using LiveAuthCore.Data.Entities.Mcp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -33,6 +34,10 @@ public class LiveAuthDbContext : DbContext
     public DbSet<UserEcashBalance> UserEcashBalances => Set<UserEcashBalance>();
     public DbSet<MintProvider> MintProviders => Set<MintProvider>();
     public DbSet<EcashProof> EcashProofs => Set<EcashProof>();
+
+    // MCP LiveAuth Gate
+    public DbSet<McpGateSession> McpGateSessions => Set<McpGateSession>();
+    public DbSet<McpGateToken> McpGateTokens => Set<McpGateToken>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
