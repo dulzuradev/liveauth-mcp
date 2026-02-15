@@ -149,7 +149,6 @@ builder.Services.AddCors(options =>
     options.AddPolicy("LiveAuthCors", policy =>
         policy.WithOrigins(
                 "https://liveauth.app",
-                "https://app.liveauth.app",
                 "https://dev.liveauth.app",
                 "http://localhost:4200"
             )
