@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using NBitcoin;
+using NBitcoin.DataEncoders;
 
 namespace LiveAuthCore.Services;
 
@@ -153,7 +154,7 @@ public class CashuCryptoService
     private static byte[] DeriveSharedKey(Key privateKey, PubKey publicKey)
     {
         // Use ECDH to compute shared secret
-        var sharedSecret = publicKey.GetSharedPubkey(privateKey.PubKey);
+        var sharedSecret = publicKey.GetSharedPubkey(privateKey);
         return sharedSecret.ToBytes();
     }
 }
