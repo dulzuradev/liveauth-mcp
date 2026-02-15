@@ -1,13 +1,16 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
 
-import { DevAuth } from './dev-auth.service';
+import { DevAuthService } from './dev-auth.service';
 
-describe('DevAuth', () => {
-  let service: DevAuth;
+describe('DevAuthService', () => {
+  let service: DevAuthService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
-    service = TestBed.inject(DevAuth);
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient()]
+    });
+    service = TestBed.inject(DevAuthService);
   });
 
   it('should be created', () => {
