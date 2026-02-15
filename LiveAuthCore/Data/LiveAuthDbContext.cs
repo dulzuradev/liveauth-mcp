@@ -29,6 +29,11 @@ public class LiveAuthDbContext : DbContext
     public DbSet<AuthEventLog> AuthEventLogs => Set<AuthEventLog>();
     public DbSet<PowUsedNonce> PowUsedNonces => Set<PowUsedNonce>();
 
+    public DbSet<MintRequest> MintRequests => Set<MintRequest>();
+    public DbSet<UserEcashBalance> UserEcashBalances => Set<UserEcashBalance>();
+    public DbSet<MintProvider> MintProviders => Set<MintProvider>();
+    public DbSet<EcashProof> EcashProofs => Set<EcashProof>();
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         // In this project we sometimes bootstrap schema via EnsureCreated + raw SQL guards.
@@ -137,5 +142,31 @@ public class LiveAuthDbContext : DbContext
             entity.HasIndex(e => e.ProjectId).HasDatabaseName("idx_auth_event_log_project");
             entity.HasIndex(e => e.EventType).HasDatabaseName("idx_auth_event_log_type");
         });
+
+        modelBuilder.Entity<MintRequest>()
+            .HasIndex(m => m.UserId);
+
+        modelBuilder.Entity<MintRequest>()
+            .HasIndex(m => m.PaymentHash);
+
+        modelBuilder.Entity<MintRequest>()
+            .HasIndex(m => m.Status);
+
+        modelBuilder.Entity<UserEcashBalance>()
+            .HasIndex(b => new { b.UserId, b.MintUrl })
+            .IsUnique();
+
+        modelBuilder.Entity<EcashProof>()
+            .HasIndex(p => new { p.UserId, p.IsSpent });
+
+        modelBuilder.Entity<EcashProof>()
+            .HasIndex(p => new { p.UserId, p.MintUrl, p.IsSpent });
+
+        modelBuilder.Entity<EcashProof>()
+            .HasIndex(p => p.MintRequestId);
+
+        modelBuilder.Entity<EcashProof>()
+            .HasIndex(p => p.Secret)
+            .IsUnique();
     }
 }
