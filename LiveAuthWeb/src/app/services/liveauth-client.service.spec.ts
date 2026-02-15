@@ -1,13 +1,16 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
 
-import { LiveauthClient } from './liveauth-client.service';
+import { LiveAuthClientService } from './liveauth-client.service';
 
-describe('LiveauthClient', () => {
-  let service: LiveauthClient;
+describe('LiveAuthClientService', () => {
+  let service: LiveAuthClientService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
-    service = TestBed.inject(LiveauthClient);
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient()]
+    });
+    service = TestBed.inject(LiveAuthClientService);
   });
 
   it('should be created', () => {
