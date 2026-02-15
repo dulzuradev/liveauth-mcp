@@ -15,18 +15,32 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // --------------------------------------------------
-// DbContext (PostgreSQL)
+// DbContext (PostgreSQL or SQLite via env)
 // --------------------------------------------------
-var connectionString =
-    builder.Configuration.GetConnectionString("LiveAuth")
-    ?? throw new InvalidOperationException("Missing LiveAuth connection string");
+var pg = builder.Configuration.GetConnectionString("LiveAuth");
+var sqlite = builder.Configuration.GetConnectionString("Default");
+var provider = (builder.Configuration["DB_PROVIDER"] ?? (pg != null ? "postgres" : "sqlite")).ToLowerInvariant();
 
-builder.Services.AddDbContextFactory<LiveAuthDbContext>(
-    opts => opts.UseNpgsql(connectionString),
-    ServiceLifetime.Scoped);
+if (provider == "postgres")
+{
+    if (string.IsNullOrWhiteSpace(pg))
+        throw new InvalidOperationException("Missing LiveAuth (Postgres) connection string");
 
-builder.Services.AddDbContext<LiveAuthDbContext>(
-    opts => opts.UseNpgsql(connectionString));
+    builder.Services.AddDbContextFactory<LiveAuthDbContext>(
+        opts => opts.UseNpgsql(pg),
+        ServiceLifetime.Scoped);
+    builder.Services.AddDbContext<LiveAuthDbContext>(
+        opts => opts.UseNpgsql(pg));
+}
+else
+{
+    var sqliteConn = !string.IsNullOrWhiteSpace(sqlite) ? sqlite : "Data Source=liveauth.db";
+    builder.Services.AddDbContextFactory<LiveAuthDbContext>(
+        opts => opts.UseSqlite(sqliteConn),
+        ServiceLifetime.Scoped);
+    builder.Services.AddDbContext<LiveAuthDbContext>(
+        opts => opts.UseSqlite(sqliteConn));
+}
 
 // --------------------------------------------------
 // Core services
@@ -54,9 +68,14 @@ builder.Services.AddHostedService<WebhookDeliveryWorker>();
 builder.Services.AddHostedService<PowNonceCleanupService>();
 
 builder.Services.AddHttpClient("webhooks");
+builder.Services.AddHttpClient("cashu");
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 builder.Services.AddDistributedMemoryCache();
+
+// Sats Printer Service
+builder.Services.AddScoped<SatsPrinterService>(); // It will resolve IHttpClientFactory automatically
+
 
 // --------------------------------------------------
 // Authentication (API Key OR JWT)
