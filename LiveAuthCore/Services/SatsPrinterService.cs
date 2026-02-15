@@ -328,14 +328,20 @@ public class SatsPrinterService
             var response = await _httpClient.GetFromJsonAsync<MintQuoteStatusResponse>(
                 $"{mintUrl}/v1/mint/quote/bolt11/{quoteId}");
             
-            if (response?.State == "PAID")
+            if (string.Equals(response?.State, "PAID", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
 
-            if (response?.State == "ISSUED")
+            if (string.Equals(response?.State, "ISSUED", StringComparison.OrdinalIgnoreCase))
             {
                 // Already issued, shouldn't happen but we can proceed
+                return true;
+            }
+
+            // Some mints may not set State reliably; fall back to Paid boolean.
+            if (response?.Paid == true)
+            {
                 return true;
             }
 
