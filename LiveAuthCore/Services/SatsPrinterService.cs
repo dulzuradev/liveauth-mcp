@@ -2,7 +2,7 @@ using System.Net.Http.Json;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using Microsoft.EntityFrameworkCore;
-using NBitcoin.Secp256k1;
+// using NBitcoin.Secp256k1;
 
 namespace LiveAuthCore.Services;
 
@@ -101,17 +101,16 @@ public class SatsPrinterService
 
             // 6. Generate blinded messages (NUT-00)
             var amounts = CashuCryptoService.DecomposeAmount(amount);
-            var blindedOutputs = new List<(BlindedMessage message, string secret, Scalar blindingFactor)>();
+            var blindedOutputs = new List<(BlindedMessage message, string secret, string r)>();
             
             foreach (var amt in amounts)
             {
-                var secret = CashuCryptoService.GenerateSecret();
-                var (B_, r) = CashuCryptoService.CreateBlindedMessage(secret);
+                var (B_, secret, r) = CashuCryptoService.CreateBlindedMessage();
                 var blindedMessage = new BlindedMessage
                 {
                     Amount = amt,
                     Id = keysetId,
-                    B_ = CashuCryptoService.PointToHex(B_)
+                    B_ = B_
                 };
                 blindedOutputs.Add((blindedMessage, secret, r));
             }
@@ -157,10 +156,10 @@ public class SatsPrinterService
                     throw new Exception($"No mint public key for amount {blindedMsg.Amount}");
                 }
 
-                var K = CashuCryptoService.ParsePoint(mintPubKeyHex);
-                var C_ = CashuCryptoService.ParsePoint(signature.C_);
+                var K = mintPubKeyHex; // hex pubkey from mint
+                var C_ = signature.C_; // blinded signature hex
                 
-                // Unblind: C = C_ - r*K
+                // Unblind: C = C_ - r*K (simplified in CashuCryptoService)
                 var C = CashuCryptoService.UnblindSignature(C_, r, K);
                 
                 // Store the proof in database
@@ -172,7 +171,7 @@ public class SatsPrinterService
                     Amount = blindedMsg.Amount,
                     KeysetId = keysetId,
                     Secret = secret,
-                    C = CashuCryptoService.PointToHex(C),
+                    C = C,
                     IsSpent = false,
                     CreatedAt = DateTime.UtcNow,
                     MintRequestId = request.Id
