@@ -362,7 +362,7 @@
   <!-- ============================================
        CREATE PROJECT SECTION (logged in, has projects)
        ============================================ -->
-  <div class="create-project-section" *ngIf="loggedIn">
+  <div class="create-project-section" *ngIf="loggedIn && projects.length > 0">
     <div class="section-header">
       <h2 class="section-title gradient-text">Create New Project</h2>
     </div>
