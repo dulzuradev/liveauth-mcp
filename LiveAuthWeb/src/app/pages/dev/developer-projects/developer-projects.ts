@@ -439,6 +439,8 @@ console.log('onTimeRangeChange', range);
         this.lastSecret = res;
         this.showSecretDialog = true;
         this.projectName = '';
+        this.loading = false;
+        this.onboardingStep = 3;
         this.loadProjects();
       },
       error: (err) => {
