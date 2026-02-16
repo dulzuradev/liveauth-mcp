@@ -9,6 +9,15 @@ liveauth.app {
 }
 
 api.liveauth.app {
+    @preflight method OPTIONS
+    handle @preflight {
+        header Access-Control-Allow-Origin "https://liveauth.app"
+        header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        header Access-Control-Allow-Headers "Content-Type, Authorization"
+        header Access-Control-Max-Age "86400"
+        respond 204
+    }
+
     reverse_proxy liveauth-api:8080
 }
 
