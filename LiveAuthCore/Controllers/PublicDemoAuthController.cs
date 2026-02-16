@@ -118,7 +118,7 @@ public class PublicDemoAuthController : ControllerBase
         [FromBody] PublicConfirmAuthRequest request,
         CancellationToken ct)
     {
-        var project = GetCurrentProject();
+        var project = await GetDemoProjectAsync(ct);
         if (project == null)
             return Unauthorized("Missing or invalid API key.");
 
