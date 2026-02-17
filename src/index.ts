@@ -11,104 +11,104 @@ import fetch from 'node-fetch';
 
 const LIVEAUTH_API_BASE = process.env.LIVEAUTH_API_BASE || 'https://api.liveauth.app';
 
-interface PowChallengeResponse {
-  projectPublicKey: string;
-  challengeHex: string;
-  targetHex: string;
-  difficultyBits: number;
-  expiresAtUnix: number;
-  sig: string;
+// MCP API response types
+interface McpStartResponse {
+  quoteId: string;
+  powChallenge: {
+    projectId: string;
+    projectPublicKey: string;
+    challengeHex: string;
+    targetHex: string;
+    difficultyBits: number;
+    expiresAtUnix: number;
+    signature: string;
+  };
+  invoice: null;
 }
 
-interface PowVerifyRequest {
-  challengeHex: string;
-  nonce: number;
-  hashHex: string;
-  expiresAtUnix: number;
-  difficultyBits: number;
-  sig: string;
+interface McpConfirmResponse {
+  jwt: string;
+  expiresIn: number;
+  remainingBudgetSats: number;
 }
 
-interface PowVerifyResponse {
-  verified: boolean;
-  token?: string;
-  fallback?: 'lightning';
+interface McpChargeResponse {
+  status: 'ok' | 'deny';
+  callsUsed: number;
+  satsUsed: number;
 }
 
-interface LightningStartResponse {
-  sessionId: string;
-  invoice: string | null;
-  amountSats: number;
-  expiresAtUnix: number;
-  mode: 'TEST' | 'LIVE';
+interface McpErrorResponse {
+  error?: string;
+  error_description?: string;
 }
 
-// Define our MCP tools
+// Define MCP tools
 const TOOLS: Tool[] = [
   {
-    name: 'liveauth_get_challenge',
-    description: 'Get a proof-of-work challenge from LiveAuth for authentication. The agent must solve this challenge to prove computational work.',
+    name: 'liveauth_mcp_start',
+    description: 'Start a new LiveAuth MCP session and get a proof-of-work challenge. Use this to begin the authentication flow.',
     inputSchema: {
       type: 'object',
       properties: {
-        projectPublicKey: {
-          type: 'string',
-          description: 'The LiveAuth project public key (starts with la_pk_)',
+        forceLightning: {
+          type: 'boolean',
+          description: 'If true, request Lightning payment instead of PoW (not yet implemented)',
         },
       },
-      required: ['projectPublicKey'],
+      required: [],
     },
   },
   {
-    name: 'liveauth_verify_pow',
-    description: 'Verify a solved proof-of-work challenge and receive a JWT authentication token',
+    name: 'liveauth_mcp_confirm',
+    description: 'Submit the solved proof-of-work challenge to receive a JWT authentication token. The JWT is needed for subsequent API calls.',
     inputSchema: {
       type: 'object',
       properties: {
-        projectPublicKey: {
+        quoteId: {
           type: 'string',
-          description: 'The LiveAuth project public key',
+          description: 'The quoteId from the start response',
         },
         challengeHex: {
           type: 'string',
-          description: 'The challenge hex from get_challenge',
+          description: 'The challenge hex from the start response',
         },
         nonce: {
           type: 'number',
-          description: 'The nonce that solves the challenge',
+          description: 'The nonce that solves the PoW challenge',
         },
         hashHex: {
           type: 'string',
-          description: 'The resulting hash hex',
+          description: 'The resulting hash hex (sha256 of projectPublicKey:challengeHex:nonce)',
         },
         expiresAtUnix: {
           type: 'number',
-          description: 'Expiration timestamp from challenge',
+          description: 'Expiration timestamp from the challenge',
         },
         difficultyBits: {
           type: 'number',
-          description: 'Difficulty bits from challenge',
+          description: 'Difficulty bits from the challenge',
         },
-        sig: {
+        signature: {
           type: 'string',
-          description: 'Signature from challenge',
+          description: 'Signature from the challenge',
         },
       },
-      required: ['projectPublicKey', 'challengeHex', 'nonce', 'hashHex', 'expiresAtUnix', 'difficultyBits', 'sig'],
+      required: ['quoteId', 'challengeHex', 'nonce', 'hashHex', 'expiresAtUnix', 'difficultyBits', 'signature'],
     },
   },
   {
-    name: 'liveauth_start_lightning',
-    description: 'Start Lightning Network payment authentication as fallback when PoW is not feasible',
+    name: 'liveauth_mcp_charge',
+    description: 'Meter API usage after making an authenticated call. Call this with the cost in sats for each API request made using the JWT.',
     inputSchema: {
       type: 'object',
       properties: {
-        projectPublicKey: {
-          type: 'string',
-          description: 'The LiveAuth project public key',
+        callCostSats: {
+          type: 'number',
+          description: 'Cost of the API call in sats',
         },
       },
-      required: ['projectPublicKey'],
+      required: ['callCostSats'],
     },
   },
 ];
@@ -117,7 +117,7 @@ const TOOLS: Tool[] = [
 const server = new Server(
   {
     name: 'liveauth-mcp',
-    version: '0.1.0',
+    version: '0.2.0',
   },
   {
     capabilities: {
@@ -131,109 +131,129 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools: TOOLS };
 });
 
+// Helper to check for errors in response
+function isError(response: unknown): response is McpErrorResponse {
+  return typeof response === 'object' && response !== null && 'error' in response;
+}
+
 // Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
     switch (name) {
-      case 'liveauth_get_challenge': {
-        const { projectPublicKey } = args as unknown as { projectPublicKey: string };
-        
-        const response = await fetch(`${LIVEAUTH_API_BASE}/api/public/pow/challenge`, {
+      case 'liveauth_mcp_start': {
+        const { forceLightning } = args as { forceLightning?: boolean };
+
+        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/start`, {
+          method: 'POST',
           headers: {
-            'X-LW-Public': projectPublicKey,
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            forceLightning: forceLightning ?? false,
+          }),
         });
 
         if (!response.ok) {
-          throw new Error(`Challenge request failed: ${response.statusText}`);
+          const error = await response.json() as McpErrorResponse;
+          throw new Error(error.error_description || `Start failed: ${response.statusText}`);
         }
 
-        const challenge: PowChallengeResponse = await response.json() as PowChallengeResponse;
+        const result = await response.json() as McpStartResponse;
 
         return {
           content: [
             {
               type: 'text',
-              text: JSON.stringify(challenge, null, 2),
+              text: JSON.stringify(result, null, 2),
             },
           ],
         };
       }
 
-      case 'liveauth_verify_pow': {
-        const verifyArgs = args as unknown as PowVerifyRequest & { projectPublicKey: string };
-        
-        const response = await fetch(`${LIVEAUTH_API_BASE}/api/public/pow/verify`, {
+      case 'liveauth_mcp_confirm': {
+        const { quoteId, challengeHex, nonce, hashHex, expiresAtUnix, difficultyBits, signature } = args as {
+          quoteId: string;
+          challengeHex: string;
+          nonce: number;
+          hashHex: string;
+          expiresAtUnix: number;
+          difficultyBits: number;
+          signature: string;
+        };
+
+        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/confirm`, {
           method: 'POST',
           headers: {
-            'X-LW-Public': verifyArgs.projectPublicKey,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            challengeHex: verifyArgs.challengeHex,
-            nonce: verifyArgs.nonce,
-            hashHex: verifyArgs.hashHex,
-            expiresAtUnix: verifyArgs.expiresAtUnix,
-            difficultyBits: verifyArgs.difficultyBits,
-            sig: verifyArgs.sig,
+            quoteId,
+            challengeHex,
+            nonce,
+            hashHex,
+            expiresAtUnix,
+            difficultyBits,
+            sig: signature, // API uses 'sig' not 'signature'
           }),
         });
 
         if (!response.ok) {
-          throw new Error(`Verification failed: ${response.statusText}`);
+          const error = await response.json() as McpErrorResponse;
+          throw new Error(error.error_description || `Confirm failed: ${response.statusText}`);
         }
 
-        const result: PowVerifyResponse = await response.json() as PowVerifyResponse;
-
-        if (result.verified && result.token) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Authentication successful! Token: ${result.token}`,
-              },
-            ],
-          };
-        } else if (result.fallback === 'lightning') {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: 'PoW verification failed. Please use liveauth_start_lightning for payment-based authentication.',
-              },
-            ],
-          };
-        } else {
-          throw new Error('Verification failed');
-        }
-      }
-
-      case 'liveauth_start_lightning': {
-        const { projectPublicKey } = args as unknown as { projectPublicKey: string };
-        
-        const response = await fetch(`${LIVEAUTH_API_BASE}/api/public/auth/start`, {
-          method: 'POST',
-          headers: {
-            'X-LW-Public': projectPublicKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ userHint: 'agent' }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Lightning start failed: ${response.statusText}`);
-        }
-
-        const lightning: LightningStartResponse = await response.json() as LightningStartResponse;
+        const result = await response.json() as McpConfirmResponse;
 
         return {
           content: [
             {
               type: 'text',
-              text: `Lightning payment required:\nInvoice: ${lightning.invoice}\nAmount: ${lightning.amountSats} sats\nSession ID: ${lightning.sessionId}\n\nUse this sessionId to poll for payment confirmation.`,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'liveauth_mcp_charge': {
+        const { callCostSats } = args as { callCostSats: number };
+
+        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/charge`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            callCostSats,
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json() as McpErrorResponse;
+          throw new Error(error.error_description || `Charge failed: ${response.statusText}`);
+        }
+
+        const result = await response.json() as McpChargeResponse;
+
+        // If status is 'deny', the agent has exceeded its budget
+        if (result.status === 'deny') {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Budget exceeded! Calls used: ${result.callsUsed}, Sats used: ${result.satsUsed}. Stop making API calls.`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
             },
           ],
         };
