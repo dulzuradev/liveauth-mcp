@@ -13,6 +13,9 @@ public class McpGateToken
 
     public string JwtId { get; set; } = Guid.NewGuid().ToString("N");
 
+    // Refresh token for extending session without re-auth
+    public string? RefreshToken { get; set; }
+
     public DateTime IssuedAt { get; set; } = DateTime.UtcNow;
     public DateTime ExpiresAt { get; set; } = DateTime.UtcNow.AddMinutes(10);
 

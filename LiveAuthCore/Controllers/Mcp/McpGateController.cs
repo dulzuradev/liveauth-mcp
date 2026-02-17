@@ -18,30 +18,69 @@ namespace LiveAuthCore.Controllers.Mcp;
 public class McpGateController : ControllerBase
 {
     private readonly LiveAuthDbContext _db;
+    private readonly LightningService _lightning;
     private readonly LightningService _jwt;
     private readonly PowChallengeSigner _signer;
     private readonly PowDifficultyService _difficulty;
+    private readonly ApiKeyService _apiKeyService;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<McpGateController> _logger;
 
     public McpGateController(
         LiveAuthDbContext db,
+        LightningService lightning,
         LightningService jwt,
         PowChallengeSigner signer,
         PowDifficultyService difficulty,
+        ApiKeyService apiKeyService,
+        IConfiguration configuration,
         ILogger<McpGateController> logger)
     {
         _db = db;
+        _lightning = lightning;
         _jwt = jwt;
         _signer = signer;
         _difficulty = difficulty;
+        _apiKeyService = apiKeyService;
+        _configuration = configuration;
         _logger = logger;
     }
 
     private Project? GetProject()
     {
-        return HttpContext.Items.TryGetValue("LW_Project", out var value)
-            ? value as Project
-            : null;
+        // First try to get from middleware-set item (regular API key auth)
+        if (HttpContext.Items.TryGetValue("LW_Project", out var value) && value is Project proj)
+            return proj;
+
+        // Try to authenticate using API key from header
+        if (Request.Headers.TryGetValue("X-LW-Public", out var apiKeyHeader) && 
+            !string.IsNullOrWhiteSpace(apiKeyHeader.FirstOrDefault()))
+        {
+            // This is synchronous for now - in production you'd want async
+            var authResult = _apiKeyService.AuthenticatePublicKeyAsync(
+                apiKeyHeader.FirstOrDefault()!, 
+                CancellationToken.None).GetAwaiter().GetResult();
+
+            if (authResult.Status == ApiKeyAuthStatus.Ok)
+                return authResult.Project;
+        }
+
+        // Fallback to demo project if no API key provided
+        return GetDemoProjectAsync(CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    private async Task<Project?> GetDemoProjectAsync(CancellationToken ct)
+    {
+        var demoProjectId = _configuration["LiveAuth:DemoProjectId"];
+        if (!Guid.TryParse(demoProjectId, out var projectId))
+            return null;
+
+        return await _db.Projects
+            .AsNoTracking()
+            .SingleOrDefaultAsync(p =>
+                    p.Id == projectId &&
+                    p.IsActive,
+                ct);
     }
 
     private static string RandomHex(int bytes)
@@ -101,52 +140,80 @@ public class McpGateController : ControllerBase
         // Default to PoW unless ForceLightning
         var forceLightning = req.ForceLightning == true;
 
+        McpGateSession session;
+        object? powChallenge = null;
+        McpInvoice? invoice = null;
+
         if (forceLightning)
         {
-            // TODO(v1.1): generate Lightning invoice via existing Lightning/OpenNode integration.
-            // For now, return 501 to keep contract honest.
-            return StatusCode(501, new { error = "lightning_not_implemented" });
+            // Generate Lightning invoice
+            var satsAmount = satsPerCall * 10; // Default: 10x sats per call as buffer
+            
+            var invoiceResult = await _lightning.CreateLoginInvoiceAsync(
+                $"mcp:{project.Id}",
+                satsAmount,
+                expiryMinutes: 10
+            );
+
+            session = new McpGateSession
+            {
+                ProjectId = project.Id,
+                LightningInvoice = invoiceResult.Bolt11,
+                LightningPaymentHash = invoiceResult.InvoiceId,
+                SatsPerCallAtStart = satsPerCall,
+                Status = "pending",
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(10)
+            };
+
+            invoice = new McpInvoice(
+                Bolt11: invoiceResult.Bolt11,
+                AmountSats: invoiceResult.AmountSats,
+                ExpiresAtUnix: invoiceResult.ExpiresAtUnix,
+                PaymentHash: invoiceResult.InvoiceId
+            );
         }
-
-        var difficultyBits = await _difficulty.GetDifficultyAsync(project, ct);
-        var challengeHex = RandomHex(16);
-        var expiresAtUnix = DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeSeconds();
-        var payload = BuildPowPayload(project.Id, challengeHex, difficultyBits, expiresAtUnix);
-        var sig = _signer.Sign(payload);
-
-        var session = new McpGateSession
+        else
         {
-            ProjectId = project.Id,
-            PowChallengeHex = challengeHex,
-            PowDifficultyBits = difficultyBits,
-            PowExpiresAtUnix = expiresAtUnix,
-            PowSignature = sig,
-            SatsPerCallAtStart = satsPerCall,
-            Status = "pending",
-            CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(10)
-        };
+            var difficultyBits = await _difficulty.GetDifficultyAsync(project, ct);
+            var challengeHex = RandomHex(16);
+            var expiresAtUnix = DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeSeconds();
+            var payload = BuildPowPayload(project.Id, challengeHex, difficultyBits, expiresAtUnix);
+            var sig = _signer.Sign(payload);
+
+            session = new McpGateSession
+            {
+                ProjectId = project.Id,
+                PowChallengeHex = challengeHex,
+                PowDifficultyBits = difficultyBits,
+                PowExpiresAtUnix = expiresAtUnix,
+                PowSignature = sig,
+                SatsPerCallAtStart = satsPerCall,
+                Status = "pending",
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(10)
+            };
+
+            var target = TargetFromBits(difficultyBits);
+            powChallenge = new
+            {
+                projectId = project.Id,
+                projectPublicKey = project.PublicKey,
+                challengeHex,
+                targetHex = Convert.ToHexString(target).ToLowerInvariant(),
+                difficultyBits,
+                expiresAtUnix,
+                signature = sig
+            };
+        }
 
         _db.McpGateSessions.Add(session);
         await _db.SaveChangesAsync(ct);
 
-        var target = TargetFromBits(difficultyBits);
-
-        var powChallenge = new
-        {
-            projectId = project.Id,
-            projectPublicKey = project.PublicKey,
-            challengeHex,
-            targetHex = Convert.ToHexString(target).ToLowerInvariant(),
-            difficultyBits,
-            expiresAtUnix,
-            signature = sig
-        };
-
         return Ok(new McpStartResponse(
             QuoteId: session.Id.ToString(),
             PowChallenge: powChallenge,
-            Invoice: null
+            Invoice: invoice
         ));
     }
 
@@ -226,6 +293,7 @@ public class McpGateController : ControllerBase
                 ProjectId = project.Id,
                 SessionId = session.Id,
                 JwtId = jti,
+                RefreshToken = Guid.NewGuid().ToString("N"),
                 IssuedAt = DateTime.UtcNow,
                 ExpiresAt = expiresUtc,
                 CallsUsed = 0,
@@ -245,11 +313,164 @@ public class McpGateController : ControllerBase
             return Ok(new McpConfirmResponse(
                 Jwt: tokenJwt,
                 ExpiresIn: (int)TimeSpan.FromMinutes(10).TotalSeconds,
-                RemainingBudgetSats: remaining
+                RemainingBudgetSats: remaining,
+                RefreshToken: gateToken.RefreshToken
             ));
         }
 
-        return BadRequest("Unsupported confirm flow (lightning not implemented)");
+        // Lightning confirm - check if invoice is paid
+        if (!string.IsNullOrWhiteSpace(session.LightningPaymentHash))
+        {
+            var status = await _lightning.GetInvoiceStatusAsync(session.LightningPaymentHash);
+
+            if (!status.IsPaid)
+            {
+                return Ok(new McpConfirmResponse(
+                    Jwt: null,
+                    ExpiresIn: 0,
+                    RemainingBudgetSats: 0,
+                    PaymentStatus: "pending"
+                ));
+            }
+
+            // Payment confirmed - mint JWT
+            session.Status = "confirmed";
+
+            var jti = Guid.NewGuid().ToString("N");
+            var expiresUtc = DateTime.UtcNow.AddMinutes(10);
+
+            var extraClaims = new[]
+            {
+                new Claim("projectId", project.Id.ToString()),
+                new Claim("authType", "mcp_lightning"),
+                new Claim("mcpQuoteId", session.Id.ToString()),
+                new Claim("jti", jti)
+            };
+
+            var tokenJwt = _jwt.GenerateJwtToken(
+                userId: $"mcp:{project.Id}:{session.Id}",
+                role: "McpClient",
+                extraClaims: extraClaims,
+                expiresUtc: expiresUtc
+            );
+
+            var gateToken = new McpGateToken
+            {
+                ProjectId = project.Id,
+                SessionId = session.Id,
+                JwtId = jti,
+                RefreshToken = Guid.NewGuid().ToString("N"),
+                IssuedAt = DateTime.UtcNow,
+                ExpiresAt = expiresUtc,
+                CallsUsed = 0,
+                SatsUsed = 0,
+                MaxCallsPerMinute = 60,
+                MaxSatsPerDay = session.SatsPerCallAtStart * 100, // Prepaid buffer
+                DayWindowStart = DateTime.UtcNow.Date,
+                Status = "active"
+            };
+
+            _db.McpGateTokens.Add(gateToken);
+            await _db.SaveChangesAsync(ct);
+
+            return Ok(new McpConfirmResponse(
+                Jwt: tokenJwt,
+                ExpiresIn: (int)TimeSpan.FromMinutes(10).TotalSeconds,
+                RemainingBudgetSats: gateToken.MaxSatsPerDay,
+                PaymentStatus: "paid",
+                RefreshToken: gateToken.RefreshToken
+            ));
+        }
+
+        return BadRequest("No valid confirmation method provided");
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] McpRefreshRequest req, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.RefreshToken))
+            return BadRequest("Refresh token required");
+
+        var gateToken = await _db.McpGateTokens
+            .Where(t => t.RefreshToken == req.RefreshToken && t.Status == "active")
+            .FirstOrDefaultAsync(ct);
+
+        if (gateToken == null)
+            return Unauthorized("Invalid refresh token");
+
+        // Get project for JWT generation
+        var project = await _db.Projects
+            .Where(p => p.Id == gateToken.ProjectId && p.IsActive)
+            .FirstOrDefaultAsync(ct);
+
+        if (project == null)
+            return Forbid();
+
+        // Generate new JWT
+        var newJti = Guid.NewGuid().ToString("N");
+        var expiresUtc = DateTime.UtcNow.AddMinutes(10);
+
+        var extraClaims = new[]
+        {
+            new Claim("projectId", project.Id.ToString()),
+            new Claim("authType", "mcp_refresh"),
+            new Claim("mcpQuoteId", gateToken.SessionId.ToString()),
+            new Claim("jti", newJti)
+        };
+
+        var tokenJwt = _jwt.GenerateJwtToken(
+            userId: $"mcp:{project.Id}:{gateToken.SessionId}",
+            role: "McpClient",
+            extraClaims: extraClaims,
+            expiresUtc: expiresUtc
+        );
+
+        // Update token record
+        gateToken.JwtId = newJti;
+        gateToken.ExpiresAt = expiresUtc;
+        await _db.SaveChangesAsync(ct);
+
+        var remaining = gateToken.MaxSatsPerDay - gateToken.SatsUsed;
+
+        return Ok(new McpRefreshResponse(
+            Jwt: tokenJwt,
+            ExpiresIn: (int)TimeSpan.FromMinutes(10).TotalSeconds,
+            RemainingBudgetSats: remaining
+        ));
+    }
+
+    [HttpGet("status/{quoteId}")]
+    public async Task<IActionResult> GetStatus(string quoteId, CancellationToken ct)
+    {
+        var project = GetProject();
+        if (project == null) return Unauthorized();
+        if (!project.IsActive) return Forbid();
+
+        if (!Guid.TryParse(quoteId, out var sessionId))
+            return BadRequest("Invalid quoteId");
+
+        var session = await _db.McpGateSessions
+            .Where(s => s.Id == sessionId && s.ProjectId == project.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (session == null)
+            return NotFound();
+
+        // If Lightning, check payment status
+        string? paymentStatus = null;
+        if (!string.IsNullOrWhiteSpace(session.LightningPaymentHash))
+        {
+            var status = await _lightning.GetInvoiceStatusAsync(session.LightningPaymentHash);
+            paymentStatus = status.IsPaid ? "paid" : "pending";
+        }
+
+        return Ok(new
+        {
+            quoteId = session.Id.ToString(),
+            status = session.Status,
+            paymentStatus,
+            expiresAt = session.ExpiresAt
+        });
     }
 
     [HttpPost("charge")]
@@ -294,5 +515,48 @@ public class McpGateController : ControllerBase
         await _db.SaveChangesAsync(ct);
 
         return Ok(new McpChargeResponse("ok", gateToken.CallsUsed, gateToken.SatsUsed));
+    }
+
+    [HttpGet("usage")]
+    [Authorize]
+    public async Task<IActionResult> GetUsage(CancellationToken ct)
+    {
+        var projectIdStr = User.FindFirst("projectId")?.Value;
+        var jti = User.FindFirst("jti")?.Value;
+
+        if (string.IsNullOrWhiteSpace(projectIdStr) || string.IsNullOrWhiteSpace(jti))
+            return Unauthorized("Missing projectId/jti");
+
+        if (!Guid.TryParse(projectIdStr, out var projectId))
+            return Unauthorized("Invalid projectId");
+
+        var gateToken = await _db.McpGateTokens
+            .Where(t => t.ProjectId == projectId && t.JwtId == jti && t.Status == "active")
+            .FirstOrDefaultAsync(ct);
+
+        if (gateToken == null)
+            return NotFound("No active session found");
+
+        // Reset day window if needed
+        if (gateToken.DayWindowStart.Date != DateTime.UtcNow.Date)
+        {
+            gateToken.DayWindowStart = DateTime.UtcNow.Date;
+            gateToken.SatsUsed = 0;
+            gateToken.CallsUsed = 0;
+            await _db.SaveChangesAsync(ct);
+        }
+
+        var remaining = gateToken.MaxSatsPerDay - gateToken.SatsUsed;
+
+        return Ok(new McpUsageResponse(
+            Status: gateToken.Status,
+            CallsUsed: gateToken.CallsUsed,
+            SatsUsed: gateToken.SatsUsed,
+            MaxSatsPerDay: gateToken.MaxSatsPerDay,
+            RemainingBudgetSats: remaining,
+            MaxCallsPerMinute: gateToken.MaxCallsPerMinute,
+            ExpiresAt: gateToken.ExpiresAt,
+            DayWindowStart: gateToken.DayWindowStart
+        ));
     }
 }
