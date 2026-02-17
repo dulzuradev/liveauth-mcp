@@ -1,7 +1,9 @@
 namespace LiveAuthCore.Models.Mcp;
 
 public record McpConfirmResponse(
-    string Jwt,
+    string? Jwt,
     int ExpiresIn,
-    long RemainingBudgetSats
+    long RemainingBudgetSats,
+    string? PaymentStatus = null,
+    string? RefreshToken = null
 );

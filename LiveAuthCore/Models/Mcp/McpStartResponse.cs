@@ -3,5 +3,12 @@ namespace LiveAuthCore.Models.Mcp;
 public record McpStartResponse(
     string QuoteId,
     object? PowChallenge,
-    string? Invoice
+    McpInvoice? Invoice
+);
+
+public record McpInvoice(
+    string? Bolt11,
+    long AmountSats,
+    long ExpiresAtUnix,
+    string? PaymentHash
 );
