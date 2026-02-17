@@ -123,6 +123,26 @@ If budget is exceeded:
 }
 ```
 
+### `liveauth_mcp_usage`
+
+Query current usage and remaining budget without making a charge. Use this to check status before making API calls.
+
+**Parameters:** (none required)
+
+**Returns:**
+```json
+{
+  "status": "active",
+  "callsUsed": 5,
+  "satsUsed": 15,
+  "maxSatsPerDay": 10000,
+  "remainingBudgetSats": 9985,
+  "maxCallsPerMinute": 60,
+  "expiresAt": "2026-02-17T12:00:00Z",
+  "dayWindowStart": "2026-02-17T00:00:00Z"
+}
+```
+
 ## Usage Example
 
 An AI agent authenticating to a LiveAuth-protected API would:

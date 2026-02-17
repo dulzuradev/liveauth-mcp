@@ -11,6 +11,9 @@ import fetch from 'node-fetch';
 
 const LIVEAUTH_API_BASE = process.env.LIVEAUTH_API_BASE || 'https://api.liveauth.app';
 
+// Store JWT after confirm (in-memory for the session)
+let cachedJwt: string | null = null;
+
 // MCP API response types
 interface McpStartResponse {
   quoteId: string;
@@ -36,6 +39,17 @@ interface McpChargeResponse {
   status: 'ok' | 'deny';
   callsUsed: number;
   satsUsed: number;
+}
+
+interface McpUsageResponse {
+  status: string;
+  callsUsed: number;
+  satsUsed: number;
+  maxSatsPerDay: number;
+  remainingBudgetSats: number;
+  maxCallsPerMinute: number;
+  expiresAt: string;
+  dayWindowStart: string | null;
 }
 
 interface McpErrorResponse {
@@ -109,6 +123,15 @@ const TOOLS: Tool[] = [
         },
       },
       required: ['callCostSats'],
+    },
+  },
+  {
+    name: 'liveauth_mcp_usage',
+    description: 'Query current usage and remaining budget for the MCP session. Use this to check how many sats and calls have been used without making a charge.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
     },
   },
 ];
@@ -219,11 +242,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'liveauth_mcp_charge': {
         const { callCostSats } = args as { callCostSats: number };
 
+        const authHeaders: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (cachedJwt) {
+          authHeaders['Authorization'] = `Bearer ${cachedJwt}`;
+        }
+
         const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/charge`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: authHeaders,
           body: JSON.stringify({
             callCostSats,
           }),
@@ -248,6 +276,36 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             isError: true,
           };
         }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'liveauth_mcp_usage': {
+        const authHeaders: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (cachedJwt) {
+          authHeaders['Authorization'] = `Bearer ${cachedJwt}`;
+        }
+
+        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/usage`, {
+          method: 'GET',
+          headers: authHeaders,
+        });
+
+        if (!response.ok) {
+          const error = await response.json() as McpErrorResponse;
+          throw new Error(error.error_description || `Usage query failed: ${response.statusText}`);
+        }
+
+        const result = await response.json() as McpUsageResponse;
 
         return {
           content: [
