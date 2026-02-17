@@ -35,12 +35,15 @@ Add to your `claude_desktop_config.json`:
       "command": "npx",
       "args": ["-y", "@liveauth-labs/mcp-server"],
       "env": {
-        "LIVEAUTH_API_BASE": "https://api.liveauth.app"
+        "LIVEAUTH_API_BASE": "https://api.liveauth.app",
+        "LIVEAUTH_API_KEY": "your-project-public-key"
       }
     }
   }
 }
 ```
+
+**For demo mode (no API key required):** Simply omit the `LIVEAUTH_API_KEY` environment variable.
 
 ### Other MCP Clients
 

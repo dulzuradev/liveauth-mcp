@@ -10,9 +10,21 @@ import {
 import fetch from 'node-fetch';
 
 const LIVEAUTH_API_BASE = process.env.LIVEAUTH_API_BASE || 'https://api.liveauth.app';
+const LIVEAUTH_API_KEY = process.env.LIVEAUTH_API_KEY || '';
 
 // Store JWT after confirm (in-memory for the session)
 let cachedJwt: string | null = null;
+
+// Helper to build auth headers (optional API key)
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (LIVEAUTH_API_KEY) {
+    headers['X-LW-Public'] = LIVEAUTH_API_KEY;
+  }
+  return headers;
+}
 
 // MCP API response types
 interface McpStartResponse {
@@ -218,9 +230,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/start`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             forceLightning: forceLightning ?? false,
           }),
@@ -266,9 +276,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/confirm`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify(body),
         });
 
@@ -394,9 +402,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/status/${quoteId}`, {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: getAuthHeaders(),
         });
 
         if (!response.ok) {
