@@ -179,9 +179,49 @@ var app = builder.Build();
 // --------------------------------------------------
 using (var scope = app.Services.CreateScope())
 {
-    scope.ServiceProvider
-        .GetRequiredService<LiveAuthDbContext>()
-        .Database.EnsureCreated();
+    var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+    db.Database.EnsureCreated();
+    
+    // Create MCP tables if they don't exist (for existing databases)
+    if (db.Database.IsSqlite())
+    {
+        var connection = db.Database.GetDbConnection();
+        connection.Open();
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"
+            CREATE TABLE IF NOT EXISTS McpGateSessions (
+                Id TEXT PRIMARY KEY,
+                ProjectId TEXT NOT NULL,
+                PowChallengeHex TEXT,
+                PowDifficultyBits INTEGER,
+                PowExpiresAtUnix INTEGER,
+                PowSignature TEXT,
+                LightningInvoice TEXT,
+                LightningPaymentHash TEXT,
+                SatsPerCallAtStart INTEGER NOT NULL,
+                Status TEXT NOT NULL,
+                CreatedAt TEXT NOT NULL,
+                ExpiresAt TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS McpGateTokens (
+                Id TEXT PRIMARY KEY,
+                ProjectId TEXT NOT NULL,
+                SessionId TEXT NOT NULL,
+                JwtId TEXT NOT NULL,
+                RefreshToken TEXT,
+                IssuedAt TEXT NOT NULL,
+                ExpiresAt TEXT NOT NULL,
+                CallsUsed INTEGER NOT NULL,
+                SatsUsed INTEGER NOT NULL,
+                MaxCallsPerMinute INTEGER NOT NULL,
+                MaxSatsPerDay INTEGER NOT NULL,
+                DayWindowStart TEXT NOT NULL,
+                Status TEXT NOT NULL,
+                CreatedAt TEXT NOT NULL
+            );
+        ";
+        cmd.ExecuteNonQuery();
+    }
 }
 
 // --------------------------------------------------
