@@ -81,7 +81,7 @@
   <!-- ============================================
        ONBOARDING WIZARD (logged in, no projects)
        ============================================ -->
-  <div class="onboarding-wrapper" *ngIf="loggedIn && projects.length === 0 && !loading">
+  <div class="onboarding-wrapper" *ngIf="loggedIn && !hasCompletedOnboarding && !loading">
     <div class="onboarding-card">
       <!-- Step indicator -->
       <div class="onboarding-steps">

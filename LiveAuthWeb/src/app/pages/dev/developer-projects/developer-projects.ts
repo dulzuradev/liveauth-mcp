@@ -79,6 +79,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
 
   // 🎯 Onboarding State
   onboardingStep = 1;
+  hasCompletedOnboarding = false;
   selectedUseCase: 'agent-auth' | 'micropayment' | 'bot-mgmt' | 'custom' | '' = '';
 
   copyToClipboard(text: string) {
@@ -415,6 +416,10 @@ console.log('onTimeRangeChange', range);
         this.projects = res.projects ?? [];
         this.selectedProject = this.projects.find(p => p.projectId == this.selectedProject?.projectId) ?? null;
         this.loading = false;
+        // Mark onboarding complete if user has projects
+        if (this.projects.length > 0) {
+          this.hasCompletedOnboarding = true;
+        }
       },
       error: (err) => {
         this.loading = false;
