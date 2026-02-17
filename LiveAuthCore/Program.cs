@@ -45,7 +45,13 @@ else
 // --------------------------------------------------
 // Core services
 // --------------------------------------------------
-builder.Services.AddControllers().AddApplicationPart(typeof(HealthController).Assembly);
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Accept camelCase from clients
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    })
+    .AddApplicationPart(typeof(HealthController).Assembly);
 
 builder.Services.AddSingleton<StripeService>();
 builder.Services.AddSingleton<OpenNodeService>();
