@@ -108,9 +108,12 @@ Submit the solved proof-of-work challenge to receive a JWT authentication token.
 {
   "jwt": "eyJhbGc...",
   "expiresIn": 600,
-  "remainingBudgetSats": 10000
+  "remainingBudgetSats": 10000,
+  "refreshToken": "abc123def456..."
 }
 ```
+
+**Note:** Save the `refreshToken`! Use `liveauth_mcp_refresh` to get a new JWT without re-authenticating.
 
 ### `liveauth_mcp_charge`
 
@@ -175,6 +178,24 @@ Query current usage and remaining budget without making a charge. Use this to ch
   "dayWindowStart": "2026-02-17T00:00:00Z"
 }
 ```
+
+### `liveauth_mcp_refresh`
+
+Refresh the JWT token without re-authenticating. Use the refreshToken returned from confirm to get a new JWT when the current one expires.
+
+**Parameters:**
+- `refreshToken` (string): The refreshToken from the confirm response
+
+**Returns:**
+```json
+{
+  "jwt": "eyJhbGc...",
+  "expiresIn": 600,
+  "remainingBudgetSats": 9985
+}
+```
+
+**Note:** Save the refreshToken securely. You'll need it to extend the session without solving a new PoW or making another Lightning payment.
 
 ## Usage Example
 
