@@ -35,11 +35,10 @@ public class PublicKeyAuthMiddleware
             await _next(context);
             return;
         }
-        // Only apply to PoW and MCP endpoints
+        // Only apply to PoW endpoints (not MCP - it handles auth itself)
         if (
             !context.Request.Path.StartsWithSegments("/api/public/pow") &&
-            !context.Request.Path.StartsWithSegments("/api/public/auth") &&
-            !context.Request.Path.StartsWithSegments("/api/mcp")
+            !context.Request.Path.StartsWithSegments("/api/public/auth")
         )
         {
             await _next(context);
