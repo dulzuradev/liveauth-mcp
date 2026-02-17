@@ -39,6 +39,13 @@ interface McpConfirmResponse {
   expiresIn: number;
   remainingBudgetSats: number;
   paymentStatus?: 'pending' | 'paid';
+  refreshToken?: string;
+}
+
+interface McpRefreshResponse {
+  jwt: string;
+  expiresIn: number;
+  remainingBudgetSats: number;
 }
 
 interface McpStatusResponse {
@@ -161,6 +168,20 @@ const TOOLS: Tool[] = [
       required: [],
     },
   },
+  {
+    name: 'liveauth_mcp_refresh',
+    description: 'Refresh the JWT token without re-authenticating. Use the refreshToken returned from confirm to get a new JWT.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        refreshToken: {
+          type: 'string',
+          description: 'The refreshToken from the confirm response',
+        },
+      },
+      required: ['refreshToken'],
+    },
+  },
 ];
 
 // Create MCP server
@@ -275,6 +296,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           cachedJwt = result.jwt;
         }
 
+        // Log refresh token for user (but don't cache it)
+        if (result.refreshToken) {
+          console.error(`Refresh token: ${result.refreshToken} (save this to refresh without re-auth)`);
+        }
+
         return {
           content: [
             {
@@ -379,6 +405,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const result = await response.json() as McpStatusResponse;
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'liveauth_mcp_refresh': {
+        const { refreshToken } = args as { refreshToken: string };
+
+        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/refresh`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            refreshToken,
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json() as McpErrorResponse;
+          throw new Error(error.error_description || `Refresh failed: ${response.statusText}`);
+        }
+
+        const result = await response.json() as McpRefreshResponse;
+
+        // Cache the new JWT
+        cachedJwt = result.jwt;
 
         return {
           content: [
