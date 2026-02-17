@@ -5,10 +5,10 @@ Model Context Protocol (MCP) server for LiveAuth authentication. Enables AI agen
 ## What is This?
 
 This MCP server allows AI agents (Claude, GPT, AutoGPT, etc.) to:
-- Request proof-of-work challenges
+- Start an MCP session and get a proof-of-work challenge
 - Solve challenges to prove computational work
-- Fallback to Lightning Network payments when needed
 - Receive JWT tokens for authenticated API access
+- Meter API usage with sats per call
 
 ## Installation
 
@@ -52,67 +52,102 @@ liveauth-mcp
 
 ## Available Tools
 
-### `liveauth_get_challenge`
+### `liveauth_mcp_start`
 
-Get a proof-of-work challenge for authentication.
+Start a new LiveAuth MCP session and get a proof-of-work challenge.
 
 **Parameters:**
-- `projectPublicKey` (string): Your LiveAuth project public key (starts with `la_pk_`)
+- `forceLightning` (boolean, optional): Request Lightning payment instead of PoW (not yet implemented)
 
-**Returns:** Challenge object with difficulty, target, expiration, and signature
-
-**Example:**
-```typescript
+**Returns:**
+```json
 {
-  projectPublicKey: "la_pk_abc123...",
-  challengeHex: "a1b2c3...",
-  targetHex: "0000ffff...",
-  difficultyBits: 18,
-  expiresAtUnix: 1234567890,
-  sig: "signature..."
+  "quoteId": "uuid-of-session",
+  "powChallenge": {
+    "projectId": "guid",
+    "projectPublicKey": "la_pk_...",
+    "challengeHex": "a1b2c3...",
+    "targetHex": "0000ffff...",
+    "difficultyBits": 18,
+    "expiresAtUnix": 1234567890,
+    "signature": "sig..."
+  },
+  "invoice": null
 }
 ```
 
-### `liveauth_verify_pow`
+### `liveauth_mcp_confirm`
 
-Verify a solved proof-of-work challenge and receive JWT token.
-
-**Parameters:**
-- `projectPublicKey` (string): Your project public key
-- `challengeHex` (string): Challenge from get_challenge
-- `nonce` (number): Solution nonce
-- `hashHex` (string): Resulting hash
-- `expiresAtUnix` (number): Expiration from challenge
-- `difficultyBits` (number): Difficulty from challenge
-- `sig` (string): Signature from challenge
-
-**Returns:** JWT authentication token or fallback instruction
-
-### `liveauth_start_lightning`
-
-Start Lightning Network payment authentication as fallback.
+Submit the solved proof-of-work challenge to receive a JWT authentication token.
 
 **Parameters:**
-- `projectPublicKey` (string): Your project public key
+- `quoteId` (string): The quoteId from the start response
+- `challengeHex` (string): The challenge hex from the start response
+- `nonce` (number): The nonce that solves the PoW challenge
+- `hashHex` (string): The resulting hash (sha256 of `projectPublicKey:challengeHex:nonce`)
+- `expiresAtUnix` (number): Expiration timestamp from the challenge
+- `difficultyBits` (number): Difficulty bits from the challenge
+- `signature` (string): Signature from the challenge
 
-**Returns:** Lightning invoice and session details
+**Returns:**
+```json
+{
+  "jwt": "eyJhbGc...",
+  "expiresIn": 600,
+  "remainingBudgetSats": 10000
+}
+```
+
+### `liveauth_mcp_charge`
+
+Meter API usage after making an authenticated call. Call this with the cost in sats for each API request.
+
+**Parameters:**
+- `callCostSats` (number): Cost of the API call in sats
+
+**Returns:**
+```json
+{
+  "status": "ok",
+  "callsUsed": 5,
+  "satsUsed": 15
+}
+```
+
+If budget is exceeded:
+```json
+{
+  "status": "deny",
+  "callsUsed": 100,
+  "satsUsed": 1000
+}
+```
 
 ## Usage Example
 
 An AI agent authenticating to a LiveAuth-protected API would:
 
-1. Call `liveauth_get_challenge` with the project's public key
-2. Solve the PoW challenge (compute nonce that produces hash below target)
-3. Call `liveauth_verify_pow` with the solution
-4. Receive JWT token
-5. Use token in `Authorization: Bearer <token>` header for API requests
+1. Call `liveauth_mcp_start` to get a PoW challenge and quoteId
+2. Solve the PoW challenge:
+   - Compute `hash = sha256(projectPublicKey:challengeHex:nonce)`
+   - Find a nonce where hash < targetHex
+3. Call `liveauth_mcp_confirm` with the solution to receive a JWT
+4. Use the JWT in `Authorization: Bearer <token>` header for API requests
+5. After each API call, call `liveauth_mcp_charge` with the call cost in sats
 
-If PoW fails or isn't feasible, the agent can:
+## Authentication Flow
 
-1. Call `liveauth_start_lightning` to get a payment invoice
-2. Pay the Lightning invoice
-3. Poll for payment confirmation
-4. Receive JWT token
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  AI Agent       │────▶│  MCP Server     │────▶│  LiveAuth API   │
+│                 │     │                 │     │                 │
+│ 1. Start       │     │ /api/mcp/start  │     │ Returns PoW    │
+│ 2. Solve PoW   │     │                 │     │ challenge       │
+│ 3. Confirm     │     │ /api/mcp/confirm│     │ Returns JWT    │
+│ 4. API calls   │     │                 │     │                 │
+│ 5. Charge      │     │ /api/mcp/charge │     │ Meter usage    │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
 
 ## Why LiveAuth?
 
@@ -124,7 +159,7 @@ If PoW fails or isn't feasible, the agent can:
 **For AI Agents:**
 - Permissionless access (no account signup)
 - Cryptographically proven authentication
-- Choose between compute (PoW) or payment (Lightning)
+- Pay with compute (PoW) or sats
 
 ## Development
 
