@@ -52,20 +52,7 @@ public class McpGateController : ControllerBase
         if (HttpContext.Items.TryGetValue("LW_Project", out var value) && value is Project proj)
             return proj;
 
-        // Try to authenticate using API key from header
-        if (Request.Headers.TryGetValue("X-LW-Public", out var apiKeyHeader) && 
-            !string.IsNullOrWhiteSpace(apiKeyHeader.FirstOrDefault()))
-        {
-            // This is synchronous for now - in production you'd want async
-            var authResult = _apiKeyService.AuthenticatePublicKeyAsync(
-                apiKeyHeader.FirstOrDefault()!, 
-                CancellationToken.None).GetAwaiter().GetResult();
-
-            if (authResult.Status == ApiKeyAuthStatus.Ok)
-                return authResult.Project;
-        }
-
-        // Fallback to demo project if no API key provided
+        // Fallback to demo project if no API key provided or auth failed
         return GetDemoProjectAsync(CancellationToken.None).GetAwaiter().GetResult();
     }
 
