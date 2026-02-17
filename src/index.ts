@@ -25,14 +25,27 @@ interface McpStartResponse {
     difficultyBits: number;
     expiresAtUnix: number;
     signature: string;
-  };
-  invoice: null;
+  } | null;
+  invoice: {
+    bolt11: string;
+    amountSats: number;
+    expiresAtUnix: number;
+    paymentHash: string;
+  } | null;
 }
 
 interface McpConfirmResponse {
-  jwt: string;
+  jwt: string | null;
   expiresIn: number;
   remainingBudgetSats: number;
+  paymentStatus?: 'pending' | 'paid';
+}
+
+interface McpStatusResponse {
+  quoteId: string;
+  status: string;
+  paymentStatus: string | null;
+  expiresAt: string;
 }
 
 interface McpChargeResponse {
@@ -61,21 +74,35 @@ interface McpErrorResponse {
 const TOOLS: Tool[] = [
   {
     name: 'liveauth_mcp_start',
-    description: 'Start a new LiveAuth MCP session and get a proof-of-work challenge. Use this to begin the authentication flow.',
+    description: 'Start a new LiveAuth MCP session. Returns a PoW challenge (default) or Lightning invoice (if forceLightning=true).',
     inputSchema: {
       type: 'object',
       properties: {
         forceLightning: {
           type: 'boolean',
-          description: 'If true, request Lightning payment instead of PoW (not yet implemented)',
+          description: 'If true, request Lightning invoice instead of PoW challenge',
         },
       },
       required: [],
     },
   },
   {
+    name: 'liveauth_mcp_status',
+    description: 'Check the status of an MCP session. Use to poll for Lightning payment confirmation.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        quoteId: {
+          type: 'string',
+          description: 'The quoteId from the start response',
+        },
+      },
+      required: ['quoteId'],
+    },
+  },
+  {
     name: 'liveauth_mcp_confirm',
-    description: 'Submit the solved proof-of-work challenge to receive a JWT authentication token. The JWT is needed for subsequent API calls.',
+    description: 'Submit the solved proof-of-work challenge (or poll for Lightning payment) to receive a JWT. For Lightning, call with just quoteId to check/poll payment status.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -85,30 +112,30 @@ const TOOLS: Tool[] = [
         },
         challengeHex: {
           type: 'string',
-          description: 'The challenge hex from the start response',
+          description: 'The challenge hex from the start response (PoW only)',
         },
         nonce: {
           type: 'number',
-          description: 'The nonce that solves the PoW challenge',
+          description: 'The nonce that solves the PoW challenge (PoW only)',
         },
         hashHex: {
           type: 'string',
-          description: 'The resulting hash hex (sha256 of projectPublicKey:challengeHex:nonce)',
+          description: 'The resulting hash hex (PoW only)',
         },
         expiresAtUnix: {
           type: 'number',
-          description: 'Expiration timestamp from the challenge',
+          description: 'Expiration timestamp from the challenge (PoW only)',
         },
         difficultyBits: {
           type: 'number',
-          description: 'Difficulty bits from the challenge',
+          description: 'Difficulty bits from the challenge (PoW only)',
         },
         signature: {
           type: 'string',
-          description: 'Signature from the challenge',
+          description: 'Signature from the challenge (PoW only)',
         },
       },
-      required: ['quoteId', 'challengeHex', 'nonce', 'hashHex', 'expiresAtUnix', 'difficultyBits', 'signature'],
+      required: ['quoteId'],
     },
   },
   {
@@ -198,28 +225,30 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'liveauth_mcp_confirm': {
         const { quoteId, challengeHex, nonce, hashHex, expiresAtUnix, difficultyBits, signature } = args as {
           quoteId: string;
-          challengeHex: string;
-          nonce: number;
-          hashHex: string;
-          expiresAtUnix: number;
-          difficultyBits: number;
-          signature: string;
+          challengeHex?: string;
+          nonce?: number;
+          hashHex?: string;
+          expiresAtUnix?: number;
+          difficultyBits?: number;
+          signature?: string;
         };
+
+        const body: Record<string, unknown> = { quoteId };
+        
+        // Add PoW fields if provided
+        if (challengeHex) body.challengeHex = challengeHex;
+        if (nonce !== undefined) body.nonce = nonce;
+        if (hashHex) body.hashHex = hashHex;
+        if (expiresAtUnix) body.expiresAtUnix = expiresAtUnix;
+        if (difficultyBits) body.difficultyBits = difficultyBits;
+        if (signature) body.sig = signature;
 
         const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/confirm`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            quoteId,
-            challengeHex,
-            nonce,
-            hashHex,
-            expiresAtUnix,
-            difficultyBits,
-            sig: signature, // API uses 'sig' not 'signature'
-          }),
+          body: JSON.stringify(body),
         });
 
         if (!response.ok) {
@@ -228,6 +257,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const result = await response.json() as McpConfirmResponse;
+
+        // Handle Lightning pending status
+        if (result.paymentStatus === 'pending') {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Lightning payment pending. Poll with liveauth_mcp_status using quoteId: ${quoteId}`,
+              },
+            ],
+          };
+        }
+
+        // Cache JWT if we got one
+        if (result.jwt) {
+          cachedJwt = result.jwt;
+        }
 
         return {
           content: [
@@ -306,6 +352,33 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const result = await response.json() as McpUsageResponse;
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'liveauth_mcp_status': {
+        const { quoteId } = args as { quoteId: string };
+
+        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/status/${quoteId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          const error = await response.json() as McpErrorResponse;
+          throw new Error(error.error_description || `Status check failed: ${response.statusText}`);
+        }
+
+        const result = await response.json() as McpStatusResponse;
 
         return {
           content: [

@@ -54,12 +54,12 @@ liveauth-mcp
 
 ### `liveauth_mcp_start`
 
-Start a new LiveAuth MCP session and get a proof-of-work challenge.
+Start a new LiveAuth MCP session. Returns a PoW challenge by default, or a Lightning invoice if `forceLightning=true`.
 
 **Parameters:**
-- `forceLightning` (boolean, optional): Request Lightning payment instead of PoW (not yet implemented)
+- `forceLightning` (boolean, optional): If true, request Lightning invoice instead of PoW challenge
 
-**Returns:**
+**Returns (PoW):**
 ```json
 {
   "quoteId": "uuid-of-session",
@@ -73,6 +73,20 @@ Start a new LiveAuth MCP session and get a proof-of-work challenge.
     "signature": "sig..."
   },
   "invoice": null
+}
+```
+
+**Returns (Lightning):**
+```json
+{
+  "quoteId": "uuid-of-session",
+  "powChallenge": null,
+  "invoice": {
+    "bolt11": "lnbc...",
+    "amountSats": 50,
+    "expiresAtUnix": 1234567890,
+    "paymentHash": "abc123..."
+  }
 }
 ```
 
@@ -123,6 +137,25 @@ If budget is exceeded:
 }
 ```
 
+### `liveauth_mcp_status`
+
+Check the status of an MCP session. Use to poll for Lightning payment confirmation.
+
+**Parameters:**
+- `quoteId` (string): The quoteId from the start response
+
+**Returns:**
+```json
+{
+  "quoteId": "uuid-of-session",
+  "status": "pending",
+  "paymentStatus": "pending",
+  "expiresAt": "2026-02-17T12:00:00Z"
+}
+```
+
+When `paymentStatus` is "paid", the session is confirmed. Call `liveauth_mcp_confirm` again to get the JWT.
+
 ### `liveauth_mcp_usage`
 
 Query current usage and remaining budget without making a charge. Use this to check status before making API calls.
@@ -145,7 +178,7 @@ Query current usage and remaining budget without making a charge. Use this to ch
 
 ## Usage Example
 
-An AI agent authenticating to a LiveAuth-protected API would:
+### PoW Authentication
 
 1. Call `liveauth_mcp_start` to get a PoW challenge and quoteId
 2. Solve the PoW challenge:
@@ -154,6 +187,14 @@ An AI agent authenticating to a LiveAuth-protected API would:
 3. Call `liveauth_mcp_confirm` with the solution to receive a JWT
 4. Use the JWT in `Authorization: Bearer <token>` header for API requests
 5. After each API call, call `liveauth_mcp_charge` with the call cost in sats
+
+### Lightning Authentication
+
+1. Call `liveauth_mcp_start` with `forceLightning: true` to get a Lightning invoice
+2. Pay the BOLT11 invoice using your Lightning node/wallet
+3. Poll `liveauth_mcp_status` with the quoteId until paymentStatus is "paid"
+4. Call `liveauth_mcp_confirm` with just the quoteId to receive the JWT
+5. Use the JWT and call `liveauth_mcp_charge` as above
 
 ## Authentication Flow
 
