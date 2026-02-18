@@ -426,6 +426,39 @@ public class McpGateController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// LNURL-compatible endpoint for lnget. Returns the Lightning invoice for polling.
+    /// GET /api/mcp/lnurl/{quoteId}
+    /// </summary>
+    [HttpGet("lnurl/{quoteId}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetLnurl(string quoteId, CancellationToken ct)
+    {
+        var project = GetProject();
+        if (project == null) return Unauthorized();
+        if (!project.IsActive) return Forbid();
+
+        if (!Guid.TryParse(quoteId, out var sessionId))
+            return BadRequest("Invalid quoteId");
+
+        var session = await _db.McpGateSessions
+            .Where(s => s.Id == sessionId && s.ProjectId == project.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (session == null)
+            return NotFound();
+
+        if (string.IsNullOrWhiteSpace(session.LightningInvoice))
+            return BadRequest("No Lightning invoice for this session");
+
+        // Return lnget-compatible format
+        return Ok(new
+        {
+            pr = session.LightningInvoice,
+            routes = Array.Empty<string>()
+        });
+    }
+
     [HttpGet("status/{quoteId}")]
     public async Task<IActionResult> GetStatus(string quoteId, CancellationToken ct)
     {
