@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using LiveAuthCore.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace LiveAuthCore.Entities
 {
@@ -7,6 +8,8 @@ namespace LiveAuthCore.Entities
         public DbSet<LoginAttempt> LoginAttempts { get; set; }
 
         public DbSet<RevokedToken> RevokedTokens { get; set; }
+
+        public DbSet<MissionTask> MissionTasks { get; set; }
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
     }
