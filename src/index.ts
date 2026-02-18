@@ -107,7 +107,21 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'liveauth_mcp_status',
-    description: 'Check the status of an MCP session. Use to poll for Lightning payment confirmation.',
+    description: 'Check the status of an MCP session. Use to poll for Lightning payment confirmation. Also returns the invoice via lnurl compatibility.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        quoteId: {
+          type: 'string',
+          description: 'The quoteId from the start response',
+        },
+      },
+      required: ['quoteId'],
+    },
+  },
+  {
+    name: 'liveauth_mcp_lnurl',
+    description: 'Get the Lightning invoice for a session (lnget-compatible). Use this to retrieve the BOLT11 invoice for payment.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -411,6 +425,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const result = await response.json() as McpStatusResponse;
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'liveauth_mcp_lnurl': {
+        const { quoteId } = args as { quoteId: string };
+
+        // Use the new lnget-compatible endpoint
+        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/lnurl/${quoteId}`, {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        });
+
+        if (!response.ok) {
+          const error = await response.json() as McpErrorResponse;
+          throw new Error(error.error_description || `Lnurl fetch failed: ${response.statusText}`);
+        }
+
+        const result = await response.json() as { pr: string; routes: string[] };
 
         return {
           content: [
