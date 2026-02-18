@@ -5,6 +5,7 @@ import {DeveloperProjectsComponent} from './pages/dev/developer-projects/develop
 import {LandingPageComponent} from './pages/landing-page/landing-page';
 import {AdminComponent} from './pages/dev/admin-component/admin-component';
 import {SatsPrinterComponent} from './pages/sats-printer/sats-printer.component';
+import {KanbanBoardComponent} from './pages/mission/kanban-board.component';
 
 export const routes: Routes = [
   // Landing Page (new)
@@ -15,6 +16,9 @@ export const routes: Routes = [
 
   // Sats Printer
   { path: 'sats', component: SatsPrinterComponent },
+
+  // Mission Control (Kanban)
+  { path: 'mission', component: KanbanBoardComponent },
 
   // Developer console
   { path: 'dev/projects', component: DeveloperProjectsComponent },
