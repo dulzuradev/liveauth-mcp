@@ -162,6 +162,23 @@ Check the status of an MCP session. Use to poll for Lightning payment confirmati
 
 When `paymentStatus` is "paid", the session is confirmed. Call `liveauth_mcp_confirm` again to get the JWT.
 
+### `liveauth_mcp_lnurl`
+
+Get the Lightning invoice for a session (lnget-compatible). Use this to retrieve the BOLT11 invoice for payment with any Lightning wallet.
+
+**Parameters:**
+- `quoteId` (string): The quoteId from the start response
+
+**Returns:**
+```json
+{
+  "pr": "lnbc2100n1...",
+  "routes": []
+}
+```
+
+**Note:** This is compatible with lnget and other Lightning payment tools. Use this to poll for the invoice when `liveauth_mcp_confirm` returns "payment pending".
+
 ### `liveauth_mcp_usage`
 
 Query current usage and remaining budget without making a charge. Use this to check status before making API calls.
@@ -215,10 +232,11 @@ Refresh the JWT token without re-authenticating. Use the refreshToken returned f
 ### Lightning Authentication
 
 1. Call `liveauth_mcp_start` with `forceLightning: true` to get a Lightning invoice
-2. Pay the BOLT11 invoice using your Lightning node/wallet
-3. Poll `liveauth_mcp_status` with the quoteId until paymentStatus is "paid"
-4. Call `liveauth_mcp_confirm` with just the quoteId to receive the JWT
-5. Use the JWT and call `liveauth_mcp_charge` as above
+2. Use `liveauth_mcp_lnurl` (or poll `liveauth_mcp_status`) to get the BOLT11 invoice
+3. Pay the invoice using your Lightning node/wallet
+4. Poll `liveauth_mcp_status` with the quoteId until paymentStatus is "paid"
+5. Call `liveauth_mcp_confirm` with just the quoteId to receive the JWT
+6. Use the JWT and call `liveauth_mcp_charge` as above
 
 ## Authentication Flow
 
