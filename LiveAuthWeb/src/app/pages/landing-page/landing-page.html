@@ -11,10 +11,11 @@
   <span class="spacer"></span>
 
   <nav class="la-nav">
-    <a href="#problem">Problem</a>
-    <a href="#solution">Solution</a>
-    <a href="#how">How it Works</a>
-    <a href="#comparison">Comparison</a>
+    <a href="#products">Products</a>
+    <a href="#core">Core Auth</a>
+    <a href="#mcp">MCP Server</a>
+    <a href="#sats-printer">Sats Printer</a>
+    <a href="#l402">L402</a>
     <a href="#pricing">Pricing</a>
     <a routerLink="/sats">🖨️ Sats Printer</a>
     <a routerLink="/mission">🎯 Mission Control</a>
@@ -39,7 +40,6 @@
   <div class="hero-inner">
     <!-- COPY -->
     <div class="hero-copy">
-      <!-- Single focused chip -->
       <mat-chip-set class="hero-chipset">
         <mat-chip selected color="accent">
           <mat-icon>smart_toy</mat-icon>
@@ -47,21 +47,14 @@
         </mat-chip>
       </mat-chip-set>
 
-      <!-- New Sats Printer Badge -->
-      <mat-chip-set class="hero-chipset">
-        <mat-chip selected color="accent">
-          <mat-icon>print</mat-icon>
-          Sats Printer: Instant Bitcoin to Agents
-        </mat-chip>
-      </mat-chip-set>
-
       <h1>
-        Authentication & Payments for Autonomous Agents
-        <span class="glow">No CAPTCHAs. No OAuth headaches. Just Lightning-fast verification.</span>
+        Authentication & Payments for AI Agents
+        <span class="glow">No CAPTCHAs. No OAuth. Just cryptographic verification.</span>
       </h1>
 
       <p class="hero-sub">
-        Stop fighting bots. Start empowering them. LiveAuth is the first authentication platform built for AI agents—with cryptographic proof-of-work and Bitcoin Lightning micropayments.
+        LiveAuth provides everything you need to build agent-powered products. 
+        Authenticate agents, monetize your API, and pay agents in sats.
       </p>
 
       <div class="hero-actions">
@@ -73,14 +66,25 @@
           <mat-icon>play_arrow</mat-icon>
           View Demo
         </button>
-        <button mat-stroked-button class="ghost big" href="https://github.com/dulzuradev/liveauth-js/blob/main/README.md" target="_blank">
-          <mat-icon>description</mat-icon>
-          Read Docs
-        </button>
       </div>
 
-      <div class="trust-bar">
-        <span class="trust-text">Trusted by agent developers building the future of autonomous commerce</span>
+      <!-- PRODUCT CARDS -->
+      <div class="product-cards">
+        <div class="product-card" routerLink="/dev/projects">
+          <mat-icon>verified_user</mat-icon>
+          <div class="product-card-title">Core Auth</div>
+          <div class="product-card-desc">PoW + Lightning verification</div>
+        </div>
+        <div class="product-card" routerLink="/dev/projects">
+          <mat-icon>smart_toy</mat-icon>
+          <div class="product-card-title">MCP Server</div>
+          <div class="product-card-desc">AI agent authentication</div>
+        </div>
+        <div class="product-card" routerLink="/dev/projects">
+          <mat-icon>payments</mat-icon>
+          <div class="product-card-title">L402</div>
+          <div class="product-card-desc">Per-request Lightning payments</div>
+        </div>
       </div>
     </div>
 
@@ -102,6 +106,227 @@
     </div>
   </div>
 </section>
+
+<!-- ================= PRODUCTS OVERVIEW ================= -->
+<section id="products" class="section">
+  <h2>One Platform, Three Products</h2>
+  <p class="section-sub">
+    Everything you need to build in the agent economy.
+  </p>
+
+  <div class="products-grid">
+    <mat-card class="product-block">
+      <div class="product-icon">
+        <mat-icon>verified_user</mat-icon>
+      </div>
+      <h3>Core Auth</h3>
+      <p>Proof-of-work verification that humans pass (instantly) and bots can't cheat affordably. Lightning fallback for premium users.</p>
+      <ul>
+        <li>~200ms for real devices</li>
+        <li>No cookies or fingerprinting</li>
+        <li>21 sat Lightning fallback</li>
+      </ul>
+      <a href="#core" class="product-link">Learn more →</a>
+    </mat-card>
+
+    <mat-card class="product-block">
+      <div class="product-icon">
+        <mat-icon>smart_toy</mat-icon>
+      </div>
+      <h3>MCP Server</h3>
+      <p>Model Context Protocol server that authenticates AI agents. Works with Claude, GPT, AutoGPT, and any MCP client.</p>
+      <ul>
+        <li>Drop-in for Claude Desktop</li>
+        <li>JWT token generation</li>
+        <li>Metered API access</li>
+      </ul>
+      <a href="#mcp" class="product-link">Learn more →</a>
+    </mat-card>
+
+    <mat-card class="product-block">
+      <div class="product-icon">
+        <mat-icon>payments</mat-icon>
+      </div>
+      <h3>L402 Payments</h3>
+      <p>Monetize your API with per-request Lightning payments. Agents pay as they go—no subscriptions required.</p>
+      <ul>
+        <li>1-10 sats per call</li>
+        <li>Automatic payment flow</li>
+        <li>Build agent economies</li>
+      </ul>
+      <a href="#l402" class="product-link">Learn more →</a>
+    </mat-card>
+  </div>
+</section>
+
+<!-- ================= CORE AUTH ================= -->
+<section id="core" class="section">
+  <h2>Core Auth: Bot Detection That Actually Works</h2>
+  <p class="section-sub">
+    Proof-of-work verification. Real humans pass instantly. Bots pay the economic cost.
+  </p>
+
+  <div class="feature-grid">
+    <mat-card class="feature">
+      <mat-icon>bolt</mat-icon>
+      <h3>~200ms Verification</h3>
+      <ul class="features-list">
+        <li>Cryptographic PoW challenge in browser</li>
+        <li>Real devices solve in 200-800ms</li>
+        <li>Bots consume CPU/battery cost</li>
+      </ul>
+    </mat-card>
+
+    <mat-card class="feature">
+      <mat-icon>flash_on</mat-icon>
+      <h3>Lightning Fallback</h3>
+      <ul class="features-list">
+        <li>21 sats (~0.3¢) payment option</li>
+        <li>Real economic cost to attackers</li>
+        <li>Most humans never see this</li>
+      </ul>
+    </mat-card>
+
+    <mat-card class="feature">
+      <mat-icon>security</mat-icon>
+      <h3>Privacy-First</h3>
+      <ul class="features-list">
+        <li>No cookies or fingerprinting</li>
+        <li>No behavioral tracking</li>
+        <li>JWT tokens, no user identity required</li>
+      </ul>
+    </mat-card>
+  </div>
+</section>
+
+<!-- ================= MCP SERVER ================= -->
+<section id="mcp" class="section alt">
+  <h2>MCP Server: AI Agent Authentication</h2>
+  <p class="section-sub">
+    Add LiveAuth to Claude Desktop, GPT, or any MCP client. Agents get authenticated automatically.
+  </p>
+
+  <div class="feature-grid">
+    <mat-card class="feature">
+      <mat-icon>integration_instructions</mat-icon>
+      <h3>Drop-in MCP Server</h3>
+      <ul class="features-list">
+        <li>Works with Claude, GPT, AutoGPT</li>
+        <li>npm install -g @liveauth-labs/mcp-server</li>
+        <li>One config file</li>
+      </ul>
+    </mat-card>
+
+    <mat-card class="feature">
+      <mat-icon>vpn_key</mat-icon>
+      <h3>Automatic JWT Tokens</h3>
+      <ul class="features-list">
+        <li>Agents receive valid JWT on success</li>
+        <li>Token includes usage limits</li>
+        <li>Drop-in for existing APIs</li>
+      </ul>
+    </mat-card>
+
+    <mat-card class="feature">
+      <mat-icon>speed</mat-icon>
+      <h3>Metered Access</h3>
+      <ul class="features-list">
+        <li>Track API calls per agent</li>
+        <li>Sats per call pricing</li>
+        <li>Usage analytics dashboard</li>
+      </ul>
+    </mat-card>
+  </div>
+</section>
+
+<!-- ================= SATS PRINTER ================= -->
+<section id="sats-printer" class="section">
+  <h2>Sats Printer: Fund Agents Instantly</h2>
+  <p class="section-sub">
+    Print sats to any Lightning address. Instant Bitcoin for autonomous agents.
+  </p>
+
+  <div class="feature-grid">
+    <mat-card class="feature">
+      <mat-icon>print</mat-icon>
+      <h3>One-Click Printing</h3>
+      <ul class="features-list">
+        <li>Enter Lightning address</li>
+        <li>Click print → sats arrive</li>
+        <li>No wallet management</li>
+      </ul>
+    </mat-card>
+
+    <mat-card class="feature">
+      <mat-icon>account_balance_wallet</mat-icon>
+      <h3>Agent Wallets</h3>
+      <ul class="features-list">
+        <li>Give agents their own wallets</li>
+        <li>Top up programmatically</li>
+        <li>Track balances per agent</li>
+      </ul>
+    </mat-card>
+
+    <mat-card class="feature">
+      <mat-icon>trending_up</mat-icon>
+      <h3>Power Agent Economies</h3>
+      <ul class="features-list">
+        <li>Agents can earn and spend</li>
+        <li>Micro-transactions at scale</li>
+        <li>Build autonomous marketplaces</li>
+      </ul>
+    </mat-card>
+  </div>
+
+  <div class="cta-box">
+    <button mat-raised-button class="primary big" routerLink="/sats">
+      <mat-icon>print</mat-icon>
+      Try Sats Printer
+    </button>
+  </div>
+</section>
+
+<!-- ================= L402 PAYMENTS ================= -->
+<section id="l402" class="section alt">
+  <h2>L402: Per-Request Lightning Payments</h2>
+  <p class="section-sub">
+    Monetize your API with satoshi-level precision. Agents pay as they go.
+  </p>
+
+  <div class="feature-grid">
+    <mat-card class="feature">
+      <mat-icon>monetization_on</mat-icon>
+      <h3>1-10 Sats per Call</h3>
+      <ul class="features-list">
+        <li>MCP endpoints: 10 sats</li>
+        <li>Standard endpoints: 1 sat</li>
+        <li>Configurable pricing</li>
+      </ul>
+    </mat-card>
+
+    <mat-card class="feature">
+      <mat-icon>autorenew</mat-icon>
+      <h3>Automatic Payment Flow</h3>
+      <ul class="features-list">
+        <li>402 Payment Required response</li>
+        <li>Client pays invoice automatically</li>
+        <li>Token valid for 1 hour</li>
+      </ul>
+    </mat-card>
+
+    <mat-card class="feature">
+      <mat-icon>show_chart</mat-icon>
+      <h3>Build Agent Economies</h3>
+      <ul class="features-list">
+        <li>Pay-per-use API pricing</li>
+        <li>No subscriptions required</li>
+        <li>Real-time revenue tracking</li>
+      </ul>
+    </mat-card>
+  </div>
+</section>
+
+
 
 <!-- ================= PROBLEM SECTION ================= -->
 <section id="problem" class="section">
