@@ -60,6 +60,7 @@ builder.Services.AddSingleton<PowChallengeSigner>();
 builder.Services.AddSingleton<PowRateLimitService>();
 
 builder.Services.AddScoped<LightningService>();
+builder.Services.AddScoped<L402Service>(); // L402 Payment Gateway
 builder.Services.AddScoped<ApiKeyService>();
 builder.Services.AddScoped<DeveloperVerificationService>();
 builder.Services.AddScoped<DeveloperAuthService>();
@@ -225,6 +226,41 @@ using (var scope = app.Services.CreateScope())
                 Status TEXT NOT NULL,
                 CreatedAt TEXT NOT NULL
             );
+            -- Recreate MintRequests table if it exists (drop and recreate with all columns)
+            DROP TABLE IF EXISTS MintRequests;
+            CREATE TABLE MintRequests (
+                Id TEXT PRIMARY KEY,
+                UserId TEXT NOT NULL,
+                MintUrl TEXT NOT NULL,
+                Amount INTEGER NOT NULL,
+                PaymentHash TEXT,
+                Invoice TEXT,
+                Status TEXT NOT NULL,
+                CreatedAt TEXT NOT NULL,
+                UpdatedAt TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS UserEcashBalances (
+                Id TEXT PRIMARY KEY,
+                UserId TEXT NOT NULL,
+                MintUrl TEXT NOT NULL,
+                Balance INTEGER NOT NULL,
+                UpdatedAt TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS MintProviders (
+                Id TEXT PRIMARY KEY,
+                Name TEXT NOT NULL,
+                Url TEXT NOT NULL,
+                IsActive INTEGER NOT NULL,
+                CreatedAt TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS EcashProofs (
+                Id TEXT PRIMARY KEY,
+                MintUrl TEXT NOT NULL,
+                Amount INTEGER NOT NULL,
+                Secret TEXT NOT NULL,
+                C TEXT NOT NULL,
+                CreatedAt TEXT NOT NULL
+            );
         ";
         cmd.ExecuteNonQuery();
     }
@@ -274,6 +310,7 @@ app.UseAuthorization();
 
 app.UseMiddleware<PublicKeyAuthMiddleware>();
 app.UseMiddleware<ApiKeyAuthMiddleware>();
+app.UseL402(); // L402 Payment Gateway
 
 app.MapControllers();
 app.Run();

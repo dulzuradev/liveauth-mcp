@@ -20,6 +20,42 @@ public class SatsPrinterController : ControllerBase
     }
 
     /// <summary>
+    /// Demo: Mint ecash without authentication (for testing/demos)
+    /// </summary>
+    [HttpPost("demo/print")]
+    public async Task<IActionResult> DemoPrintSats([FromBody] PrintSatsRequest request)
+    {
+        if (request.Amount <= 0)
+            return BadRequest("Amount must be positive.");
+
+        try
+        {
+            // Use a demo user ID for unauthenticated requests
+            var userId = "demo-user";
+            
+            var result = await _satsPrinterService.MintSatsAsync(
+                userId, 
+                request.Amount, 
+                request.MintUrl ?? "https://mint.minibits.cash/Bitcoin");
+            
+            return Ok(new
+            {
+                id = result.Id,
+                status = result.Status.ToString(),
+                amount = result.Amount,
+                mintUrl = result.MintUrl,
+                invoice = result.Invoice,
+                paymentHash = result.PaymentHash
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error printing sats for demo");
+            return StatusCode(500, $"Error printing sats: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// NUT-04: Mint ecash by paying a Lightning invoice
     /// </summary>
     [HttpPost("print")]
