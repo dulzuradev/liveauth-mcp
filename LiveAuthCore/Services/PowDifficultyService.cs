@@ -17,6 +17,10 @@ public sealed class PowDifficultyService
         Project project,
         CancellationToken ct)
     {
+        // Demo project gets easy difficulty for testing
+        if (project.Id == Guid.Parse("B842CAE1-E06E-480F-BE76-A64A75E0F871"))
+            return 10;
+
         var baseBits = project.Plan == "free" ? 17 : 19;
 
         var stats = await GetStatsAsync(project.Id, ct);
