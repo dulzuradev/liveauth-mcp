@@ -305,11 +305,14 @@ app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCors("LiveAuthCors");
 
+// Custom auth middleware BEFORE ASP.NET authentication
+// This handles public endpoints (pow, auth) that need API key validation
+app.UseMiddleware<PublicKeyAuthMiddleware>();
+app.UseMiddleware<ApiKeyAuthMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseMiddleware<PublicKeyAuthMiddleware>();
-app.UseMiddleware<ApiKeyAuthMiddleware>();
 app.UseL402(); // L402 Payment Gateway
 
 app.MapControllers();
