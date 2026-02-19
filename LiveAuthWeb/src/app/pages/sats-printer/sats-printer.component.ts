@@ -93,7 +93,7 @@ export class SatsPrinterComponent {
     const payload: any = { amount: this.amount };
     if (this.mintUrl?.trim()) payload.mint_url = this.mintUrl.trim();
 
-    this.http.post('/api/sats/print', payload).subscribe({
+    this.http.post('/api/SatsPrinter/demo/print', payload).subscribe({
       next: (data) => { this.result = data; this.loading = false; },
       error: (err) => { this.error = err?.error?.message || 'Error printing sats'; this.loading = false; }
     });
