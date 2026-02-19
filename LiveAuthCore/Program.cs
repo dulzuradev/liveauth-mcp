@@ -196,6 +196,15 @@ using (var scope = app.Services.CreateScope())
         connection.Open();
         using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
+            CREATE TABLE IF NOT EXISTS PowUsedNonces (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ProjectId TEXT NOT NULL,
+                ChallengeHex TEXT NOT NULL,
+                Nonce TEXT NOT NULL,
+                ExpiresAt INTEGER NOT NULL,
+                UsedAt TEXT NOT NULL
+            );
+            
             CREATE TABLE IF NOT EXISTS McpGateSessions (
                 Id TEXT PRIMARY KEY,
                 ProjectId TEXT NOT NULL,
