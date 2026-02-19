@@ -220,7 +220,8 @@ public async Task<IActionResult> Verify(
     int difficultyBits = req.DifficultyBits;
 
     // Sanity check: difficulty must be in valid range (prevents tampered requests)
-    if (difficultyBits < 16 || difficultyBits > 24)
+    // Allow 8-24 bits (demo can use lower difficulty)
+    if (difficultyBits < 8 || difficultyBits > 24)
     {
         _logger.LogWarning("PoW verify failed: difficultyBits {Bits} out of range for project {ProjectId}.", difficultyBits, project.Id);
         return BadRequest("Invalid difficulty.");
