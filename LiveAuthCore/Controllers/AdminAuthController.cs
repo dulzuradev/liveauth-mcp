@@ -250,15 +250,57 @@ public class AdminAuthController : ControllerBase
 }
 
 // Request/Response DTOs
-public record AdminStatusResponse(bool IsAuthenticated, string? Username = null, bool? IsOwner = null);
+public class AdminStatusResponse
+{
+    public bool IsAuthenticated { get; set; }
+    public string? Username { get; set; }
+    public bool? IsOwner { get; set; }
+}
 
-public record AdminPaymentResponse(Guid SessionId, string Invoice, long AmountSats, bool IsSetup, long ExpiresAtUnix);
+public class AdminPaymentResponse
+{
+    public Guid SessionId { get; set; }
+    public string Invoice { get; set; } = string.Empty;
+    public long AmountSats { get; set; }
+    public bool IsSetup { get; set; }
+    public long ExpiresAtUnix { get; set; }
+}
 
-public record AdminVerifyRequest(Guid SessionId);
-public record AdminVerifyResponse(bool Paid, bool? CanSetPassword = null, string? Error = null);
+public class AdminVerifyRequest
+{
+    public Guid SessionId { get; set; }
+}
 
-public record AdminSetupRequest(string Username, string Password);
-public record AdminSetupResponse(bool Success, string Token, string Username);
+public class AdminVerifyResponse
+{
+    public bool Paid { get; set; }
+    public bool? CanSetPassword { get; set; }
+    public string? Error { get; set; }
+}
 
-public record AdminLoginRequest(string Username, string Password);
-public record AdminLoginResponse(bool Success, string? Token = null, string? Username = null, string? Error = null);
+public class AdminSetupRequest
+{
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+public class AdminSetupResponse
+{
+    public bool Success { get; set; }
+    public string Token { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+}
+
+public class AdminLoginRequest
+{
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+public class AdminLoginResponse
+{
+    public bool Success { get; set; }
+    public string? Token { get; set; }
+    public string? Username { get; set; }
+    public string? Error { get; set; }
+}
