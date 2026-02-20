@@ -3,7 +3,7 @@
   <!-- ================= HEADER ================= -->
   <header class="admin-header">
     <div class="title">
-      <h1>LiveAuth Admin Dashboard</h1>
+      <h1>⚡ LiveAuth Admin</h1>
       <div class="status-row">
         <span class="status ok">
           <i class="pi pi-check-circle"></i>
@@ -183,46 +183,59 @@
       </div>
     </section>
 
+    <!-- ================= TABS ================= -->
+    <div class="tabs">
+      <button 
+        class="tab" 
+        [class.active]="activeTab === 'projects'"
+        (click)="activeTab = 'projects'">
+        <i class="pi pi-folder"></i> Projects
+      </button>
+      <button 
+        class="tab" 
+        [class.active]="activeTab === 'subscriptions'"
+        (click)="activeTab = 'subscriptions'">
+        <i class="pi pi-credit-card"></i> Subscriptions
+      </button>
+      <button 
+        class="tab" 
+        [class.active]="activeTab === 'events'"
+        (click)="activeTab = 'events'">
+        <i class="pi pi-history"></i> Events
+      </button>
+    </div>
+
     <!-- ================= DATA TABLES ================= -->
-    <section class="tables-grid">
+    <section class="tables-grid" *ngIf="activeTab === 'projects'">
 
       <!-- Project Usage Table -->
-      <div class="table-card">
-        <div class="card-header">
+      <div class="table-card" style="grid-column: 1 / -1;">
+        <div class="table-header">
           <h3>
             <i class="pi pi-folder"></i>
             Project Usage
           </h3>
-          <div class="card-actions">
-            <button pButton icon="pi pi-download" class="p-button-text p-button-sm" label="Export" (click)="exportTable('projects')"></button>
+          <div class="table-search">
+            <input
+              type="text"
+              [(ngModel)]="projectSearch"
+              (input)="onProjectSearch()"
+              placeholder="Search projects..." />
+            <button pButton icon="pi pi-download" class="p-button-text" (click)="exportTable('projects')"></button>
           </div>
         </div>
 
         <p-table
           #projectsTable
-          [value]="projectUsage"
+          [value]="filteredProjects"
           [scrollable]="true"
           scrollHeight="400px"
           [paginator]="true"
           [rows]="10"
           [rowsPerPageOptions]="[10, 25, 50]"
           sortMode="multiple"
-          [globalFilterFields]="['name', 'plan']"
           dataKey="projectId"
           styleClass="p-datatable-sm p-datatable-gridlines p-datatable-striped">
-
-          <ng-template pTemplate="caption">
-            <div class="table-header">
-              <span class="p-input-icon-left">
-                <i class="pi pi-search"></i>
-                <input
-                  pInputText
-                  type="text"
-                  (input)="projectsTable.filterGlobal($any($event.target).value, 'contains')"
-                  placeholder="Search projects..." />
-              </span>
-            </div>
-          </ng-template>
 
           <ng-template pTemplate="header">
             <tr>
@@ -254,8 +267,8 @@
           <ng-template pTemplate="body" let-p>
             <tr>
               <td>
-                <div class="project-name">
-                  <i class="pi pi-folder"></i>
+                <div class="project-name" (click)="viewProject(p)">
+                  <i class="pi pi-eye"></i>
                   {{ p.name }}
                 </div>
               </td>
@@ -289,143 +302,120 @@
         </p-table>
       </div>
 
-      <!-- Subscriptions Table -->
-      <div class="table-card">
-        <div class="card-header">
-          <h3>
-            <i class="pi pi-credit-card"></i>
-            Subscriptions
-          </h3>
-          <div class="card-actions">
-            <button pButton icon="pi pi-download" class="p-button-text p-button-sm" label="Export" (click)="exportTable('subscriptions')"></button>
-          </div>
-        </div>
-
-        <p-table
-          #subsTable
-          [value]="subscriptions"
-          [scrollable]="true"
-          scrollHeight="400px"
-          [paginator]="true"
-          [rows]="10"
-          [rowsPerPageOptions]="[10, 25, 50]"
-          sortMode="multiple"
-          [globalFilterFields]="['projectName', 'plan']"
-          dataKey="projectId"
-          styleClass="p-datatable-sm p-datatable-gridlines p-datatable-striped">
-
-          <ng-template pTemplate="caption">
-            <div class="table-header">
-              <span class="p-input-icon-left">
-                <i class="pi pi-search"></i>
-                <input
-                  pInputText
-                  type="text"
-                  (input)="subsTable.filterGlobal($any($event.target).value, 'contains')"
-                  placeholder="Search subscriptions..." />
-              </span>
-            </div>
-          </ng-template>
-
-          <ng-template pTemplate="header">
-            <tr>
-              <th pSortableColumn="projectName" style="min-width:150px">
-                Project <p-sortIcon field="projectName"></p-sortIcon>
-              </th>
-              <th pSortableColumn="plan" style="width:100px">
-                Plan <p-sortIcon field="plan"></p-sortIcon>
-              </th>
-              <th pSortableColumn="isPaid" style="width:100px">
-                Status <p-sortIcon field="isPaid"></p-sortIcon>
-              </th>
-              <th pSortableColumn="amountSats" style="width:120px">
-                Sats <p-sortIcon field="amountSats"></p-sortIcon>
-              </th>
-              <th pSortableColumn="createdAt" style="width:150px">
-                Created <p-sortIcon field="createdAt"></p-sortIcon>
-              </th>
-              <th pSortableColumn="expiresAt" style="width:150px">
-                Expires <p-sortIcon field="expiresAt"></p-sortIcon>
-              </th>
-            </tr>
-          </ng-template>
-
-          <ng-template pTemplate="body" let-s>
-            <tr>
-              <td>{{ s.projectName }}</td>
-              <td>
-                <p-tag
-                  [value]="s.plan | uppercase"
-                  [severity]="s.plan === 'pro' ? 'success' : 'secondary'">
-                </p-tag>
-              </td>
-              <td>
-                <p-tag
-                  [value]="s.isPaid ? 'PAID' : 'PENDING'"
-                  [severity]="s.isPaid ? 'success' : 'danger'"
-                  [icon]="s.isPaid ? 'pi pi-check' : 'pi pi-clock'">
-                </p-tag>
-              </td>
-              <td class="numeric">{{ s.amountSats | number }}</td>
-              <td>{{ s.createdAt | date:'short' }}</td>
-              <td>
-                <span [class.warning]="isExpiringSoon(s.expiresAt)">
-                  {{ s.expiresAt | date:'short' }}
-                </span>
-              </td>
-            </tr>
-          </ng-template>
-
-          <ng-template pTemplate="emptymessage">
-            <tr>
-              <td colspan="6" class="empty-message">
-                <i class="pi pi-info-circle"></i>
-                No subscriptions available
-              </td>
-            </tr>
-          </ng-template>
-        </p-table>
-      </div>
-
     </section>
 
-    <!-- ================= AUTH EVENTS (FULL WIDTH) ================= -->
-    <section class="table-card full-width">
-      <div class="card-header">
+    <!-- ================= SUBSCRIPTIONS TAB ================= -->
+    <section class="table-card" *ngIf="activeTab === 'subscriptions'">
+      <div class="table-header">
+        <h3>
+          <i class="pi pi-credit-card"></i>
+          Subscriptions
+        </h3>
+        <div class="table-search">
+          <button pButton icon="pi pi-download" class="p-button-text" (click)="exportTable('subscriptions')"></button>
+        </div>
+      </div>
+
+      <p-table
+        #subsTable
+        [value]="subscriptions"
+        [scrollable]="true"
+        scrollHeight="500px"
+        [paginator]="true"
+        [rows]="10"
+        [rowsPerPageOptions]="[10, 25, 50]"
+        sortMode="multiple"
+        dataKey="projectId"
+        styleClass="p-datatable-sm p-datatable-gridlines p-datatable-striped">
+
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="projectName" style="min-width:150px">
+              Project <p-sortIcon field="projectName"></p-sortIcon>
+            </th>
+            <th pSortableColumn="plan" style="width:100px">
+              Plan <p-sortIcon field="plan"></p-sortIcon>
+            </th>
+            <th pSortableColumn="isPaid" style="width:100px">
+              Status <p-sortIcon field="isPaid"></p-sortIcon>
+            </th>
+            <th pSortableColumn="amountSats" style="width:120px">
+              Sats <p-sortIcon field="amountSats"></p-sortIcon>
+            </th>
+            <th pSortableColumn="createdAt" style="width:150px">
+              Created <p-sortIcon field="createdAt"></p-sortIcon>
+            </th>
+            <th pSortableColumn="expiresAt" style="width:150px">
+              Expires <p-sortIcon field="expiresAt"></p-sortIcon>
+            </th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-s>
+          <tr>
+            <td>{{ s.projectName }}</td>
+            <td>
+              <p-tag
+                [value]="s.plan | uppercase"
+                [severity]="s.plan === 'pro' ? 'success' : 'secondary'">
+              </p-tag>
+            </td>
+            <td>
+              <p-tag
+                [value]="s.isPaid ? 'PAID' : 'PENDING'"
+                [severity]="s.isPaid ? 'success' : 'danger'"
+                [icon]="s.isPaid ? 'pi pi-check' : 'pi pi-clock'">
+              </p-tag>
+            </td>
+            <td class="numeric">{{ s.amountSats | number }}</td>
+            <td>{{ s.createdAt | date:'short' }}</td>
+            <td>
+              <span [class.warning]="isExpiringSoon(s.expiresAt)">
+                {{ s.expiresAt | date:'short' }}
+              </span>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="6" class="empty-message">
+              <i class="pi pi-info-circle"></i>
+              No subscriptions available
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </section>
+
+    <!-- ================= EVENTS TAB ================= -->
+    <section class="table-card" *ngIf="activeTab === 'events'">
+      <div class="table-header">
         <h3>
           <i class="pi pi-history"></i>
           Recent Authentication Events
         </h3>
-        <div class="card-actions">
-          <button pButton icon="pi pi-download" class="p-button-text p-button-sm" label="Export" (click)="exportTable('events')"></button>
+        <div class="table-search">
+          <input
+            type="text"
+            [(ngModel)]="eventSearch"
+            (input)="onEventSearch()"
+            placeholder="Search events..." />
+          <button pButton icon="pi pi-download" class="p-button-text" (click)="exportTable('events')"></button>
         </div>
       </div>
 
       <p-table
         #eventsTable
-        [value]="authEvents"
+        [value]="filteredEvents"
         [scrollable]="true"
-        scrollHeight="400px"
+        scrollHeight="500px"
         [paginator]="true"
         [rows]="20"
         [rowsPerPageOptions]="[20, 50, 100]"
         sortMode="multiple"
-        [globalFilterFields]="['projectName', 'eventType', 'clientIpMasked']"
         dataKey="timestamp"
         styleClass="p-datatable-sm p-datatable-gridlines p-datatable-striped">
-
-        <ng-template pTemplate="caption">
-          <div class="table-header">
-            <span class="p-input-icon-left">
-              <i class="pi pi-search"></i>
-              <input
-                pInputText
-                type="text"
-                (input)="eventsTable.filterGlobal($any($event.target).value, 'contains')"
-                placeholder="Search events..." />
-            </span>
-          </div>
-        </ng-template>
 
         <ng-template pTemplate="header">
           <tr>
@@ -483,6 +473,85 @@
       </p-table>
     </section>
 
+  </div>
+
+  <!-- ================= PROJECT DETAIL MODAL ================= -->
+  <div class="modal-overlay" *ngIf="showProjectModal && selectedProject" (click)="closeProjectModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>
+          <i class="pi pi-folder"></i>
+          {{ selectedProject.name }}
+        </h2>
+        <button class="modal-close" (click)="closeProjectModal()">
+          <i class="pi pi-times"></i>
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <!-- Project Stats -->
+        <div class="detail-grid">
+          <div class="detail-item">
+            <div class="detail-label">Project ID</div>
+            <div class="detail-value" style="font-size: 0.9rem;">{{ selectedProject.projectId }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Plan</div>
+            <div class="detail-value" [class.success]="selectedProject.plan === 'pro'">
+              {{ selectedProject.plan | uppercase }}
+            </div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Total Auths</div>
+            <div class="detail-value">{{ selectedProject.auths | number }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Success Rate</div>
+            <div class="detail-value" [class.success]="getSuccessRate(selectedProject) > 95">
+              {{ getSuccessRate(selectedProject) | number:'1.1-1' }}%
+            </div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Sats Paid</div>
+            <div class="detail-value">{{ selectedProject.satsPaid | number }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Rate Limits</div>
+            <div class="detail-value">{{ selectedProject.rateLimitHits | number }}</div>
+          </div>
+        </div>
+
+        <!-- Project Events -->
+        <div class="history-section">
+          <h4>Recent Activity</h4>
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Sats</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let event of projectEvents.slice(0, 10)">
+                <td>{{ event.timestamp | date:'short' }}</td>
+                <td>{{ event.eventType }}</td>
+                <td>
+                  <span [class.success]="event.success" [class.danger]="!event.success">
+                    {{ event.success ? '✓' : '✗' }}
+                  </span>
+                </td>
+                <td>{{ event.satsPaid ?? '-' }}</td>
+              </tr>
+              <tr *ngIf="projectEvents.length === 0">
+                <td colspan="4" class="empty-message">No recent activity</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ================= FOOTER ================= -->

@@ -1,5 +1,5 @@
 import {Component, OnInit, OnDestroy, ChangeDetectorRef} from '@angular/core';
-import { CommonModule, DecimalPipe } from '@angular/common';
+import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminAnalyticsService } from '../../services/admin-analytics';
 import {
@@ -17,7 +17,6 @@ import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
-// PrimeNG v21 replaced DropdownModule with SelectModule
 import { SelectModule } from 'primeng/select';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
@@ -27,6 +26,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
   imports: [
     CommonModule,
     DecimalPipe,
+    DatePipe,
     FormsModule,
     AdminAuthsLineChartComponent,
     AdminProjectsDonutComponent,
@@ -47,8 +47,22 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   windowHours = 24;
   projectUsage: AdminProjectUsageDto[] = [];
+  filteredProjects: AdminProjectUsageDto[] = [];
   subscriptions: AdminSubscriptionDto[] = [];
   authEvents: AdminAuthEventDto[] = [];
+  filteredEvents: AdminAuthEventDto[] = [];
+
+  // Search
+  projectSearch = '';
+  eventSearch = '';
+  
+  // Modal
+  selectedProject: AdminProjectUsageDto | null = null;
+  showProjectModal = false;
+  projectEvents: AdminAuthEventDto[] = [];
+
+  // Active tab
+  activeTab: 'projects' | 'subscriptions' | 'events' = 'projects';
 
   windowOptions = [
     { label: '24 Hours', value: 24 },
@@ -60,8 +74,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private windowHours$ = new Subject<number>();
 
-  // Estimated BTC to USD conversion rate (could be fetched from API)
-  private btcToUsd = 100000; // $100k per BTC
+  private btcToUsd = 100000;
 
   constructor(
     private analytics: AdminAnalyticsService,
@@ -102,11 +115,55 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return btc * this.btcToUsd;
   }
 
+  // ================= SEARCH =================
+
+  onProjectSearch() {
+    const search = this.projectSearch.toLowerCase();
+    if (!search) {
+      this.filteredProjects = this.projectUsage;
+    } else {
+      this.filteredProjects = this.projectUsage.filter(p => 
+        p.name.toLowerCase().includes(search) ||
+        p.projectId.toLowerCase().includes(search)
+      );
+    }
+  }
+
+  onEventSearch() {
+    const search = this.eventSearch.toLowerCase();
+    if (!search) {
+      this.filteredEvents = this.authEvents;
+    } else {
+      this.filteredEvents = this.authEvents.filter(e =>
+        e.projectName.toLowerCase().includes(search) ||
+        e.projectId.toLowerCase().includes(search) ||
+        e.eventType.toLowerCase().includes(search) ||
+        (e.clientIpMasked && e.clientIpMasked.toLowerCase().includes(search))
+      );
+    }
+  }
+
+  // ================= PROJECT DRILL-DOWN =================
+
+  viewProject(project: AdminProjectUsageDto) {
+    this.selectedProject = project;
+    // Filter events for this project
+    this.projectEvents = this.authEvents.filter(e => e.projectId === project.projectId);
+    this.showProjectModal = true;
+    this.changeDetector.detectChanges();
+  }
+
+  closeProjectModal() {
+    this.showProjectModal = false;
+    this.selectedProject = null;
+    this.projectEvents = [];
+  }
+
   // ================= HELPER METHODS =================
 
   getSuccessRate(project: AdminProjectUsageDto): number {
     if (project.auths === 0) return 0;
-    return (project.successes / project.auths) * 100;
+    return Math.round((project.successes / project.auths) * 100);
   }
 
   isExpiringSoon(expiresAt: string): boolean {
@@ -116,11 +173,14 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return daysUntilExpiry < 7 && daysUntilExpiry > 0;
   }
 
+  formatDate(dateStr: string): string {
+    return new Date(dateStr).toLocaleString();
+  }
+
   // ================= EXPORT FUNCTIONALITY =================
 
   exportChart(chartType: string) {
     console.log(`Exporting chart: ${chartType}`);
-    // TODO: Implement chart export (canvas to PNG/CSV)
     alert(`Export ${chartType} chart - Not yet implemented`);
   }
 
@@ -130,7 +190,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
     switch (tableType) {
       case 'projects':
-        data = this.projectUsage;
+        data = this.filteredProjects;
         filename = 'project-usage';
         break;
       case 'subscriptions':
@@ -138,7 +198,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         filename = 'subscriptions';
         break;
       case 'events':
-        data = this.authEvents;
+        data = this.filteredEvents;
         filename = 'auth-events';
         break;
     }
@@ -152,14 +212,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   private downloadCSV(data: any[], filename: string) {
-    // Convert to CSV
     const headers = Object.keys(data[0]);
     const csvRows = [
       headers.join(','),
       ...data.map(row =>
         headers.map(header => {
           const value = row[header];
-          // Escape commas and quotes
           const escaped = String(value).replace(/"/g, '""');
           return `"${escaped}"`;
         }).join(',')
@@ -196,6 +254,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         next: ({ res }) => {
           this.data = res;
           this.authEvents = res.recentEvents ?? [];
+          this.filteredEvents = [...this.authEvents];
           this.loading = false;
           this.changeDetector.detectChanges();
         },
@@ -205,7 +264,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         }
       });
 
-    // Auto-refresh every 30 seconds
     interval(30_000)
       .pipe(
         takeUntil(this.destroy$),
@@ -214,10 +272,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       .subscribe(res => {
         this.data = res;
         this.authEvents = res.recentEvents ?? [];
+        this.filteredEvents = [...this.authEvents];
         this.changeDetector.detectChanges();
       });
 
-    // Initial load
     this.windowHours$.next(this.windowHours);
   }
 
@@ -225,10 +283,11 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.windowHours = +windowHours;
     this.windowHours$.next(this.windowHours);
 
-    // Load additional data
     this.analytics.getProjects(this.windowHours)
       .subscribe(x => {
         this.projectUsage = x;
+        this.filteredProjects = [...x];
+        this.onProjectSearch();
         this.changeDetector.detectChanges();
       });
 
