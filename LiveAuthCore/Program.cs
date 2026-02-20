@@ -235,6 +235,28 @@ using (var scope = app.Services.CreateScope())
                 Status TEXT NOT NULL,
                 CreatedAt TEXT NOT NULL
             );
+            
+            CREATE TABLE IF NOT EXISTS AdminSessions (
+                Id TEXT PRIMARY KEY,
+                Username TEXT NOT NULL,
+                PasswordHash TEXT NOT NULL,
+                PasswordSalt TEXT NOT NULL,
+                IsPaid INTEGER NOT NULL DEFAULT 0,
+                Token TEXT,
+                CreatedAt TEXT NOT NULL,
+                ExpiresAt TEXT NOT NULL
+            );
+            
+            CREATE TABLE IF NOT EXISTS AdminPaymentSessions (
+                Id TEXT PRIMARY KEY,
+                AmountSats INTEGER NOT NULL,
+                InvoiceBolt11 TEXT NOT NULL,
+                InvoiceRHash TEXT NOT NULL,
+                IsPaid INTEGER NOT NULL DEFAULT 0,
+                PaidAt TEXT,
+                CreatedAt TEXT NOT NULL,
+                ExpiresAt TEXT NOT NULL
+            );
             -- Recreate MintRequests table if it exists (drop and recreate with all columns)
             DROP TABLE IF EXISTS MintRequests;
             CREATE TABLE MintRequests (
