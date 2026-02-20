@@ -14,37 +14,44 @@ import { FormsModule } from '@angular/forms';
         <div class="hero-copy">
           <h1 class="glow">🖨️ Sats Printer</h1>
           <p class="hero-sub">
-            Mint ecash tokens on-demand via Cashu and Lightning. Perfect for demos, faucets,
-            test funding, or programmatic sats distribution to agents.
+            Send sats to any Lightning address. Perfect for funding agents, 
+            faucet-style distributions, or test payments.
           </p>
           <ul class="usecases">
-            <li>Seed test wallets and dev environments</li>
-            <li>Programmatically issue sats to agents for tasks</li>
-            <li>Demonstrate Cashu minting + redemption flows</li>
+            <li>Fund agent wallets instantly</li>
+            <li>Programmatically send sats to agents for tasks</li>
+            <li>Demo Lightning payments without real money</li>
           </ul>
         </div>
         <div class="hero-card">
-          <h3>Mint tokens</h3>
-          <form (submit)="printSats($event)" class="sats-form">
+          <h3>Print Sats</h3>
+          <form (submit)="printSats($event)" class="sats-form" *ngIf="!result">
+            <label>
+              Lightning Address
+              <input type="text" name="address" [(ngModel)]="lightningAddress" placeholder="agent@getalby.com" required />
+            </label>
             <label>
               Amount (sats)
               <input type="number" name="amount" [(ngModel)]="amount" min="1" required />
             </label>
-            <label>
-              Mint URL (optional)
-              <input type="text" name="mint_url" [(ngModel)]="mintUrl" placeholder="https://mint.example.com" />
-            </label>
-            <button type="submit" [disabled]="loading">{{ loading ? 'Minting…' : 'Print Sats' }}</button>
+            <button type="submit" [disabled]="loading">{{ loading ? 'Generating…' : 'Generate Invoice' }}</button>
             <p *ngIf="error" class="error">{{ error }}</p>
           </form>
+          
+          <div *ngIf="result && result.status === 'pending_payment'" class="invoice-display">
+            <p class="success">Invoice generated! {{ result.amount }} sats to {{ result.lightningAddress }}</p>
+            <p class="muted">In production, scan QR to pay. For demo:</p>
+            <button (click)="simulatePayment()" [disabled]="simulating" class="simulate-btn">
+              {{ simulating ? 'Confirming…' : 'Simulate Payment' }}
+            </button>
+          </div>
+          
+          <div *ngIf="result && result.status === 'paid'" class="success-display">
+            <p class="success">✅ {{ result.amount }} sats sent to {{ result.lightningAddress }}!</p>
+            <button (click)="reset()" class="reset-btn">Send More</button>
+          </div>
         </div>
       </div>
-    </section>
-
-    <section *ngIf="result" class="section">
-      <h2>Minted Tokens</h2>
-      <p class="muted">Copy and store securely. You can redeem these with any compatible Cashu wallet.</p>
-      <pre class="code">{{ result | json }}</pre>
     </section>
   `,
   styles: [`
@@ -59,28 +66,30 @@ import { FormsModule } from '@angular/forms';
     .hero-sub { font-size: 1.05rem; opacity: .92; line-height: 1.5; margin: 8px 0 14px; }
     .usecases { margin: 0; padding-left: 18px; opacity: .9; line-height: 1.5; }
 
-    .hero-card { width: 100%; max-width: 420px; background: #00000080; border: 1px solid rgba(0,194,255,.2); border-radius: 14px; padding: 16px; box-shadow: 0 18px 48px #00c2ff26; }
+    .hero-card { background: rgba(17,24,45,.8); border: 1px solid rgba(0,194,255,.15); border-radius: 12px; padding: 24px; }
+    .hero-card h3 { margin: 0 0 16px; font-size: 1.1rem; }
     .sats-form { display: grid; gap: 12px; }
-    label { display: grid; gap: 6px; font-weight: 600; }
-    input { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(0,194,255,.25); background: rgba(0,0,0,0.35); color: #e3e7ee; }
-    button { width: fit-content; padding: 10px 14px; border-radius: 10px; background: linear-gradient(135deg,#00C2FF,#0099cc); color: #0a0f1e; font-weight: 800; border: 0; box-shadow: 0 8px 20px #00c2ff40; }
-    button[disabled] { filter: grayscale(.4); opacity: .7; }
-    .error { color: #f37575; margin-top: 6px; }
-
-    .section { max-width: 1100px; margin: 0 auto; padding: 12px 16px 42px; }
-    .code { background: #0009; border: 1px solid rgba(0,194,255,.15); padding: 14px; border-radius: 10px; overflow: auto; }
-
-    @media (min-width: 720px) {
-      .hero-inner { grid-template-columns: 1.15fr .85fr; align-items: center; }
-    }
+    .sats-form label { display: grid; gap: 4px; font-size: .85rem; opacity: .9; }
+    .sats-form input { background: #0d1422; border: 1px solid rgba(0,194,255,.25); border-radius: 6px; padding: 10px; color: #e3e7ee; font-size: 1rem; }
+    .sats-form input:focus { outline: none; border-color: #00C2FF; }
+    .sats-form button { background: linear-gradient(135deg,#00C2FF,#0099cc); border: none; border-radius: 6px; padding: 12px; color: #fff; font-weight: 600; cursor: pointer; transition: opacity .2s; }
+    .sats-form button:hover { opacity: .9; }
+    .sats-form button:disabled { opacity: .5; cursor: not-allowed; }
+    .error { color: #ff6b6b; font-size: .85rem; margin: 0; }
+    .success { color: #00ff88; font-weight: 600; }
+    
+    .invoice-display, .success-display { text-align: center; }
+    .simulate-btn { background: linear-gradient(135deg,#F2A900,#cc8800); border: none; border-radius: 6px; padding: 12px 24px; color: #fff; font-weight: 600; cursor: pointer; margin: 12px 0; }
+    .reset-btn { background: rgba(0,194,255,.2); border: 1px solid rgba(0,194,255,.4); border-radius: 6px; padding: 10px 20px; color: #00C2FF; cursor: pointer; }
   `]
 })
 export class SatsPrinterComponent {
+  lightningAddress = '';
   amount = 100;
-  mintUrl = '';
-  result: any = null;
-  error = '';
   loading = false;
+  simulating = false;
+  error = '';
+  result: any = null;
 
   constructor(private http: HttpClient) {}
 
@@ -90,12 +99,42 @@ export class SatsPrinterComponent {
     this.result = null;
     this.loading = true;
 
-    const payload: any = { amount: this.amount };
-    if (this.mintUrl?.trim()) payload.mint_url = this.mintUrl.trim();
+    const payload = { 
+      amount: this.amount,
+      lightningAddress: this.lightningAddress 
+    };
 
     this.http.post('/api/SatsPrinter/demo/print', payload).subscribe({
-      next: (data) => { this.result = data; this.loading = false; },
-      error: (err) => { this.error = err?.error?.message || 'Error printing sats'; this.loading = false; }
+      next: (data) => { 
+        this.result = data; 
+        this.loading = false; 
+      },
+      error: (err) => { 
+        this.error = err?.error?.message || 'Error printing sats'; 
+        this.loading = false; 
+      }
     });
+  }
+
+  simulatePayment() {
+    if (!this.result?.id) return;
+    this.simulating = true;
+    
+    this.http.post('/api/SatsPrinter/demo/confirm', { invoiceId: this.result.id }).subscribe({
+      next: (data: any) => {
+        this.result = { ...this.result, status: 'paid' };
+        this.simulating = false;
+      },
+      error: (err) => {
+        this.error = err?.error?.message || 'Confirmation failed';
+        this.simulating = false;
+      }
+    });
+  }
+
+  reset() {
+    this.result = null;
+    this.lightningAddress = '';
+    this.amount = 100;
   }
 }
