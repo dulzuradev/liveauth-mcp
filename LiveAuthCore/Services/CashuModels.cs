@@ -79,5 +79,11 @@ public class KeysetInfo
 
 public class KeysResponse
 {
-    public Dictionary<string, string> Keysets { get; set; } = new(); // amount -> pubkey (hex)
+    public List<KeysetKeys> Keysets { get; set; } = new(); // amount -> pubkey (hex)
+}
+
+public class KeysetKeys
+{
+    public string Id { get; set; } = string.Empty;
+    public Dictionary<string, string> Keys { get; set; } = new();
 }
