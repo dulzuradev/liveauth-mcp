@@ -318,7 +318,8 @@ public class SatsPrinterService
     private async Task<Dictionary<string, string>> GetKeysetKeysAsync(string mintUrl, string keysetId)
     {
         var response = await _httpClient.GetFromJsonAsync<KeysResponse>($"{mintUrl}/v1/keys/{keysetId}");
-        return response?.Keysets ?? new Dictionary<string, string>();
+        var keyset = response?.Keysets?.FirstOrDefault(k => k.Id == keysetId);
+        return keyset?.Keys ?? new Dictionary<string, string>();
     }
 
     private async Task<bool> WaitForQuotePaidAsync(string mintUrl, string quoteId, int maxAttempts = 30)
