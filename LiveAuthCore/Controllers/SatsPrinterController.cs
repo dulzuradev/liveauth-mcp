@@ -20,7 +20,8 @@ public class SatsPrinterController : ControllerBase
     }
 
     /// <summary>
-    /// Demo: Mint ecash without authentication (for testing/demos)
+    /// Demo: Print sats to a Lightning address (for testing/demos)
+    /// Shows a QR code for payment, then simulates confirmation
     /// </summary>
     [HttpPost("demo/print")]
     public async Task<IActionResult> DemoPrintSats([FromBody] PrintSatsRequest request)
@@ -30,22 +31,30 @@ public class SatsPrinterController : ControllerBase
 
         try
         {
-            // Use a demo user ID for unauthenticated requests
-            var userId = "demo-user";
+            // Generate a demo Lightning invoice for the agent's Lightning address
+            // In production, this would create a real invoice that pays to the agent's node
+            // For demo: generate a mock invoice and simulate the flow
             
-            var result = await _satsPrinterService.MintSatsAsync(
-                userId, 
-                request.Amount, 
-                request.MintUrl ?? "https://mint.minibits.cash/Bitcoin");
+            var invoiceId = Guid.NewGuid().ToString("N")[..16];
+            var memo = $"LiveAuth Sats Printer Demo - {request.Amount} sats";
+            
+            // Create a fake but valid-looking invoice for demo
+            // Real implementation would use LND or external service
+            var demoInvoice = $"lnbc{request.Amount}n1p${invoiceId}test";
+            
+            _logger.LogInformation("Demo print sats: {Amount} sats to {LightningAddress}", 
+                request.Amount, request.LightningAddress);
             
             return Ok(new
             {
-                id = result.Id,
-                status = result.Status.ToString(),
-                amount = result.Amount,
-                mintUrl = result.MintUrl,
-                invoice = result.Invoice,
-                paymentHash = result.PaymentHash
+                id = invoiceId,
+                status = "pending_payment",
+                amount = request.Amount,
+                lightningAddress = request.LightningAddress,
+                invoice = demoInvoice,
+                paymentHash = invoiceId,
+                demo = true,
+                message = "Demo mode: In production, scan QR to pay. Click 'Simulate Payment' to complete."
             });
         }
         catch (Exception ex)
@@ -53,6 +62,25 @@ public class SatsPrinterController : ControllerBase
             _logger.LogError(ex, "Error printing sats for demo");
             return StatusCode(500, $"Error printing sats: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Demo: Simulate payment confirmation (for demo/testing only)
+    /// </summary>
+    [HttpPost("demo/confirm")]
+    public async Task<IActionResult> DemoConfirmPayment([FromBody] ConfirmDemoPaymentRequest request)
+    {
+        if (string.IsNullOrEmpty(request.InvoiceId))
+            return BadRequest("InvoiceId is required.");
+            
+        _logger.LogInformation("Demo confirm payment for invoice: {InvoiceId}", request.InvoiceId);
+        
+        return Ok(new
+        {
+            id = request.InvoiceId,
+            status = "paid",
+            message = "Payment simulated successfully! Sats sent to agent."
+        });
     }
 
     /// <summary>
@@ -162,7 +190,13 @@ public class SatsPrinterController : ControllerBase
 public class PrintSatsRequest
 {
     public long Amount { get; set; }
+    public string? LightningAddress { get; set; }
     public string? MintUrl { get; set; }
+}
+
+public class ConfirmDemoPaymentRequest
+{
+    public string InvoiceId { get; set; } = string.Empty;
 }
 
 public class MeltSatsRequest
