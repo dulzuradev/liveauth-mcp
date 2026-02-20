@@ -27,6 +27,8 @@ public class LiveAuthDbContext : DbContext
     
     public DbSet<BillingSubscription> BillingSubscriptions => Set<BillingSubscription>();
     public DbSet<AdminLoginSession> AdminLoginSessions => Set<AdminLoginSession>();
+    public DbSet<AdminSession> AdminSessions => Set<AdminSession>();
+    public DbSet<AdminPaymentSession> AdminPaymentSessions => Set<AdminPaymentSession>();
     public DbSet<AuthEventLog> AuthEventLogs => Set<AuthEventLog>();
     public DbSet<PowUsedNonce> PowUsedNonces => Set<PowUsedNonce>();
 

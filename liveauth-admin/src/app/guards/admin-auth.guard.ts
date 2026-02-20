@@ -1,5 +1,5 @@
 import {inject, Injectable} from '@angular/core';
-import {CanActivate, CanActivateFn, Router} from '@angular/router';
+import {CanActivate, Router} from '@angular/router';
 import { AdminAuthService } from '../services/admin-auth';
 
 @Injectable({ providedIn: 'root' })
@@ -10,7 +10,7 @@ export class AdminAuthGuard implements CanActivate {
   ) {}
 
   canActivate(): boolean {
-    if (this.auth.hasValidToken()) {
+    if (this.auth.isLoggedIn()) {
       return true;
     }
 
@@ -18,4 +18,3 @@ export class AdminAuthGuard implements CanActivate {
     return false;
   }
 }
-

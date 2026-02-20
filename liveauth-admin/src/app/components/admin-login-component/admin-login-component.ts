@@ -1,20 +1,19 @@
 import {ChangeDetectorRef, Component, OnDestroy} from '@angular/core';
-import {AdminAuthService, AdminStartLoginResponse} from '../../services/admin-auth';
+import {AdminAuthService, AdminPaymentResponse, AdminVerifyResponse, AdminSetupResponse, AdminLoginResponse} from '../../services/admin-auth';
 import {FormsModule} from '@angular/forms';
 import { QRCodeComponent } from 'angularx-qrcode';
 import { CommonModule } from '@angular/common';
 import {Router} from '@angular/router';
 
-
-
-type AdminLoginState =
-  | 'idle'
-  | 'generating'
-  | 'invoice'
+type AdminLoginState = 
+  | 'checking'
+  | 'payment'
   | 'waiting'
+  | 'setup'
+  | 'login'
   | 'success'
-  | 'expired';
-
+  | 'expired'
+  | 'error';
 
 @Component({
   selector: 'app-admin-login-component',
@@ -27,88 +26,101 @@ type AdminLoginState =
   ]
 })
 export class AdminLoginComponent implements OnDestroy {
-  email = '';
+  // Form fields
+  username = '';
+  password = '';
+  confirmPassword = '';
+  
+  // State
+  state: AdminLoginState = 'checking';
   error?: string;
-
-  session?: AdminStartLoginResponse;
-
-  loginInProgress = false;
-  polling = false;
-
+  
+  // Payment
+  paymentSession?: AdminPaymentResponse;
+  canSetPassword = false;
+  
+  // Timers
   remainingSeconds = 0;
   remainingLabel = '';
-
   copied = false;
-  state: AdminLoginState = 'idle';
-
 
   private pollTimer?: any;
   private countdownTimer?: any;
-  private _changeDetector: ChangeDetectorRef;
 
-  constructor(private auth: AdminAuthService, private changeDetector: ChangeDetectorRef, private router: Router) {
-    this._changeDetector = changeDetector;
+  constructor(
+    private auth: AdminAuthService, 
+    private changeDetector: ChangeDetectorRef, 
+    private router: Router
+  ) {
+    this.checkAuth();
   }
 
-  start() {
-    this.error = undefined;
-    const email = this.email.trim();
-    if (!email) {
-      this.error = 'Enter your admin email.';
-      return;
-    }
-
-    this.state = 'generating';
-    this.loginInProgress = true;
-
-    this.auth.startLogin(email).subscribe({
+  private checkAuth() {
+    this.auth.checkStatus().subscribe({
       next: (res) => {
-        this.session = res;
-        this.state = 'invoice';
+        if (res.isAuthenticated) {
+          this.router.navigate(['/admin']);
+        } else {
+          this.state = 'payment';
+          this.createPayment();
+        }
+      },
+      error: () => {
+        this.state = 'payment';
+        this.createPayment();
+      }
+    });
+  }
 
-        setTimeout(() => {
-          this.state = 'waiting';
-        }, 300);
-
-        this.loginInProgress = false;
-        this._changeDetector.detectChanges();
+  createPayment() {
+    this.error = undefined;
+    this.state = 'payment';
+    
+    this.auth.createPayment().subscribe({
+      next: (res) => {
+        this.paymentSession = res;
+        this.canSetPassword = res.isSetup;
+        this.state = 'waiting';
         this.startCountdown(res.expiresAtUnix);
         this.startPolling();
       },
       error: (err) => {
-        this.error = err?.error?.message ?? err?.error ?? 'Failed to start login.';
-        this.loginInProgress = false;
-        this.state = 'idle';
+        this.error = err?.error?.message || 'Failed to create payment';
+        this.state = 'error';
       }
     });
   }
 
   private startPolling() {
-    if (!this.session || this.polling) return;
-    this.polling = true;
+    if (!this.paymentSession || this.pollTimer) return;
 
     const pollOnce = () => {
-      if (!this.session) return;
-
-      if (this.remainingSeconds <= 0) {
+      if (!this.paymentSession || this.remainingSeconds <= 0) {
         this.stopPolling();
         return;
       }
 
-      this.auth.confirmLogin(this.session.sessionId).subscribe({
+      this.auth.verifyPayment(this.paymentSession.sessionId).subscribe({
         next: (res) => {
-          if (res.verified && res.token) {
-            this.auth.saveToken(res.token);
-
+          if (res.paid) {
             this.stopPolling();
             this.stopCountdown();
-            this.state = 'success';
-
-            this.router.navigate(['/admin']);
-
+            
+            if (res.canSetPassword) {
+              this.state = 'setup';
+            } else {
+              this.state = 'login';
+            }
             return;
           }
-
+          
+          if (res.error) {
+            this.error = res.error;
+            this.state = 'error';
+            this.stopPolling();
+            return;
+          }
+          
           this.pollTimer = setTimeout(pollOnce, 2000);
         },
         error: () => {
@@ -123,11 +135,9 @@ export class AdminLoginComponent implements OnDestroy {
   private startCountdown(expiresAtUnix: number): void {
     this.stopCountdown();
 
-    // 🔒 Normalize: if it's too large, it's probably milliseconds
-    const expiresAtSec =
-      expiresAtUnix > 10_000_000_000
-        ? Math.floor(expiresAtUnix / 1000)
-        : expiresAtUnix;
+    const expiresAtSec = expiresAtUnix > 10_000_000_000 
+      ? Math.floor(expiresAtUnix / 1000) 
+      : expiresAtUnix;
 
     const tick = () => {
       const now = Math.floor(Date.now() / 1000);
@@ -148,15 +158,70 @@ export class AdminLoginComponent implements OnDestroy {
     this.countdownTimer = setInterval(tick, 1000);
   }
 
+  setup() {
+    this.error = undefined;
+    
+    if (!this.username || !this.password) {
+      this.error = 'Username and password required';
+      return;
+    }
+    
+    if (this.password !== this.confirmPassword) {
+      this.error = 'Passwords do not match';
+      return;
+    }
+    
+    if (this.password.length < 8) {
+      this.error = 'Password must be at least 8 characters';
+      return;
+    }
+
+    this.auth.setupAdmin(this.username, this.password).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.auth.saveToken(res.token);
+          this.auth.saveUsername(res.username);
+          this.state = 'success';
+          setTimeout(() => this.router.navigate(['/admin']), 1500);
+        }
+      },
+      error: (err) => {
+        this.error = err?.error?.error || 'Setup failed';
+      }
+    });
+  }
+
+  login() {
+    this.error = undefined;
+    
+    if (!this.username || !this.password) {
+      this.error = 'Username and password required';
+      return;
+    }
+
+    this.auth.login(this.username, this.password).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.state = 'success';
+          setTimeout(() => this.router.navigate(['/admin']), 1000);
+        } else {
+          this.error = res.error || 'Login failed';
+        }
+      },
+      error: (err) => {
+        this.error = err?.error?.error || 'Login failed';
+      }
+    });
+  }
+
   copyInvoice() {
-    if (!this.session?.invoice) return;
-    navigator.clipboard.writeText(this.session.invoice);
+    if (!this.paymentSession?.invoice) return;
+    navigator.clipboard.writeText(this.paymentSession.invoice);
     this.copied = true;
     setTimeout(() => (this.copied = false), 1200);
   }
 
   stopPolling() {
-    this.polling = false;
     if (this.pollTimer) {
       clearTimeout(this.pollTimer);
       this.pollTimer = undefined;
@@ -174,6 +239,4 @@ export class AdminLoginComponent implements OnDestroy {
     this.stopPolling();
     this.stopCountdown();
   }
-
-  protected readonly HTMLInputElement = HTMLInputElement;
 }

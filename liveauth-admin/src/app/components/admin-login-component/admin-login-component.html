@@ -1,66 +1,316 @@
-<div style="max-width:560px; margin:40px auto; padding:16px;">
-  <h2>LiveAuth Admin Login</h2>
-
-  <p style="opacity:.8">Pay a small Lightning invoice to access the admin dashboard.</p>
-
-  <div style="display:flex; gap:12px; align-items:center; margin:16px 0;">
-    <input
-      [(ngModel)]="email"
-      placeholder="admin@example.com"
-      style="flex:1; padding:10px; border-radius:8px; border:1px solid #444; background:#111; color:#fff;"
-    />
-    <button
-      (click)="start()"
-      [disabled]="loginInProgress || !!session"
-      style="padding:10px 14px; border-radius:8px; cursor:pointer;">
-      {{ loginInProgress ? '...' : 'Generate Invoice' }}
-    </button>
-  </div>
-
-  <div *ngIf="error" style="color:#ff6b6b; margin-top:8px;">
-    {{ error }}
-  </div>
-
-  <div *ngIf="session" style="margin-top:20px; padding:16px; border:1px solid #333; border-radius:12px;">
-    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-      <div><b>Amount:</b> {{ session?.amountSats }} sats</div>
-      <div><b>Expires in:</b> {{ remainingLabel }}</div>
+<div class="login-shell">
+  <div class="login-card">
+    <!-- Logo -->
+    <div class="login-header">
+      <h1>⚡ LiveAuth</h1>
+      <h2>Admin Dashboard</h2>
     </div>
 
-    <div *ngIf="session?.invoice">
-      <div style="display:flex; justify-content:center; margin:12px 0;">
+    <!-- Loading -->
+    <div *ngIf="state === 'checking'" class="loading-state">
+      <div class="spinner"></div>
+      <p>Checking access...</p>
+    </div>
+
+    <!-- Error -->
+    <div *ngIf="state === 'error'" class="error-state">
+      <p class="error">{{ error }}</p>
+      <button (click)="createPayment()">Try Again</button>
+    </div>
+
+    <!-- Payment Required -->
+    <div *ngIf="state === 'payment'" class="payment-state">
+      <p class="info">🔐 Access requires Lightning payment</p>
+      <button (click)="createPayment()" class="primary-btn">Create Invoice</button>
+    </div>
+
+    <!-- Waiting for Payment -->
+    <div *ngIf="state === 'waiting' && paymentSession" class="invoice-state">
+      <div class="amount-display">
+        <span class="sats">{{ paymentSession.amountSats | number }}</span>
+        <span class="label">sats</span>
+      </div>
+      
+      <p class="hint" *ngIf="paymentSession.isSetup">
+        First-time setup: This payment registers your admin account
+      </p>
+      <p class="hint" *ngIf="!paymentSession.isSetup">
+        Login payment: 100 sats
+      </p>
+
+      <div class="qr-container">
         <qrcode
-          [width]="240"
+          [width]="220"
           [errorCorrectionLevel]="'M'"
-          [qrdata]="session.invoice">
+          [qrdata]="paymentSession.invoice">
         </qrcode>
       </div>
+
+      <div class="timer">
+        Expires in {{ remainingLabel }}
+      </div>
+
+      <div class="invoice-input">
+        <input
+          [value]="paymentSession.invoice"
+          readonly
+          (click)="$any($event.target).select()"
+        />
+        <button (click)="copyInvoice()" [class.copied]="copied">
+          {{ copied ? '✓ Copied' : 'Copy' }}
+        </button>
+      </div>
+
+      <p class="waiting" *ngIf="remainingSeconds > 0">
+        ⏳ Waiting for payment...
+      </p>
+
+      <p class="expired" *ngIf="remainingSeconds <= 0">
+        Invoice expired. <button (click)="createPayment()">Try Again</button>
+      </p>
     </div>
 
-    <div *ngIf="state === 'expired'" style="margin-top:12px; color:#ff6b6b;">
-      Invoice expired. Refresh and try again.
+    <!-- Setup Admin (First Time) -->
+    <div *ngIf="state === 'setup'" class="setup-state">
+      <p class="success">✅ Payment received!</p>
+      <h3>Create Admin Account</h3>
+      
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" [(ngModel)]="username" placeholder="admin" />
+      </div>
+      
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" [(ngModel)]="password" placeholder="••••••••" />
+      </div>
+      
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" [(ngModel)]="confirmPassword" placeholder="••••••••" />
+      </div>
+
+      <p class="error" *ngIf="error">{{ error }}</p>
+      
+      <button (click)="setup()" class="primary-btn">Create Account</button>
     </div>
 
-    <div style="display:flex; gap:8px; align-items:center;">
-      <input
-        [value]="session?.invoice"
-        readonly
-        style="flex:1; padding:10px; border-radius:8px; border:1px solid #444; background:#111; color:#fff; font-family:monospace;"
-        (click)="$any($event.target)?.select()"
-      />
-      <button (click)="copyInvoice()" style="padding:10px 14px; border-radius:8px; cursor:pointer;">
-        Copy
-      </button>
+    <!-- Login -->
+    <div *ngIf="state === 'login'" class="login-form">
+      <p class="success">✅ Payment received!</p>
+      <h3>Admin Login</h3>
+      
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" [(ngModel)]="username" placeholder="admin" />
+      </div>
+      
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" [(ngModel)]="password" placeholder="••••••••" />
+      </div>
+
+      <p class="error" *ngIf="error">{{ error }}</p>
+      
+      <button (click)="login()" class="primary-btn">Login</button>
     </div>
 
-    <div *ngIf="copied" style="color:#64ff8f; margin-top:8px;">Copied!</div>
-
-    <div *ngIf="polling" style="margin-top:12px; opacity:.85;">
-      Waiting for payment confirmation…
-    </div>
-
-    <div *ngIf="remainingSeconds <= 0" style="margin-top:12px; color:#ff6b6b;">
-      Invoice expired. Refresh and try again.
+    <!-- Success -->
+    <div *ngIf="state === 'success'" class="success-state">
+      <p class="success">✅ Welcome!</p>
+      <p>Redirecting to dashboard...</p>
     </div>
   </div>
 </div>
+
+<style>
+.login-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0a0f1e 0%, #11182d 100%);
+  padding: 20px;
+}
+
+.login-card {
+  background: rgba(17, 24, 45, 0.8);
+  border: 1px solid rgba(0, 194, 255, 0.2);
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.login-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  background: linear-gradient(135deg, #00C2FF, #F2A900);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.login-header h2 {
+  margin: 8px 0 24px;
+  color: #8b95a5;
+  font-weight: 400;
+}
+
+.loading-state .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 194, 255, 0.2);
+  border-top-color: #00C2FF;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 20px auto;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.info {
+  color: #00C2FF;
+  margin-bottom: 20px;
+}
+
+.success {
+  color: #00ff88;
+  font-size: 1.1rem;
+  margin-bottom: 16px;
+}
+
+.error {
+  color: #ff6b6b;
+  margin: 12px 0;
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #00C2FF, #0099cc);
+  border: none;
+  border-radius: 8px;
+  padding: 14px 28px;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  transition: opacity 0.2s;
+}
+
+.primary-btn:hover {
+  opacity: 0.9;
+}
+
+.amount-display {
+  margin: 20px 0;
+}
+
+.amount-display .sats {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #F2A900;
+}
+
+.amount-display .label {
+  color: #8b95a5;
+  margin-left: 8px;
+}
+
+.hint {
+  color: #8b95a5;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.qr-container {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.timer {
+  color: #ff9f0a;
+  font-size: 1.1rem;
+  margin: 16px 0;
+}
+
+.invoice-input {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.invoice-input input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 194, 255, 0.25);
+  background: rgba(0, 0, 0, 0.3);
+  color: #e3e7ee;
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+.invoice-input button {
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 194, 255, 0.25);
+  background: rgba(0, 194, 255, 0.1);
+  color: #00C2FF;
+  cursor: pointer;
+}
+
+.invoice-input button.copied {
+  background: rgba(0, 255, 136, 0.2);
+  color: #00ff88;
+}
+
+.waiting {
+  color: #8b95a5;
+  margin-top: 16px;
+}
+
+.expired {
+  color: #ff6b6b;
+  margin-top: 16px;
+}
+
+.form-group {
+  text-align: left;
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  color: #8b95a5;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 194, 255, 0.25);
+  background: rgba(0, 0, 0, 0.3);
+  color: #e3e7ee;
+  font-size: 1rem;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #00C2FF;
+}
+
+.setup-state h3, .login-form h3 {
+  color: #e3e7ee;
+  margin: 0 0 20px;
+}
+
+.success-state {
+  padding: 40px 0;
+}
+</style>

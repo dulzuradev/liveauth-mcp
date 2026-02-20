@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { BASE_API_URL } from '../../config';
 
 @Component({
   selector: 'app-sats-printer',
@@ -84,6 +85,7 @@ import { FormsModule } from '@angular/forms';
   `]
 })
 export class SatsPrinterComponent {
+  private readonly baseUrl = BASE_API_URL;
   lightningAddress = '';
   amount = 100;
   loading = false;
@@ -104,7 +106,7 @@ export class SatsPrinterComponent {
       lightningAddress: this.lightningAddress 
     };
 
-    this.http.post('/api/SatsPrinter/demo/print', payload).subscribe({
+    this.http.post(`${this.baseUrl}/api/SatsPrinter/demo/print`, payload).subscribe({
       next: (data) => { 
         this.result = data; 
         this.loading = false; 
@@ -120,7 +122,7 @@ export class SatsPrinterComponent {
     if (!this.result?.id) return;
     this.simulating = true;
     
-    this.http.post('/api/SatsPrinter/demo/confirm', { invoiceId: this.result.id }).subscribe({
+    this.http.post(`${this.baseUrl}/api/SatsPrinter/demo/confirm`, { invoiceId: this.result.id }).subscribe({
       next: (data: any) => {
         this.result = { ...this.result, status: 'paid' };
         this.simulating = false;
