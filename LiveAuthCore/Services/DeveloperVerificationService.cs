@@ -19,9 +19,22 @@ public class DeveloperVerificationService
 
     public async Task<VerificationSession> StartSessionAsync(Project project, string userRef, long amountSats, string memo)
     {
-        // quota checks
-        if (project.MonthlyUsed >= project.MonthlyQuota && project.Plan == "free")
-            throw new ApplicationException("Monthly quota exceeded. Upgrade required.");
+        // Reset monthly count if we're in a new month
+        var now = DateTime.UtcNow;
+        if (project.MonthlyAuthPeriodStart.Month != now.Month || project.MonthlyAuthPeriodStart.Year != now.Year)
+        {
+            project.MonthlyAuthCount = 0;
+            project.MonthlyAuthPeriodStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        }
+
+        // Check quota
+        var limit = PlanLimits.GetMonthlyAuthLimit(project.Plan ?? "free", project.ProPaidUntil);
+        if (project.MonthlyAuthCount >= limit)
+        {
+            var plan = project.Plan.ToLowerInvariant();
+            throw new ApplicationException(
+                $"Monthly {limit:N0} verification limit exceeded. Upgrade to {(plan == "free" ? "Pro" : "Enterprise")} for more.");
+        }
 
         var inv = await _ln.CreateInvoice(userRef, amountSats, memo);
 
@@ -43,7 +56,8 @@ public class DeveloperVerificationService
             SatsCharged = 0
         });
 
-        project.MonthlyUsed += 1;
+        // Increment monthly auth count (counts attempts, not successful verifications)
+        project.MonthlyAuthCount += 1;
 
         await _db.SaveChangesAsync();
         return session;
@@ -61,7 +75,7 @@ public class DeveloperVerificationService
         {
             var tokenCached = _ln.GenerateJwtToken(
                 userId: session.UserRef, 
-                role: "User"); // replace with LiveAuth token below if you want
+                role: "User");
             return (true, tokenCached);
         }
 
@@ -106,7 +120,6 @@ public class DeveloperVerificationService
             foreach (var c in jwt.Claims)
                 claims[c.Type] = c.Value;
 
-            // If you want full signature validation, add TokenValidationParameters.
             return true;
         }
         catch

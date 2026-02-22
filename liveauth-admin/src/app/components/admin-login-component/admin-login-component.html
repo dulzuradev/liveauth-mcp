@@ -38,6 +38,15 @@
         Login payment: 100 sats
       </p>
 
+      <!-- QR Code -->
+      <div class="qr-container" *ngIf="qrCodeValue">
+        <qrcode [qrdata]="qrCodeValue" [width]="280" [errorCorrectionLevel]="'M'"></qrcode>
+      </div>
+
+      <a *ngIf="qrCodeValue" class="wallet-link" [href]="qrCodeValue">
+        Open in Lightning wallet
+      </a>
+
       <div class="invoice-display">
         <p class="invoice-label">Lightning Invoice:</p>
         <textarea
@@ -224,6 +233,13 @@
   display: flex;
   justify-content: center;
   margin: 20px 0;
+}
+
+.wallet-link {
+  display: block;
+  text-align: center;
+  color: #00C2FF;
+  margin-bottom: 16px;
 }
 
 .timer {

@@ -1,0 +1,181 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>LiveAuthCore</name>
+    </assembly>
+    <members>
+        <member name="T:LiveAuthCore.Controllers.AdminController">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.AdminController.GetLoginAttempts">
+            <summary>
+            
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.AuthController.Start(LiveAuthCore.Models.AuthStartRequest)">
+            <summary>
+            Dev backend calls this to start a Lightning verification session.
+            Requires: Authorization: Bearer la_sk_...
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.AuthController.Confirm(LiveAuthCore.Models.AuthConfirmRequest)">
+            <summary>
+            Dev backend polls this to confirm settlement + receive LiveAuth token.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.AuthController.VerifyToken(LiveAuthCore.Models.VerifyTokenRequest)">
+            <summary>
+            Anyone can verify a LiveAuth token (no key required).
+            Useful for clients or edge services.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.LoginController.Login(LiveAuthCore.Controllers.LoginRequest)">
+            <summary>
+            
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.LoginController.GetPaymentStatus(System.String)">
+            <summary>
+            Original endpoint: GET /api/Login/payment-status/{paymentHash}
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.LoginController.GetPaymentStatusWithSession(System.String,System.String)">
+            <summary>
+            Compatibility endpoint for demo:
+            GET /api/Login/payment-status/{sessionId}/{paymentHash}
+            It just ignores the sessionId and forwards the hash to the original logic.
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Controllers.LoginRequest">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.PublicPowController.CreateChallenge(System.Threading.CancellationToken)">
+            <summary>
+            Creates a new challenge.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:LiveAuthCore.Data.Entities.PowUsedNonce">
+            <summary>
+            Tracks used PoW nonces to prevent replay attacks.
+            The unique constraint on (ProjectId, ChallengeHex, Nonce) provides atomic replay protection.
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Entities.RevokedToken">
+            <summary>
+                
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Models.PublicStartAuthRequest.UserHint">
+            <summary>
+            Optional user hint (email, username, etc.) the integrator can pass.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.CreateInvoice(System.String,System.Int64,System.String)">
+            <summary>
+            Generic invoice creation (existing behavior).
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.CreateLoginInvoiceAsync(System.String,System.Int64,System.Int32)">
+            <summary>
+            NEW: Create a login-specific invoice for dev auth flow.
+            Wraps LND /v1/invoices and returns an object with Id + BOLT11 string.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.GetInvoiceStatusAsync(System.String)">
+            <summary>
+            NEW: Get detailed status for a login invoice.
+            Uses the same underlying invoice lookup as CheckPaymentStatus but
+            returns a richer object (IsPaid + placeholder Lightning identity).
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.TryNormalizePaymentHash(System.String,System.Byte[]@,System.String@)">
+            <summary>
+            Normalize an input payment hash string to 32 bytes.
+            Accepts base64, base64url, or hex. Returns false if cannot decode or wrong length.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.CheckPaymentStatus(System.String)">
+            <summary>
+            Legacy helper - now delegates to GetInvoiceStatusAsync.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.GenerateJwtToken(System.String,System.String,System.Collections.Generic.IEnumerable{System.Security.Claims.Claim},System.Nullable{System.DateTime})">
+            <summary>
+            Preferred overload for new code (optional extra claims + expiry).
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Services.InvoiceStatusResult.PayerLightningAuthKey">
+            <summary>
+            Lightning identity of payer (LNURL-auth pubkey, etc).
+            Currently null until you wire that in.
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.PowNonceCleanupService">
+            <summary>
+            Background service that periodically cleans up expired PoW nonces from the database.
+            Runs every hour to prevent unbounded growth.
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.PowRateLimitService">
+            <summary>
+            In-memory rate limiter for PoW challenge generation.
+            Prevents hash grinding and DoS by limiting challenge requests per IP and per project.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.PowRateLimitService.TryAcquire(System.String,System.Guid)">
+            <summary>
+            Check if this IP or project has exceeded rate limits.
+            Returns true if request is allowed, false if rate-limited.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.PowReplayProtectionService.TryMarkNonceUsedAsync(System.Guid,System.String,System.String,System.Int64,System.Threading.CancellationToken)">
+             <summary>
+             Returns true if this (project, challenge, nonce) has NOT been used yet and we successfully marked it used.
+             Returns false if it's already used (replay).
+            
+             NOTE: IDistributedCache does not guarantee atomic "set-if-not-exists".
+             This is still very effective for v1, and becomes fully robust if you later swap in Redis with SET NX.
+             </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.PowReplayService">
+            <summary>
+            Atomic replay protection using database unique constraint.
+            Prevents race conditions that existed in the cache-based implementation.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.PowReplayService.TryMarkNonceUsedAsync(System.Guid,System.String,System.String,System.Int64,System.Threading.CancellationToken)">
+            <summary>
+            Returns true if this nonce has NOT been used before and is now marked as used.
+            Returns false if it was already used (replay detected).
+            
+            Uses database unique constraint for atomic check-and-insert.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.ProjectBillingHelpers.GetEffectiveSatsPerLogin(LiveAuthCore.Data.Entities.Project)">
+            <summary>
+            Computes the effective sats per login for a project, respecting environment.
+            TEST => always 0 sats (no Lightning payment required).
+            LIVE => uses stored SatsPerLogin (clamped to >= 0).
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.ProjectBillingHelpers.RequiresLightningPayment(LiveAuthCore.Data.Entities.Project)">
+            <summary>
+            Should this project require a real Lightning invoice for logins?
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.WebhookService.EnqueueAsync(LiveAuthCore.Data.Entities.Project,System.String,System.Object,System.Threading.CancellationToken)">
+            <summary>
+            Enqueue a webhook event for the given project.
+            If no webhook URL is configured, this is a no-op.
+            </summary>
+        </member>
+    </members>
+</doc>

@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="../buildMultiTargeting/LiveAuthCore.Tests.props" />
+</Project>

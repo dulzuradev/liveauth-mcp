@@ -3,6 +3,7 @@ import {AdminAuthService, AdminPaymentResponse, AdminVerifyResponse, AdminSetupR
 import {FormsModule} from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import {Router} from '@angular/router';
+import {QRCodeComponent} from 'angularx-qrcode';
 
 type AdminLoginState = 
   | 'checking'
@@ -20,7 +21,8 @@ type AdminLoginState =
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule
+    FormsModule,
+    QRCodeComponent
   ]
 })
 export class AdminLoginComponent implements OnDestroy {
@@ -41,6 +43,11 @@ export class AdminLoginComponent implements OnDestroy {
   remainingSeconds = 0;
   remainingLabel = '';
   copied = false;
+
+  get qrCodeValue(): string {
+    if (!this.paymentSession?.invoice) return '';
+    return `LIGHTNING:${this.paymentSession.invoice.trim()}`;
+  }
 
   private pollTimer?: any;
   private countdownTimer?: any;

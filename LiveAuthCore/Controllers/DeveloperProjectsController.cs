@@ -587,4 +587,57 @@ public class DeveloperProjectsController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpGet("{projectId:guid}/usage")]
+    public async Task<ActionResult<ProjectUsageResponse>> GetProjectUsage(Guid projectId, CancellationToken ct)
+    {
+        var devId = GetDeveloperId();
+        
+        var project = await _db.Projects
+            .Include(p => p.Developer)
+            .FirstOrDefaultAsync(p => p.Id == projectId && (IsAdmin() || p.DeveloperId == devId), ct);
+
+        if (project == null)
+            return NotFound();
+
+        // Calculate period
+        var now = DateTime.UtcNow;
+        var periodStart = project.MonthlyAuthPeriodStart;
+        
+        // If we're in a new month, show current period as new
+        if (periodStart.Month != now.Month || periodStart.Year != now.Year)
+        {
+            periodStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        }
+        
+        var periodEnd = periodStart.AddMonths(1).AddDays(-1);
+
+        // Get usage stats from UsageEvents
+        var usageEvents = await _db.UsageEvents
+            .Where(e => e.ProjectId == projectId && e.Timestamp >= periodStart)
+            .ToListAsync(ct);
+
+        var totalVerifications = usageEvents.Count(e => e.Type == "verified");
+        var totalSatsCharged = usageEvents.Sum(e => e.SatsCharged);
+
+        var limit = PlanLimits.GetMonthlyAuthLimit(project.Plan, project.ProPaidUntil);
+        var used = project.MonthlyAuthCount;
+        
+        var response = new ProjectUsageResponse
+        {
+            Plan = project.Plan ?? "free",
+            IsPro = PlanLimits.IsActivePro(project.Plan ?? "free", project.ProPaidUntil),
+            ProExpiresAt = project.ProPaidUntil,
+            MonthlyLimit = limit,
+            MonthlyUsed = used,
+            MonthlyRemaining = Math.Max(0, limit - used),
+            MonthlyUsagePercent = limit > 0 ? Math.Round((double)used / limit * 100, 1) : 0,
+            PeriodStart = periodStart,
+            PeriodEnd = periodEnd,
+            TotalSatsCharged = totalSatsCharged,
+            TotalVerifications = totalVerifications
+        };
+
+        return Ok(response);
+    }
 }
