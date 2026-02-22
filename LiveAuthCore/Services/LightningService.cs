@@ -21,6 +21,22 @@ public class InvoiceResult
     public long ExpiresAtUnix { get; set; }
 }
 
+public class LndInfo
+{
+    public string Version { get; set; } = string.Empty;
+    public long BlockHeight { get; set; }
+    public int NumActiveChannels { get; set; }
+    public int NumPeers { get; set; }
+}
+
+public class LndGetInfoResponse
+{
+    [JsonPropertyName("version")] public string? Version { get; set; }
+    [JsonPropertyName("block_height")] public long BlockHeight { get; set; }
+    [JsonPropertyName("num_active_channels")] public int NumActiveChannels { get; set; }
+    [JsonPropertyName("num_peers")] public int NumPeers { get; set; }
+}
+
 public class LightningService
 {
     private readonly string _baseUrl;
@@ -321,6 +337,40 @@ public class LightningService
         {
             IsPaid = isSettled,
             PayerLightningAuthKey = lightningAuthKey
+        };
+    }
+
+    /// <summary>
+    /// Get LND node information for health checks.
+    /// </summary>
+    public async Task<LndInfo> GetLndInfoAsync(CancellationToken ct)
+    {
+        if (_useMock)
+        {
+            return new LndInfo
+            {
+                Version = "mock",
+                BlockHeight = 0,
+                NumActiveChannels = 0,
+                NumPeers = 0
+            };
+        }
+
+        await EnsureMacaroonHeaderAsync();
+
+        var response = await _httpClient.GetAsync($"{_baseUrl}/v1/getinfo", ct);
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync(ct);
+        var info = JsonSerializer.Deserialize<LndGetInfoResponse>(json,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        return new LndInfo
+        {
+            Version = info?.Version ?? "unknown",
+            BlockHeight = info?.BlockHeight ?? 0,
+            NumActiveChannels = info?.NumActiveChannels ?? 0,
+            NumPeers = info?.NumPeers ?? 0
         };
     }
 
