@@ -32,6 +32,11 @@ public class LightningService
     // Cache macaroon so we don't read disk every call
     private string? _macaroonHexCache;
 
+    // Token expiry settings (from config, with defaults)
+    private readonly int _adminTokenExpiryHours;
+    private readonly int _developerTokenExpiryHours;
+    private readonly int _defaultTokenExpiryMinutes;
+
     public LightningService(IConfiguration configuration)
     {
         _configuration = configuration;
@@ -42,6 +47,11 @@ public class LightningService
         _mockLoginIdentity = bool.TryParse(
                                  _configuration["DevLogin:MockLightningIdentity"], out var mockId)
                              && mockId;
+
+        // Read token expiry from config (defaults to sensible values)
+        _adminTokenExpiryHours = _configuration.GetValue<int>("TokenExpiry:AdminHours", 720); // 30 days
+        _developerTokenExpiryHours = _configuration.GetValue<int>("TokenExpiry:DeveloperHours", 2);
+        _defaultTokenExpiryMinutes = _configuration.GetValue<int>("TokenExpiry:DefaultMinutes", 30);
 
         // Configure HttpClient (allow self-signed for dev/test)
         var handler = new HttpClientHandler
@@ -447,7 +457,7 @@ public class LightningService
             subjectUserId: userId,
             role: role,
             extraClaims: null,
-            expiresUtc: DateTime.UtcNow.AddMinutes(30)
+            expiresUtc: DateTime.UtcNow.AddMinutes(_defaultTokenExpiryMinutes)
         );
     }
 
@@ -464,7 +474,7 @@ public class LightningService
             subjectUserId: userId,
             role: role,
             extraClaims: extraClaims,
-            expiresUtc: expiresUtc ?? DateTime.UtcNow.AddMinutes(30)
+            expiresUtc: expiresUtc ?? DateTime.UtcNow.AddMinutes(_defaultTokenExpiryMinutes)
         );
     }
 
@@ -671,7 +681,7 @@ public class LightningService
             subjectUserId: adminId,
             role: "Admin",
             extraClaims: extraClaims,
-            expiresUtc: DateTime.UtcNow.AddDays(30)
+            expiresUtc: DateTime.UtcNow.AddHours(_adminTokenExpiryHours)
             // Use default audience ("LiveAuthUsers") for compatibility
         );
     }
@@ -684,7 +694,7 @@ public class LightningService
             subjectUserId: developerId,
             role: "Developer",
             extraClaims: extraClaims,
-            expiresUtc: DateTime.UtcNow.AddHours(2),
+            expiresUtc: DateTime.UtcNow.AddHours(_developerTokenExpiryHours),
             audienceOverride: "LiveAuthDevelopers"
         );
     }
