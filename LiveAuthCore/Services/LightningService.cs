@@ -9,6 +9,18 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace LiveAuthCore.Services;
 
+/// <summary>
+/// Unified result for invoice creation - always returns hex payment hash.
+/// Use this instead of accessing invoice.RHash directly.
+/// </summary>
+public class InvoiceResult
+{
+    public string PaymentHash { get; set; } = string.Empty;  // Always 64-char hex
+    public string Bolt11 { get; set; } = string.Empty;
+    public long AmountSats { get; set; }
+    public long ExpiresAtUnix { get; set; }
+}
+
 public class LightningService
 {
     private readonly string _baseUrl;
@@ -81,6 +93,33 @@ public class LightningService
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         return invoice ?? throw new ApplicationException("LND returned null invoice");
+    }
+
+    /// <summary>
+    /// CENTRALIZED: Create invoice and return hex payment hash.
+    /// Use this instead of CreateInvoice to get the payment hash in consistent hex format.
+    /// </summary>
+    public async Task<InvoiceResult> CreateInvoiceWithHashAsync(
+        string userId, 
+        long amountSats, 
+        string memo,
+        int expiryMinutes = 60)
+    {
+        var invoice = await CreateInvoice(userId, amountSats, memo);
+        
+        // CENTRALIZED: Convert base64 r_hash to hex once - never use invoice.RHash directly!
+        var rHashBytes = Convert.FromBase64String(invoice.RHash);
+        var rHashHex = Convert.ToHexString(rHashBytes).ToLowerInvariant();
+        
+        var expiresAtUnix = DateTimeOffset.UtcNow.AddMinutes(expiryMinutes).ToUnixTimeSeconds();
+        
+        return new InvoiceResult
+        {
+            PaymentHash = rHashHex,  // Always 64-char hex
+            Bolt11 = invoice.PaymentRequest,
+            AmountSats = amountSats,
+            ExpiresAtUnix = expiresAtUnix
+        };
     }
 
     /// <summary>

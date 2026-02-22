@@ -67,18 +67,20 @@ public class AdminAuthController : ControllerBase
         var now = DateTime.UtcNow;
         var expiresAt = now.AddMinutes(15);
 
-        var invoice = await _lightning.CreateInvoice(
+        // CENTRALIZED: Use new method that returns hex payment hash
+        var invoiceResult = await _lightning.CreateInvoiceWithHashAsync(
             userId: "admin-setup",
             amountSats: amountSats,
-            memo: memo
+            memo: memo,
+            expiryMinutes: 15
         );
 
         var paymentSession = new AdminPaymentSession
         {
             Id = Guid.NewGuid(),
             AmountSats = amountSats,
-            InvoiceBolt11 = invoice.PaymentRequest,
-            InvoiceRHash = invoice.RHash,
+            InvoiceBolt11 = invoiceResult.Bolt11,
+            InvoiceRHash = invoiceResult.PaymentHash,  // Now stores hex!
             IsPaid = false,
             CreatedAt = now,
             ExpiresAt = expiresAt
@@ -90,7 +92,7 @@ public class AdminAuthController : ControllerBase
         return Ok(new AdminPaymentResponse
         {
             SessionId = paymentSession.Id,
-            Invoice = invoice.PaymentRequest,
+            Invoice = invoiceResult.Bolt11,
             AmountSats = amountSats,
             IsSetup = !adminExists,
             ExpiresAtUnix = new DateTimeOffset(expiresAt).ToUnixTimeSeconds()

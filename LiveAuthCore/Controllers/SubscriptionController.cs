@@ -72,7 +72,8 @@ namespace LiveAuthCore.Controllers
             var expiresAt = DateTime.UtcNow.AddMinutes(15);
 
             var memo = $"LiveAuth Pro – project {project.Name}";
-            var invoice = await _lightning.CreateInvoice(
+            // CENTRALIZED: Use new method that returns hex payment hash
+            var invoiceResult = await _lightning.CreateInvoiceWithHashAsync(
                 project.Id.ToString(),
                 amountSats,
                 memo
@@ -84,8 +85,8 @@ namespace LiveAuthCore.Controllers
                 ProjectId = project.Id,
                 Plan = request.Plan,
                 AmountSats = amountSats,
-                InvoiceBolt11 = invoice.PaymentRequest,
-                InvoiceRHash = invoice.RHash,
+                InvoiceBolt11 = invoiceResult.Bolt11,
+                InvoiceRHash = invoiceResult.PaymentHash,  // Now stores hex!
                 IsPaid = false,
                 CreatedAt = DateTime.UtcNow,
                 ExpiresAt = expiresAt

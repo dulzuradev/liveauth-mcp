@@ -168,15 +168,14 @@ public class PublicAuthController : ControllerBase
         if ((env == "LIVE" && satsPerLogin > 0) || (request.UserHint != null && request.UserHint == "demo-user"))
         {
             var memo = $"LightningWall login – project {project.Name}";
-            var invoice = await _lightning.CreateInvoice(
+            // CENTRALIZED: Use new method that returns hex payment hash
+            var invoiceResult = await _lightning.CreateInvoiceWithHashAsync(
                 project.Id.ToString(),
                 satsPerLogin,
                 memo);
 
-            bolt11 = invoice.PaymentRequest;
-            // LND returns r_hash as base64 (32 bytes → ~44 chars). Convert to hex for storage/lookup.
-            var rHashBytes = Convert.FromBase64String(invoice.RHash);
-            rHashHex = Convert.ToHexString(rHashBytes).ToLowerInvariant();
+            bolt11 = invoiceResult.Bolt11;
+            rHashHex = invoiceResult.PaymentHash;
         }
 
         var session = new AuthSession
