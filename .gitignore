@@ -1,4 +1,5 @@
-/LiveAuthCore.Tests/bin
-/LiveAuthCore.Tests/obj
 *.nuget
 nuget/
+# SSH Private Keys
+LiveAuthCore/Services/liveAuth_key
+LiveAuthCore/Services/liveAuth_key.pub
