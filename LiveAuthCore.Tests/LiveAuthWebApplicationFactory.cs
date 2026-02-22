@@ -1,10 +1,10 @@
+namespace LiveAuthCore.Tests;
+
 using LiveAuthCore.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-
-namespace LiveAuthCore.Tests;
 
 /// <summary>
 /// Custom WebApplicationFactory for integration testing.
@@ -14,6 +14,19 @@ public class LiveAuthWebApplicationFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseEnvironment("Testing");
+        
+        builder.ConfigureAppConfiguration(config =>
+        {
+            // Add test-specific configuration to enable mocks
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Lnd:UseMock"] = "true",
+                ["DevLogin:MockLightningIdentity"] = "true",
+                ["UseMockLightning"] = "true"
+            });
+        });
+
         builder.ConfigureServices(services =>
         {
             // Remove the real DbContext registration

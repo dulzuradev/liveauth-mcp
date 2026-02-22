@@ -1,2 +1,4 @@
 /LiveAuthCore.Tests/bin
 /LiveAuthCore.Tests/obj
+*.nuget
+nuget/

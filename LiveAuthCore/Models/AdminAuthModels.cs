@@ -1,7 +1,15 @@
 namespace LiveAuthCore.Models;
 
+using System.ComponentModel.DataAnnotations;
+
 public sealed class AdminStartLoginRequest
 {
+    /// <summary>
+    /// Admin email address.
+    /// </summary>
+    [Required(ErrorMessage = "Email is required")]
+    [EmailAddress(ErrorMessage = "Email must be a valid email address")]
+    [StringLength(255, ErrorMessage = "Email cannot exceed 255 characters")]
     public string Email { get; set; } = string.Empty;
 }
 
@@ -15,6 +23,7 @@ public sealed class AdminStartLoginResponse
 
 public sealed class AdminConfirmLoginRequest
 {
+    [Required(ErrorMessage = "SessionId is required")]
     public Guid SessionId { get; set; }
 }
 
