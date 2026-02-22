@@ -54,6 +54,7 @@
       <!-- CREATE PROJECT BUTTON (only after login) -->
       <div *ngIf="loggedIn" class="col-12 md:col-3 flex align-items-end">
         <button
+          type="button"
           (click)="createProject()"
           [disabled]="!projectName"
           [loading]="loading"

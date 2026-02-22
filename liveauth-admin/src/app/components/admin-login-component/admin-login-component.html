@@ -38,27 +38,22 @@
         Login payment: 100 sats
       </p>
 
-      <div class="qr-container">
-        <qrcode
-          [width]="220"
-          [errorCorrectionLevel]="'M'"
-          [qrdata]="paymentSession.invoice">
-        </qrcode>
+      <div class="invoice-display">
+        <p class="invoice-label">Lightning Invoice:</p>
+        <textarea
+          class="invoice-text"
+          [value]="paymentSession.invoice"
+          readonly
+          rows="4"
+          (click)="$any($event.target).select()"
+        ></textarea>
+        <button (click)="copyInvoice()" class="copy-btn" [class.copied]="copied">
+          {{ copied ? '✓ Copied!' : 'Copy Invoice' }}
+        </button>
       </div>
 
       <div class="timer">
         Expires in {{ remainingLabel }}
-      </div>
-
-      <div class="invoice-input">
-        <input
-          [value]="paymentSession.invoice"
-          readonly
-          (click)="$any($event.target).select()"
-        />
-        <button (click)="copyInvoice()" [class.copied]="copied">
-          {{ copied ? '✓ Copied' : 'Copy' }}
-        </button>
       </div>
 
       <p class="waiting" *ngIf="remainingSeconds > 0">
@@ -237,35 +232,51 @@
   margin: 16px 0;
 }
 
-.invoice-input {
-  display: flex;
-  gap: 8px;
-  margin-top: 16px;
+.invoice-display {
+  margin: 20px 0;
+  text-align: left;
 }
 
-.invoice-input input {
-  flex: 1;
-  padding: 10px;
-  border-radius: 6px;
+.invoice-label {
+  color: #8b95a5;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.invoice-text {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
   border: 1px solid rgba(0, 194, 255, 0.25);
-  background: rgba(0, 0, 0, 0.3);
-  color: #e3e7ee;
+  background: rgba(0, 0, 0, 0.4);
+  color: #00C2FF;
   font-family: monospace;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  resize: none;
+  box-sizing: border-box;
 }
 
-.invoice-input button {
-  padding: 10px 16px;
-  border-radius: 6px;
+.copy-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
   border: 1px solid rgba(0, 194, 255, 0.25);
-  background: rgba(0, 194, 255, 0.1);
+  background: rgba(0, 194, 255, 0.15);
   color: #00C2FF;
   cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
 }
 
-.invoice-input button.copied {
+.copy-btn:hover {
+  background: rgba(0, 194, 255, 0.25);
+}
+
+.copy-btn.copied {
   background: rgba(0, 255, 136, 0.2);
   color: #00ff88;
+  border-color: rgba(0, 255, 136, 0.3);
 }
 
 .waiting {

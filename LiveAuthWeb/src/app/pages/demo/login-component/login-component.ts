@@ -169,8 +169,8 @@ export class LoginComponent implements OnInit, OnDestroy {
         this.amount = res.amountSats;
         this.lastMethod = 'lightning';
 
-        // Start polling for payment
-        this.sub = this.liveAuth.pollLightning(res.sessionId).subscribe({
+        // Start polling for payment (demo uses demo/confirm endpoint)
+        this.sub = this.liveAuth.pollDemoLightning(res.sessionId).subscribe({
           next: token => {
             console.log('Lightning payment confirmed', token);
             this.status = 'success';

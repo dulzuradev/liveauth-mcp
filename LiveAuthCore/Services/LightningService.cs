@@ -139,10 +139,14 @@ public class LightningService
 
         var expiresAtUnix = DateTimeOffset.UtcNow.AddMinutes(expiryMinutes).ToUnixTimeSeconds();
 
+        // LND returns r_hash as base64 (32 bytes → ~44 chars). Convert to hex for storage/lookup.
+        var rHashBytes = Convert.FromBase64String(invoice.RHash);
+        var rHashHex = Convert.ToHexString(rHashBytes).ToLowerInvariant();
+
         return new LoginInvoiceResult
         {
-            // r_hash is base64; we treat that as "InvoiceId" for lookup
-            InvoiceId = invoice.RHash,
+            // Store as hex (64 chars) for consistent lookups
+            InvoiceId = rHashHex,
             Bolt11 = invoice.PaymentRequest,
             AmountSats = amountSats,
             ExpiresAtUnix = expiresAtUnix
@@ -156,6 +160,8 @@ public class LightningService
     /// </summary>
     public async Task<InvoiceStatusResult> GetInvoiceStatusAsync(string paymentHashB64)
     {
+        // DEBUG
+        Console.WriteLine($"[DEBUG] GetInvoiceStatusAsync called with: '{paymentHashB64}' (length={paymentHashB64?.Length})");
         //
         // MOCK MODE
         //
@@ -199,6 +205,7 @@ public class LightningService
         // Normalize 32-byte payment hash
         if (!TryNormalizePaymentHash(paymentHashB64, out var rHashBytes, out var error))
         {
+            Console.WriteLine($"[DEBUG] TryNormalizePaymentHash failed: {error}");
             return new InvoiceStatusResult
             {
                 IsPaid = false,
@@ -208,10 +215,13 @@ public class LightningService
 
         var hex = Convert.ToHexString(rHashBytes!).ToLowerInvariant();
         var url = $"{_baseUrl}/v1/invoice/{hex}";
+        Console.WriteLine($"[DEBUG] Calling LND: {url}");
         var response = await _httpClient.GetAsync(url);
+        Console.WriteLine($"[DEBUG] LND response status: {response.StatusCode}");
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
+            Console.WriteLine($"[DEBUG] Invoice not found in LND");
             return new InvoiceStatusResult
             {
                 IsPaid = false,
@@ -222,6 +232,7 @@ public class LightningService
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"[DEBUG] LND error: {body}");
 
             if (body.Contains("must be exactly 32 bytes", StringComparison.OrdinalIgnoreCase))
             {
@@ -237,12 +248,14 @@ public class LightningService
         }
 
         var json = await response.Content.ReadAsStringAsync();
+        Console.WriteLine($"[DEBUG] LND response body: {json}");
         var invoice = JsonSerializer.Deserialize<InvoiceResponse>(
             json,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
         );
 
         bool isSettled = invoice?.Settled == true;
+        Console.WriteLine($"[DEBUG] Settled: {isSettled}, invoice.Settled: {invoice?.Settled}");
 
         string? lightningAuthKey = null;
 
@@ -619,8 +632,8 @@ public class LightningService
             subjectUserId: adminId,
             role: "Admin",
             extraClaims: extraClaims,
-            expiresUtc: DateTime.UtcNow.AddHours(8),
-            audienceOverride: "LiveAuthAdmin"
+            expiresUtc: DateTime.UtcNow.AddDays(30)
+            // Use default audience ("LiveAuthUsers") for compatibility
         );
     }
 

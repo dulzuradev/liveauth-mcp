@@ -30,10 +30,14 @@ services:
       dockerfile: Dockerfile
     container_name: liveauth-api
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Default: Data Source=/data/liveauth.db
+      DB_PROVIDER: sqlite
+      Admin__SkipPayment: "true"
     volumes:
       - sqlite_data:/data
     networks:

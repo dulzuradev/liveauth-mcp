@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import {DatePipe} from '@angular/common';
+import { BASE_API_URL } from '../../../config';
 
 @Component({
   selector: 'app-admin',
@@ -15,8 +16,17 @@ export class AdminComponent implements OnInit {
 
   constructor(private http: HttpClient) {}
 
+  private getAuthHeaders(): { headers: HttpHeaders } {
+    const token = localStorage.getItem('admin_token') || localStorage.getItem('token');
+    return {
+      headers: new HttpHeaders({
+        Authorization: token ? `Bearer ${token}` : ''
+      })
+    };
+  }
+
   ngOnInit() {
-    this.http.get('http://localhost:5000/api/admin/login-attempts').subscribe({
+    this.http.get(`${BASE_API_URL}/api/admin/login-attempts`, this.getAuthHeaders()).subscribe({
       next: (attempts: any) => this.loginAttempts = attempts,
       error: (err) => console.error('Failed to load attempts', err)
     });

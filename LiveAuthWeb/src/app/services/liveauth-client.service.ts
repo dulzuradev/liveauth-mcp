@@ -83,7 +83,7 @@ export class LiveAuthClientService {
   private readonly baseUrl = BASE_API_URL;
 
   private readonly headers = new HttpHeaders({
-    'X-LW-Public': 'la_pk_OWjrNhzTYD6EViW5nHr6Ij-F',
+    'X-LW-Public': 'la_pk_wqIW3785KgWu4ctfHlBqYCrO',
     'Content-Type': 'application/json'
   });
 
@@ -211,6 +211,27 @@ export class LiveAuthClientService {
       const id = setInterval(() => {
         this.http.post<AuthConfirmResponse>(
           `${this.baseUrl}/api/public/auth/confirm`,
+          { sessionId },
+          { headers: this.headers }
+        ).subscribe(res => {
+          if (res.verified && res.token) {
+            clearInterval(id);
+            observer.next(res.token);
+            observer.complete();
+          }
+        });
+      }, 2000);
+
+      return () => clearInterval(id);
+    });
+  }
+
+  // Demo Lightning uses /api/public/demo/confirm
+  pollDemoLightning(sessionId: string): Observable<string> {
+    return new Observable(observer => {
+      const id = setInterval(() => {
+        this.http.post<AuthConfirmResponse>(
+          `${this.baseUrl}/api/public/demo/confirm`,
           { sessionId },
           { headers: this.headers }
         ).subscribe(res => {

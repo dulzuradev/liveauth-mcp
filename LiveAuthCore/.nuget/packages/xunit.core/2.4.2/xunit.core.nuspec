@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata minClientVersion="2.12">
+    <id>xunit.core</id>
+    <version>2.4.2</version>
+    <title>xUnit.net [Core Unit Testing Framework]</title>
+    <authors>jnewkirk,bradwilson</authors>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <license type="expression">Apache-2.0</license>
+    <licenseUrl>https://licenses.nuget.org/Apache-2.0</licenseUrl>
+    <icon>_content/logo-128-transparent.png</icon>
+    <description>Includes the libraries for writing unit tests with xUnit.net.</description>
+    <copyright>Copyright (C) .NET Foundation</copyright>
+    <repository type="git" url="https://github.com/xunit/xunit" commit="f110e5bee5dfd4c08339587c9c3df9292fcb597c" />
+    <dependencies>
+      <dependency id="xunit.extensibility.core" version="[2.4.2]" />
+      <dependency id="xunit.extensibility.execution" version="[2.4.2]" />
+    </dependencies>
+  </metadata>
+</package>

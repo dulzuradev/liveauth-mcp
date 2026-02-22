@@ -7,17 +7,27 @@ import {
   AdminProjectUsageDto,
   AdminSubscriptionDto
 } from '../admin-analytics.models';
+import { AdminAuthService } from './admin-auth';
 
 @Injectable({ providedIn: 'root' })
 export class AdminAnalyticsService {
-  private baseUrl = 'http://localhost:5166';
+  private baseUrl = 'https://api.liveauth.app';
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private auth: AdminAuthService
+  ) {}
+
+  private getAuthHeaders(): Record<string, string> | undefined {
+    const token = this.auth.getToken();
+    return token ? { Authorization: `Bearer ${token}` } : undefined;
+  }
 
   getOverview(windowHours = 24): Observable<AdminAnalyticsOverviewResponse> {
     return this.http
       .get<any>(`${this.baseUrl}/api/admin/analytics/overview`, {
-        params: { windowHours }
+        params: { windowHours },
+        headers: this.getAuthHeaders()
       })
       .pipe(
         map(raw => {
@@ -73,13 +83,14 @@ export class AdminAnalyticsService {
   getProjects(windowHours = 24): Observable<AdminProjectUsageDto[]> {
     return this.http.get<AdminProjectUsageDto[]>(
       `${this.baseUrl}/api/admin/analytics/projects`,
-      { params: { windowHours } }
+      { params: { windowHours }, headers: this.getAuthHeaders() }
     );
   }
 
   getSubscriptions(): Observable<AdminSubscriptionDto[]> {
     return this.http.get<AdminSubscriptionDto[]>(
-      `${this.baseUrl}/api/admin/analytics/subscriptions`
+      `${this.baseUrl}/api/admin/analytics/subscriptions`,
+      { headers: this.getAuthHeaders() }
     );
   }
 }

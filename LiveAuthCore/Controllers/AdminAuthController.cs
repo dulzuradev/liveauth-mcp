@@ -139,14 +139,20 @@ public class AdminAuthController : ControllerBase
     [HttpPost("setup")]
     public async Task<ActionResult<AdminSetupResponse>> SetupAdmin([FromBody] AdminSetupRequest request, CancellationToken ct)
     {
-        // Verify payment first
-        var paymentSession = await _db.AdminPaymentSessions
-            .Where(s => s.IsPaid && s.ExpiresAt > DateTime.UtcNow)
-            .OrderByDescending(s => s.PaidAt)
-            .FirstOrDefaultAsync(ct);
+        // Skip payment check for local development or if explicitly bypassed
+        var skipPayment = _config["Admin:SkipPayment"] == "true";
+        
+        if (!skipPayment)
+        {
+            // Verify payment first
+            var paymentSession = await _db.AdminPaymentSessions
+                .Where(s => s.IsPaid && s.ExpiresAt > DateTime.UtcNow)
+                .OrderByDescending(s => s.PaidAt)
+                .FirstOrDefaultAsync(ct);
 
-        if (paymentSession == null)
-            return StatusCode(403, new { error = "Payment required" });
+            if (paymentSession == null)
+                return StatusCode(403, new { error = "Payment required" });
+        }
 
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
             return BadRequest(new { error = "Username and password required" });
@@ -178,10 +184,13 @@ public class AdminAuthController : ControllerBase
         _db.AdminSessions.Add(session);
         await _db.SaveChangesAsync(ct);
 
+        // Generate JWT token
+        var jwtToken = _lightning.GenerateAdminJwtToken(session.Id.ToString());
+
         return Ok(new AdminSetupResponse
         {
             Success = true,
-            Token = session.Token,
+            Token = jwtToken,
             Username = session.Username
         });
     }
@@ -202,15 +211,16 @@ public class AdminAuthController : ControllerBase
         if (hash != session.PasswordHash)
             return Unauthorized(new { error = "Invalid credentials" });
 
-        // Generate new token
-        session.Token = Guid.NewGuid().ToString("N");
+        // Generate JWT token
+        var jwtToken = _lightning.GenerateAdminJwtToken(session.Id.ToString());
+        session.Token = jwtToken;
         session.ExpiresAt = DateTime.UtcNow.AddDays(30);
         await _db.SaveChangesAsync(ct);
 
         return Ok(new AdminLoginResponse
         {
             Success = true,
-            Token = session.Token,
+            Token = jwtToken,
             Username = session.Username
         });
     }

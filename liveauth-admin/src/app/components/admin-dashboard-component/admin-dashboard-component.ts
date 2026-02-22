@@ -1,7 +1,9 @@
 import {Component, OnInit, OnDestroy, ChangeDetectorRef} from '@angular/core';
 import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { AdminAnalyticsService } from '../../services/admin-analytics';
+import { AdminAuthService } from '../../services/admin-auth';
 import {
   AdminAnalyticsOverviewResponse,
   AdminAuthEventDto,
@@ -78,6 +80,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   constructor(
     private analytics: AdminAnalyticsService,
+    private auth: AdminAuthService,
+    private router: Router,
     private changeDetector: ChangeDetectorRef
   ) {}
 
@@ -237,6 +241,22 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   // ================= LIFECYCLE =================
 
   ngOnInit() {
+    // Verify auth status before making API calls
+    this.auth.checkStatus().subscribe({
+      next: (status) => {
+        if (!status.isAuthenticated) {
+          this.router.navigate(['/login']);
+          return;
+        }
+        this.loadData();
+      },
+      error: () => {
+        this.router.navigate(['/login']);
+      }
+    });
+  }
+
+  private loadData() {
     this.windowHours$
       .pipe(
         startWith(this.windowHours),

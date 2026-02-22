@@ -40,6 +40,14 @@ public class PublicAuthController : ControllerBase
         if (HttpContext.Items.TryGetValue("Project", out var r) && r is Project proj3)
             return proj3;
 
+        // Fallback: look up project from X-LW-Public header directly
+        if (Request.Headers.TryGetValue("X-LW-Public", out var pubKeyValues) && 
+            !string.IsNullOrWhiteSpace(pubKeyValues.FirstOrDefault()))
+        {
+            var pubKey = pubKeyValues.FirstOrDefault();
+            return _db.Projects.FirstOrDefault(p => p.PublicKey == pubKey && p.IsActive);
+        }
+
         // 👇 Optional but very helpful
         HttpContext.RequestServices
             .GetService<ILogger<PublicAuthController>>()?
@@ -155,7 +163,7 @@ public class PublicAuthController : ControllerBase
 
         var expiryMinutes = 10;
         string? bolt11 = null;
-        string? rHashB64 = null;
+        string? rHashHex = null;
 
         if ((env == "LIVE" && satsPerLogin > 0) || (request.UserHint != null && request.UserHint == "demo-user"))
         {
@@ -166,7 +174,9 @@ public class PublicAuthController : ControllerBase
                 memo);
 
             bolt11 = invoice.PaymentRequest;
-            rHashB64 = invoice.RHash;
+            // LND returns r_hash as base64 (32 bytes → ~44 chars). Convert to hex for storage/lookup.
+            var rHashBytes = Convert.FromBase64String(invoice.RHash);
+            rHashHex = Convert.ToHexString(rHashBytes).ToLowerInvariant();
         }
 
         var session = new AuthSession
@@ -176,7 +186,7 @@ public class PublicAuthController : ControllerBase
             Environment = env,
             UserHint = request.UserHint?.Trim(),
             AmountSats = satsPerLogin,
-            InvoiceRHash = rHashB64,
+            InvoiceRHash = rHashHex,
             InvoiceBolt11 = bolt11,
             ExpiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes),
             IsPaid = false,

@@ -37,9 +37,12 @@ public class ApiKeyAuthMiddleware
         }
 
         // Only apply to public verification endpoints (not MCP)
+        // Actually: SKIP for public endpoints, REQUIRE for others
         if (
-            !context.Request.Path.StartsWithSegments("/api/public/pow", StringComparison.OrdinalIgnoreCase) &&
-            !context.Request.Path.StartsWithSegments("/api/public/auth", StringComparison.OrdinalIgnoreCase)
+            context.Request.Path.StartsWithSegments("/api/public/pow", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/api/public/auth", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/api/public/demo", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/api/dev", StringComparison.OrdinalIgnoreCase)
         )
         {
             await _next(context);

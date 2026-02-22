@@ -1,7 +1,6 @@
-import {ChangeDetectorRef, Component, OnDestroy} from '@angular/core';
+import {ChangeDetectorRef, Component, OnDestroy, NgZone} from '@angular/core';
 import {AdminAuthService, AdminPaymentResponse, AdminVerifyResponse, AdminSetupResponse, AdminLoginResponse} from '../../services/admin-auth';
 import {FormsModule} from '@angular/forms';
-import { QRCodeComponent } from 'angularx-qrcode';
 import { CommonModule } from '@angular/common';
 import {Router} from '@angular/router';
 
@@ -21,8 +20,7 @@ type AdminLoginState =
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
-    QRCodeComponent
+    FormsModule
   ]
 })
 export class AdminLoginComponent implements OnDestroy {
@@ -49,10 +47,12 @@ export class AdminLoginComponent implements OnDestroy {
 
   constructor(
     private auth: AdminAuthService, 
-    private changeDetector: ChangeDetectorRef, 
+    private changeDetector: ChangeDetectorRef,
+    private ngZone: NgZone,
     private router: Router
   ) {
-    this.checkAuth();
+    // Don't auto-check auth - wait for user to click button
+    this.state = 'payment';
   }
 
   private checkAuth() {
@@ -74,19 +74,25 @@ export class AdminLoginComponent implements OnDestroy {
 
   createPayment() {
     this.error = undefined;
-    this.state = 'payment';
+    this.state = 'waiting';
     
     this.auth.createPayment().subscribe({
       next: (res) => {
-        this.paymentSession = res;
-        this.canSetPassword = res.isSetup;
-        this.state = 'waiting';
-        this.startCountdown(res.expiresAtUnix);
-        this.startPolling();
+        setTimeout(() => {
+          this.paymentSession = res;
+          this.canSetPassword = res.isSetup;
+          this.state = 'waiting';
+          this.startCountdown(res.expiresAtUnix);
+          this.startPolling();
+          this.changeDetector.detectChanges();
+        }, 0);
       },
       error: (err) => {
-        this.error = err?.error?.message || 'Failed to create payment';
-        this.state = 'error';
+        setTimeout(() => {
+          this.error = err?.error?.message || 'Failed to create payment';
+          this.state = 'error';
+          this.changeDetector.detectChanges();
+        }, 0);
       }
     });
   }
@@ -94,42 +100,49 @@ export class AdminLoginComponent implements OnDestroy {
   private startPolling() {
     if (!this.paymentSession || this.pollTimer) return;
 
-    const pollOnce = () => {
-      if (!this.paymentSession || this.remainingSeconds <= 0) {
-        this.stopPolling();
-        return;
-      }
-
-      this.auth.verifyPayment(this.paymentSession.sessionId).subscribe({
-        next: (res) => {
-          if (res.paid) {
-            this.stopPolling();
-            this.stopCountdown();
-            
-            if (res.canSetPassword) {
-              this.state = 'setup';
-            } else {
-              this.state = 'login';
-            }
-            return;
-          }
-          
-          if (res.error) {
-            this.error = res.error;
-            this.state = 'error';
-            this.stopPolling();
-            return;
-          }
-          
-          this.pollTimer = setTimeout(pollOnce, 2000);
-        },
-        error: () => {
-          this.pollTimer = setTimeout(pollOnce, 2000);
+    // Run polling outside Angular zone for setTimeout, but update UI manually
+    this.ngZone.runOutsideAngular(() => {
+      const pollOnce = () => {
+        if (!this.paymentSession || this.remainingSeconds <= 0) {
+          return;
         }
-      });
-    };
 
-    pollOnce();
+        this.auth.verifyPayment(this.paymentSession.sessionId).subscribe({
+          next: (res) => {
+            // We're outside Angular zone, manually trigger change detection
+            this.ngZone.run(() => {
+              if (res.paid) {
+                this.stopPolling();
+                this.stopCountdown();
+                
+                if (res.canSetPassword) {
+                  this.state = 'setup';
+                } else {
+                  this.state = 'login';
+                }
+                this.changeDetector.detectChanges();
+                return;
+              }
+              
+              if (res.error) {
+                this.error = res.error;
+                this.state = 'error';
+                this.stopPolling();
+                this.changeDetector.detectChanges();
+                return;
+              }
+              
+              this.pollTimer = setTimeout(pollOnce, 2000);
+            });
+          },
+          error: () => {
+            this.pollTimer = setTimeout(pollOnce, 2000);
+          }
+        });
+      };
+
+      pollOnce();
+    });
   }
 
   private startCountdown(expiresAtUnix: number): void {

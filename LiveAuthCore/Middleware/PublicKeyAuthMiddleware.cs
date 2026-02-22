@@ -35,16 +35,19 @@ public class PublicKeyAuthMiddleware
             await _next(context);
             return;
         }
-        // Only apply to PoW endpoints (not MCP - it handles auth itself)
+        // Skip auth for these paths
         if (
-            !context.Request.Path.StartsWithSegments("/api/public/pow") &&
-            !context.Request.Path.StartsWithSegments("/api/public/auth")
+            context.Request.Path.StartsWithSegments("/api/public/pow", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/api/public/auth", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/api/public/demo", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/api/dev", StringComparison.OrdinalIgnoreCase)
         )
         {
             await _next(context);
             return;
         }
 
+        // For other paths, require API key
         if (!context.Request.Headers.TryGetValue(PublicKeyHeaderName, out var values))
         {
             await WriteError(

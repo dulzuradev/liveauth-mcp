@@ -9,32 +9,32 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
+    provideHttpClient(
+      withInterceptors([
+        (req, next) => {
+          if (!req.url.includes('/api/admin')) {
+            return next(req);
+          }
+
+          const token = localStorage.getItem('admin_token');
+          if (!token) {
+            return next(req);
+          }
+
+          return next(
+            req.clone({
+              setHeaders: {
+                Authorization: `Bearer ${token}`
+              }
+            })
+          );
+        }
+      ])
+    ),
     {
       provide: HTTP_INTERCEPTORS,
       useClass: AdminAuthInterceptor,
       multi: true
     }
-    // provideHttpClient(
-    //   withInterceptors([
-    //     (req, next) => {
-    //       if (!req.url.includes('/api/admin')) {
-    //         return next(req);
-    //       }
-    //
-    //       const token = localStorage.getItem('admin_token');
-    //       if (!token) {
-    //         return next(req);
-    //       }
-    //
-    //       return next(
-    //         req.clone({
-    //           setHeaders: {
-    //             Authorization: `Bearer ${token}`
-    //           }
-    //         })
-    //       );
-    //     }
-    //   ])
-    // )
   ]
 };

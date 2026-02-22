@@ -85,7 +85,15 @@ export class AdminAuthService {
   }
 
   setupAdmin(username: string, password: string): Observable<AdminSetupResponse> {
-    return this.http.post<AdminSetupResponse>(`${API_URL}/api/admin/auth/setup`, { username, password });
+    return this.http.post<AdminSetupResponse>(`${API_URL}/api/admin/auth/setup`, { username, password }).pipe(
+      tap(res => {
+        if (res.success && res.token) {
+          this.saveToken(res.token);
+          this.saveUsername(res.username || '');
+          this.authState$.next({ isAuthenticated: true, username: res.username, isOwner: true });
+        }
+      })
+    );
   }
 
   login(username: string, password: string): Observable<AdminLoginResponse> {
