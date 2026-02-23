@@ -540,9 +540,14 @@
             Uses database unique constraint for atomic check-and-insert.
             </summary>
         </member>
+        <member name="M:LiveAuthCore.Services.ProjectBillingHelpers.GetMonthlyAuthLimit(LiveAuthCore.Data.Entities.Project)">
+            <summary>
+            Gets the monthly auth limit for a project based on its plan.
+            </summary>
+        </member>
         <member name="M:LiveAuthCore.Services.ProjectBillingHelpers.GetEffectiveSatsPerLogin(LiveAuthCore.Data.Entities.Project)">
             <summary>
-            Computes the effective sats per login for a project, respecting environment.
+            Gets the effective sats per login for a project, respecting environment.
             TEST => always 0 sats (no Lightning payment required).
             LIVE => uses stored SatsPerLogin (clamped to >= 0).
             </summary>
@@ -550,6 +555,12 @@
         <member name="M:LiveAuthCore.Services.ProjectBillingHelpers.RequiresLightningPayment(LiveAuthCore.Data.Entities.Project)">
             <summary>
             Should this project require a real Lightning invoice for logins?
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.ProjectBillingHelpers.CheckMonthlyQuota(LiveAuthCore.Data.Entities.Project)">
+            <summary>
+            Checks if the project's monthly usage has exceeded its quota.
+            Also handles monthly reset if we're in a new billing period.
             </summary>
         </member>
         <member name="M:LiveAuthCore.Services.SatsPrinterService.MintSatsAsync(System.String,System.Int64,System.String)">

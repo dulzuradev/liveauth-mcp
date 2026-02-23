@@ -11,9 +11,9 @@ using System;
 using System.Reflection;
 
 [assembly: System.Reflection.AssemblyCompanyAttribute("LiveAuthCore.Tests")]
-[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+66e014c818c8941334a603461eac48d6ba17ef91")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ade62f61cf9d329c8cd0c15ba718a8f61f87e9a9")]
 [assembly: System.Reflection.AssemblyProductAttribute("LiveAuthCore.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LiveAuthCore.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

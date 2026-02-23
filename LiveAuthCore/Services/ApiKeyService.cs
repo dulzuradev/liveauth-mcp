@@ -153,7 +153,8 @@ public class ApiKeyService
 
         publicKey = publicKey.Trim();
 
-        if (!publicKey.StartsWith("la_pk_", StringComparison.Ordinal))
+        if (!publicKey.StartsWith("la_pk_", StringComparison.Ordinal) && 
+            !publicKey.StartsWith("la_sk_", StringComparison.Ordinal))
             return ApiKeyAuthResult.Invalid();
 
         // ✅ PRIMARY PATH — PROJECT public key (PoW)

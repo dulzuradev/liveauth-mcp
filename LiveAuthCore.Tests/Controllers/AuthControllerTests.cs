@@ -27,7 +27,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
     {
         // Arrange
         var (project, apiKey) = await SeedProjectWithApiKey();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        _client.DefaultRequestHeaders.Add("X-LW-Public", apiKey);
 
         var request = new
         {
@@ -73,7 +73,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
     public async Task Start_InvalidApiKey_ReturnsUnauthorized()
     {
         // Arrange
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "la_sk_invalid");
+        _client.DefaultRequestHeaders.Add("X-LW-Public", "la_sk_invalid");
 
         var request = new
         {
@@ -94,7 +94,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
     {
         // Arrange
         var (project, apiKey) = await SeedProjectWithApiKey();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        _client.DefaultRequestHeaders.Add("X-LW-Public", apiKey);
 
         var request = new
         {
@@ -119,7 +119,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
     {
         // Arrange
         var (project, apiKey) = await SeedProjectWithApiKey();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        _client.DefaultRequestHeaders.Add("X-LW-Public", apiKey);
 
         var request = new
         {
@@ -156,7 +156,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
     public async Task Confirm_InvalidApiKey_ReturnsUnauthorized()
     {
         // Arrange
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "la_sk_invalid");
+        _client.DefaultRequestHeaders.Add("X-LW-Public", "la_sk_invalid");
 
         var request = new
         {
@@ -249,7 +249,8 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
             Id = Guid.NewGuid(),
             Name = "Test Project",
             DeveloperId = developer.Id,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IsActive = true
         };
 
         var apiKey = $"la_sk_{Guid.NewGuid():N}";
@@ -259,7 +260,8 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
             ProjectId = project.Id,
             SecretKeyHash = BCrypt.Net.BCrypt.HashPassword(apiKey),
             PublicKey = apiKey[..20],
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IsActive = true
         };
 
         db.Developers.Add(developer);
@@ -267,7 +269,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
         db.ProjectApiKeys.Add(apiKeyEntity);
         await db.SaveChangesAsync();
 
-        return (project, apiKey);
+        return (project, apiKey[..20]);
     }
 
     private record AuthStartResponse(Guid SessionId, string Invoice, string PaymentHash, long AmountSats, long ExpiresAtUnix);
