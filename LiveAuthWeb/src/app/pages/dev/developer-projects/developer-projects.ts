@@ -25,7 +25,8 @@ import {
   LogEntry,
   ProjectApiKeyDto,
   CreateApiKeyResponse,
-  WebhookEventDto
+  WebhookEventDto,
+  ProjectUsageResponse
 } from '../../../services/developer-projects.service';
 
 import {
@@ -163,7 +164,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   }
 
   // Called by (valueChange) on <p-tabs>
-  setProjectDialogTab(tab: 'overview' | 'analytics' | 'logs' | 'keys' | 'webhooks' | any) {
+  setProjectDialogTab(tab: 'overview' | 'analytics' | 'usage' | 'logs' | 'keys' | 'webhooks' | any) {
     this._projectDialogTab = tab;
 
     if (!this.selectedProject) return;
@@ -171,6 +172,9 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
     switch (tab) {
       case 'analytics':
         this.loadAnalytics(this.selectedProject.projectId);
+        break;
+      case 'usage':
+        this.loadAnalytics(this.selectedProject.projectId); // Loads both analytics and usage
         break;
       case 'logs':
         this.loadLogs(this.selectedProject.projectId);
@@ -203,6 +207,7 @@ console.log('onTimeRangeChange', range);
 
   // ANALYTICS + LOGS
   analytics: AnalyticsSummary | null = null;
+  usage: ProjectUsageResponse | null = null;
   logs: LogEntry[] | null = null;
 
   // API keys state
@@ -590,6 +595,17 @@ console.log('onTimeRangeChange', range);
         },
         error: (err) => {
           this.error = this.extractErrorMessage(err)  || 'Failed to load analytics.';
+        }
+      });
+
+    this.devService.getProjectUsage(projectId)
+      .subscribe({
+        next: (res) => {
+          this.usage = res;
+        },
+        error: (err) => {
+          // Usage is optional, don't show error
+          console.warn('Failed to load usage:', err);
         }
       });
   }

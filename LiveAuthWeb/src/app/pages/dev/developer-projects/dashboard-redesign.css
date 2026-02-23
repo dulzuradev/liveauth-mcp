@@ -1081,3 +1081,90 @@
     font-size: 1.6rem;
   }
 }
+
+/* Usage Tab Styles */
+.usage-header {
+  margin-bottom: 16px;
+}
+
+.plan-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: rgba(128, 128, 128, 0.2);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.plan-badge.pro {
+  background: linear-gradient(135deg, #f7931a 0%, #ff9500 100%);
+  color: white;
+}
+
+.usage-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.usage-stats .stat {
+  text-align: center;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.usage-stats .stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.usage-stats .stat-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 4px;
+}
+
+.usage-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.usage-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4cd964, #f7931a);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.usage-percent {
+  text-align: center;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 16px;
+}
+
+.usage-period {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.6;
+}
+
+.usage-period p {
+  margin: 4px 0;
+}
+
+.pro-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #f7931a 0%, #ff9500 100%);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+}

@@ -24,6 +24,20 @@ export interface ProjectDto {
 }
 export interface ListProjectsResponse { projects: ProjectDto[]; }
 
+export interface ProjectUsageResponse {
+  plan: string;
+  isPro: boolean;
+  proExpiresAt: string | null;
+  monthlyLimit: number;
+  monthlyUsed: number;
+  monthlyRemaining: number;
+  monthlyUsagePercent: number;
+  periodStart: string;
+  periodEnd: string;
+  totalSatsCharged: number;
+  totalVerifications: number;
+}
+
 export interface RotateSecretResponse {
   projectId: string;
   publicKey: string;
@@ -159,6 +173,13 @@ export class DeveloperProjectsService {
   getProjectSettings(projectId: string): Observable<ProjectSettingsResponse> {
     return this.http.get<ProjectSettingsResponse>(
       `${this.baseUrl}/api/dev/projects/${projectId}/settings`,
+      this.devAuth.authHeaders()
+    );
+  }
+
+  getProjectUsage(projectId: string): Observable<ProjectUsageResponse> {
+    return this.http.get<ProjectUsageResponse>(
+      `${this.baseUrl}/api/dev/projects/${projectId}/usage`,
       this.devAuth.authHeaders()
     );
   }

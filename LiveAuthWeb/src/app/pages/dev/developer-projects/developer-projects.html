@@ -398,6 +398,7 @@
         <p-tablist>
           <p-tab value="overview">Overview</p-tab>
           <p-tab value="analytics">Analytics</p-tab>
+          <p-tab value="usage">Usage</p-tab>
           <p-tab value="logs">Logs</p-tab>
           <p-tab value="keys">API Keys</p-tab>
           <p-tab value="billing">Billing</p-tab>
@@ -578,6 +579,48 @@
               <li>Sats Paid: {{ analytics.satsPaid24h }}</li>
               <li>Rate-limit hits: {{ analytics.rateLimitHits24h }}</li>
             </ul>
+          </ng-container>
+        </p-tabpanel>
+
+        <!-- USAGE TAB -->
+        <p-tabpanel value="usage">
+          <ng-container *ngIf="usage">
+            <div class="usage-header">
+              <span class="plan-badge" [class.pro]="usage.isPro">
+                {{ usage.plan | titlecase }}
+              </span>
+              <span *ngIf="usage.isPro" class="pro-badge">PRO</span>
+            </div>
+            
+            <div class="usage-stats">
+              <div class="stat">
+                <div class="stat-value">{{ usage.monthlyUsed | number }}</div>
+                <div class="stat-label">Used This Month</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value">{{ usage.monthlyRemaining | number }}</div>
+                <div class="stat-label">Remaining</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value">{{ usage.monthlyLimit | number }}</div>
+                <div class="stat-label">Monthly Limit</div>
+              </div>
+            </div>
+
+            <div class="usage-bar">
+              <div class="usage-bar-fill" [style.width.%]="usage.monthlyUsagePercent"></div>
+            </div>
+            <p class="usage-percent">{{ usage.monthlyUsagePercent }}% used</p>
+
+            <div class="usage-period">
+              <p>Period: {{ usage.periodStart | date:'mediumDate' }} - {{ usage.periodEnd | date:'mediumDate' }}</p>
+              <p>Total Verifications: {{ usage.totalVerifications | number }}</p>
+              <p>Total Sats Charged: {{ usage.totalSatsCharged | number }}</p>
+            </div>
+          </ng-container>
+          
+          <ng-container *ngIf="!usage">
+            <p>Loading usage data...</p>
           </ng-container>
         </p-tabpanel>
 
