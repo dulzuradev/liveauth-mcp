@@ -1,10 +1,12 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace LiveAuthCore.Controllers;
@@ -22,7 +24,13 @@ public class PublicPowController : ControllerBase
     private readonly PowRateLimitService _rateLimit;
     private readonly ILogger<PublicPowController> _logger;
 
-    public PublicPowController(LightningService jwt,
+    private readonly IConfiguration _configuration;
+    private readonly LiveAuthDbContext _db;
+
+    public PublicPowController(
+        IConfiguration configuration,
+        LiveAuthDbContext db,
+        LightningService jwt,
         PowChallengeSigner signer,
         PowReplayService replay,
         PowDifficultyService difficulty,
@@ -30,6 +38,8 @@ public class PublicPowController : ControllerBase
         PowRateLimitService rateLimit,
         ILogger<PublicPowController> logger)
     {
+        _configuration = configuration;
+        _db = db;
         _jwt = jwt;
         _signer = signer;
         _replay = replay;
@@ -45,9 +55,26 @@ public class PublicPowController : ControllerBase
 
     private Project? GetProject()
     {
-        return HttpContext.Items.TryGetValue("LW_Project", out var value)
-            ? value as Project
-            : null;
+        // First try to get from HttpContext (set by middleware)
+        if (HttpContext.Items.TryGetValue("LW_Project", out var value) && value is Project proj)
+            return proj;
+
+        // Fallback to demo project if no API key provided
+        return GetDemoProjectAsync(CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    private async Task<Project?> GetDemoProjectAsync(CancellationToken ct)
+    {
+        var demoProjectId = _configuration["LiveAuth:DemoProjectId"];
+        if (!Guid.TryParse(demoProjectId, out var projectId))
+            return null;
+
+        return await _db.Projects
+            .AsNoTracking()
+            .SingleOrDefaultAsync(p =>
+                    p.Id == projectId &&
+                    p.IsActive,
+                ct);
     }
 
     private static string RandomHex(int bytes)
