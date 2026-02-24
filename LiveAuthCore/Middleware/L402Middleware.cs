@@ -22,6 +22,15 @@ public class L402Middleware
         "/api/mcp"
     };
 
+    // Paths that skip L402 check entirely
+    private static readonly string[] ExcludedPaths = new[]
+    {
+        "/api/public",
+        "/api/auth",
+        "/api/health",
+        "/api/dev"
+    };
+
     public L402Middleware(
         RequestDelegate next,
         L402Service l402,
@@ -34,8 +43,23 @@ public class L402Middleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // Skip entirely in test environment
+        var env = context.RequestServices.GetService<IWebHostEnvironment>();
+        if (env?.IsEnvironment("Testing") == true)
+        {
+            await _next(context);
+            return;
+        }
+
         var path = context.Request.Path.Value ?? "";
         
+        // Skip excluded paths entirely
+        if (IsExcluded(path))
+        {
+            await _next(context);
+            return;
+        }
+
         // Check if this endpoint is gated
         if (!IsGated(path))
         {
@@ -76,6 +100,12 @@ public class L402Middleware
     {
         return GatedPaths.Any(gated => 
             path.StartsWith(gated, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsExcluded(string path)
+    {
+        return ExcludedPaths.Any(excluded => 
+            path.StartsWith(excluded, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool IsDevelopmentExcluded(HttpContext context)

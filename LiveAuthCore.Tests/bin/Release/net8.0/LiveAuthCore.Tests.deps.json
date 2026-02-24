@@ -40,7 +40,7 @@
           "Microsoft.AspNetCore.Mvc.Testing": "8.0.0",
           "Microsoft.EntityFrameworkCore.InMemory": "8.0.0",
           "Microsoft.NET.Test.Sdk": "17.8.0",
-          "Moq": "4.20.70",
+          "Moq": "4.20.72",
           "coverlet.collector": "6.0.0",
           "xunit": "2.6.3",
           "xunit.runner.visualstudio": "2.5.5",
@@ -1267,14 +1267,14 @@
           "lib/netcoreapp3.1/testhost.dll": {}
         }
       },
-      "Moq/4.20.70": {
+      "Moq/4.20.72": {
         "dependencies": {
           "Castle.Core": "5.1.1"
         },
         "runtime": {
           "lib/net6.0/Moq.dll": {
-            "assemblyVersion": "4.20.70.0",
-            "fileVersion": "4.20.70.0"
+            "assemblyVersion": "4.20.72.0",
+            "fileVersion": "4.20.72.0"
           }
         },
         "compile": {
@@ -1768,14 +1768,18 @@
           "Grpc.Net.Client": "2.71.0",
           "LNUnit.LND": "2.0.2",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.0",
+          "Microsoft.AspNetCore.Mvc.Testing": "8.0.0",
           "Microsoft.AspNetCore.OpenApi": "8.0.10",
           "Microsoft.EntityFrameworkCore.SqlServer": "8.0.10",
           "Microsoft.EntityFrameworkCore.Sqlite": "8.0.10",
           "Microsoft.IdentityModel.Tokens": "8.14.0",
+          "Moq": "4.20.72",
+          "NBitcoin": "9.0.1",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.10",
           "Stripe.net": "49.0.0",
           "Swashbuckle.AspNetCore": "6.6.2",
-          "System.IdentityModel.Tokens.Jwt": "8.14.0"
+          "System.IdentityModel.Tokens.Jwt": "8.14.0",
+          "xunit": "2.6.3"
         },
         "runtime": {
           "LiveAuthCore.dll": {
@@ -4942,12 +4946,12 @@
       "path": "microsoft.testplatform.testhost/17.8.0",
       "hashPath": "microsoft.testplatform.testhost.17.8.0.nupkg.sha512"
     },
-    "Moq/4.20.70": {
+    "Moq/4.20.72": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-4rNnAwdpXJBuxqrOCzCyICXHSImOTRktCgCWXWykuF1qwoIsVvEnR7PjbMk/eLOxWvhmj5Kwt+kDV3RGUYcNwg==",
-      "path": "moq/4.20.70",
-      "hashPath": "moq.4.20.70.nupkg.sha512"
+      "sha512": "sha512-EA55cjyNn8eTNWrgrdZJH5QLFp2L43oxl1tlkoYUKIE9pRwL784OWiTXeCV5ApS+AMYEAlt7Fo03A2XfouvHmQ==",
+      "path": "moq/4.20.72",
+      "hashPath": "moq.4.20.72.nupkg.sha512"
     },
     "NBitcoin/9.0.1": {
       "type": "package",

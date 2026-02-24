@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "fOwxQHttfgk=",
+  "dgSpecHash": "tQkNQloC4t8=",
   "success": true,
   "projectFilePath": "/Users/sydney/.openclaw/workspace/LiveAuth/LiveAuthCore.Tests/LiveAuthCore.Tests.csproj",
   "expectedPackageFiles": [
@@ -18,9 +18,9 @@
     "/Users/sydney/.nuget/packages/grpc.net.common/2.71.0/grpc.net.common.2.71.0.nupkg.sha512",
     "/Users/sydney/.nuget/packages/lnunit.lnd/2.0.2/lnunit.lnd.2.0.2.nupkg.sha512",
     "/Users/sydney/.nuget/packages/microsoft.aspnetcore.authentication.jwtbearer/8.0.0/microsoft.aspnetcore.authentication.jwtbearer.8.0.0.nupkg.sha512",
-    "/Users/sydney/.nuget/packages/microsoft.aspnetcore.mvc.testing/8.0.0/microsoft.aspnetcore.mvc.testing.8.0.0.nupkg.sha512",
+    "/Users/sydney/.nuget/packages/microsoft.aspnetcore.mvc.testing/10.0.0/microsoft.aspnetcore.mvc.testing.10.0.0.nupkg.sha512",
     "/Users/sydney/.nuget/packages/microsoft.aspnetcore.openapi/8.0.10/microsoft.aspnetcore.openapi.8.0.10.nupkg.sha512",
-    "/Users/sydney/.nuget/packages/microsoft.aspnetcore.testhost/8.0.0/microsoft.aspnetcore.testhost.8.0.0.nupkg.sha512",
+    "/Users/sydney/.nuget/packages/microsoft.aspnetcore.testhost/10.0.0/microsoft.aspnetcore.testhost.10.0.0.nupkg.sha512",
     "/Users/sydney/.nuget/packages/microsoft.bcl.asyncinterfaces/1.1.1/microsoft.bcl.asyncinterfaces.1.1.1.nupkg.sha512",
     "/Users/sydney/.nuget/packages/microsoft.codecoverage/17.8.0/microsoft.codecoverage.17.8.0.nupkg.sha512",
     "/Users/sydney/.nuget/packages/microsoft.data.sqlclient/5.1.5/microsoft.data.sqlclient.5.1.5.nupkg.sha512",
@@ -35,7 +35,7 @@
     "/Users/sydney/.nuget/packages/microsoft.entityframeworkcore.sqlite.core/8.0.10/microsoft.entityframeworkcore.sqlite.core.8.0.10.nupkg.sha512",
     "/Users/sydney/.nuget/packages/microsoft.entityframeworkcore.sqlserver/8.0.10/microsoft.entityframeworkcore.sqlserver.8.0.10.nupkg.sha512",
     "/Users/sydney/.nuget/packages/microsoft.extensions.apidescription.server/6.0.5/microsoft.extensions.apidescription.server.6.0.5.nupkg.sha512",
-    "/Users/sydney/.nuget/packages/microsoft.extensions.dependencymodel/8.0.2/microsoft.extensions.dependencymodel.8.0.2.nupkg.sha512",
+    "/Users/sydney/.nuget/packages/microsoft.extensions.dependencymodel/10.0.0/microsoft.extensions.dependencymodel.10.0.0.nupkg.sha512",
     "/Users/sydney/.nuget/packages/microsoft.identity.client/4.56.0/microsoft.identity.client.4.56.0.nupkg.sha512",
     "/Users/sydney/.nuget/packages/microsoft.identity.client.extensions.msal/4.56.0/microsoft.identity.client.extensions.msal.4.56.0.nupkg.sha512",
     "/Users/sydney/.nuget/packages/microsoft.identitymodel.abstractions/8.14.0/microsoft.identitymodel.abstractions.8.14.0.nupkg.sha512",

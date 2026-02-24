@@ -39,7 +39,7 @@
       "LiveAuthCore.Tests/1.0.0": {
         "dependencies": {
           "LiveAuthCore": "1.0.0",
-          "Microsoft.AspNetCore.Mvc.Testing": "8.0.0",
+          "Microsoft.AspNetCore.Mvc.Testing": "10.0.0",
           "Microsoft.EntityFrameworkCore.InMemory": "8.0.0",
           "Microsoft.NET.Test.Sdk": "17.8.0",
           "Moq": "4.20.72",
@@ -540,19 +540,19 @@
           "lib/net8.0/Microsoft.AspNetCore.Authentication.JwtBearer.dll": {}
         }
       },
-      "Microsoft.AspNetCore.Mvc.Testing/8.0.0": {
+      "Microsoft.AspNetCore.Mvc.Testing/10.0.0": {
         "dependencies": {
-          "Microsoft.AspNetCore.TestHost": "8.0.0",
-          "Microsoft.Extensions.DependencyModel": "8.0.2"
+          "Microsoft.AspNetCore.TestHost": "10.0.0",
+          "Microsoft.Extensions.DependencyModel": "10.0.0"
         },
         "runtime": {
-          "lib/net8.0/Microsoft.AspNetCore.Mvc.Testing.dll": {
-            "assemblyVersion": "8.0.0.0",
-            "fileVersion": "8.0.23.53112"
+          "lib/net10.0/Microsoft.AspNetCore.Mvc.Testing.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.25.52411"
           }
         },
         "compile": {
-          "lib/net8.0/Microsoft.AspNetCore.Mvc.Testing.dll": {}
+          "lib/net10.0/Microsoft.AspNetCore.Mvc.Testing.dll": {}
         }
       },
       "Microsoft.AspNetCore.OpenApi/8.0.10": {
@@ -569,15 +569,15 @@
           "lib/net8.0/Microsoft.AspNetCore.OpenApi.dll": {}
         }
       },
-      "Microsoft.AspNetCore.TestHost/8.0.0": {
+      "Microsoft.AspNetCore.TestHost/10.0.0": {
         "runtime": {
-          "lib/net8.0/Microsoft.AspNetCore.TestHost.dll": {
-            "assemblyVersion": "8.0.0.0",
-            "fileVersion": "8.0.23.53112"
+          "lib/net10.0/Microsoft.AspNetCore.TestHost.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.25.52411"
           }
         },
         "compile": {
-          "lib/net8.0/Microsoft.AspNetCore.TestHost.dll": {}
+          "lib/net10.0/Microsoft.AspNetCore.TestHost.dll": {}
         }
       },
       "Microsoft.Bcl.AsyncInterfaces/1.1.1": {
@@ -739,7 +739,7 @@
         "dependencies": {
           "Microsoft.Data.Sqlite.Core": "8.0.10",
           "Microsoft.EntityFrameworkCore.Relational": "8.0.10",
-          "Microsoft.Extensions.DependencyModel": "8.0.2"
+          "Microsoft.Extensions.DependencyModel": "10.0.0"
         },
         "runtime": {
           "lib/net8.0/Microsoft.EntityFrameworkCore.Sqlite.dll": {
@@ -766,15 +766,15 @@
           "lib/net8.0/Microsoft.EntityFrameworkCore.SqlServer.dll": {}
         }
       },
-      "Microsoft.Extensions.DependencyModel/8.0.2": {
+      "Microsoft.Extensions.DependencyModel/10.0.0": {
         "runtime": {
-          "lib/net8.0/Microsoft.Extensions.DependencyModel.dll": {
-            "assemblyVersion": "8.0.0.2",
-            "fileVersion": "8.0.1024.46610"
+          "lib/net10.0/Microsoft.Extensions.DependencyModel.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.25.52411"
           }
         },
         "compile": {
-          "lib/net8.0/Microsoft.Extensions.DependencyModel.dll": {}
+          "lib/net10.0/Microsoft.Extensions.DependencyModel.dll": {}
         }
       },
       "Microsoft.Identity.Client/4.56.0": {
@@ -1638,7 +1638,7 @@
           "Grpc.Net.Client": "2.71.0",
           "LNUnit.LND": "2.0.2",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.0",
-          "Microsoft.AspNetCore.Mvc.Testing": "8.0.0",
+          "Microsoft.AspNetCore.Mvc.Testing": "10.0.0",
           "Microsoft.AspNetCore.OpenApi": "8.0.10",
           "Microsoft.EntityFrameworkCore.SqlServer": "8.0.10",
           "Microsoft.EntityFrameworkCore.Sqlite": "8.0.10",
@@ -3632,12 +3632,12 @@
       "path": "microsoft.aspnetcore.authentication.jwtbearer/8.0.0",
       "hashPath": "microsoft.aspnetcore.authentication.jwtbearer.8.0.0.nupkg.sha512"
     },
-    "Microsoft.AspNetCore.Mvc.Testing/8.0.0": {
+    "Microsoft.AspNetCore.Mvc.Testing/10.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-PWPgPAlRdMEkVCHHic/Yy6t37PsPsymY1WkEH0TnjTeIlYu+g8Qfw1axj/ZmNDLvhKdiUNC2E2thHrYf2s7Yhg==",
-      "path": "microsoft.aspnetcore.mvc.testing/8.0.0",
-      "hashPath": "microsoft.aspnetcore.mvc.testing.8.0.0.nupkg.sha512"
+      "sha512": "sha512-Gdtv34h2qvynOEu+B2+6apBiiPhEs39namGax02UgaQMRetlxQ88p2/jK1eIdz3m1NRgYszNBN/jBdXkucZhvw==",
+      "path": "microsoft.aspnetcore.mvc.testing/10.0.0",
+      "hashPath": "microsoft.aspnetcore.mvc.testing.10.0.0.nupkg.sha512"
     },
     "Microsoft.AspNetCore.OpenApi/8.0.10": {
       "type": "package",
@@ -3646,12 +3646,12 @@
       "path": "microsoft.aspnetcore.openapi/8.0.10",
       "hashPath": "microsoft.aspnetcore.openapi.8.0.10.nupkg.sha512"
     },
-    "Microsoft.AspNetCore.TestHost/8.0.0": {
+    "Microsoft.AspNetCore.TestHost/10.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-Rk6Ai9bFf1KubVY5oEbEPN5fiKWW2oeU+easjokyUqqYyTHRsXlkjFeMvwecgoXsoTfXMSwEHzJp8FCjQcyYTQ==",
-      "path": "microsoft.aspnetcore.testhost/8.0.0",
-      "hashPath": "microsoft.aspnetcore.testhost.8.0.0.nupkg.sha512"
+      "sha512": "sha512-Q3ia+k+wYM3Iv/Qq5IETOdpz/R0xizs3WNAXz699vEQx5TMVAfG715fBSq9Thzopvx8dYZkxQ/mumTn6AJ/vGQ==",
+      "path": "microsoft.aspnetcore.testhost/10.0.0",
+      "hashPath": "microsoft.aspnetcore.testhost.10.0.0.nupkg.sha512"
     },
     "Microsoft.Bcl.AsyncInterfaces/1.1.1": {
       "type": "package",
@@ -3737,12 +3737,12 @@
       "path": "microsoft.entityframeworkcore.sqlserver/8.0.10",
       "hashPath": "microsoft.entityframeworkcore.sqlserver.8.0.10.nupkg.sha512"
     },
-    "Microsoft.Extensions.DependencyModel/8.0.2": {
+    "Microsoft.Extensions.DependencyModel/10.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-mUBDZZRgZrSyFOsJ2qJJ9fXfqd/kXJwf3AiDoqLD9m6TjY5OO/vLNOb9fb4juC0487eq4hcGN/M2Rh/CKS7QYw==",
-      "path": "microsoft.extensions.dependencymodel/8.0.2",
-      "hashPath": "microsoft.extensions.dependencymodel.8.0.2.nupkg.sha512"
+      "sha512": "sha512-RFYJR7APio/BiqdQunRq6DB+nDB6nc2qhHr77mlvZ0q0BT8PubMXN7XicmfzCbrDE/dzhBnUKBRXLTcqUiZDGg==",
+      "path": "microsoft.extensions.dependencymodel/10.0.0",
+      "hashPath": "microsoft.extensions.dependencymodel.10.0.0.nupkg.sha512"
     },
     "Microsoft.Identity.Client/4.56.0": {
       "type": "package",
