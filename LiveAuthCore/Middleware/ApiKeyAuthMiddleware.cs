@@ -54,7 +54,8 @@ public class ApiKeyAuthMiddleware
             context.Request.Path.StartsWithSegments("/api/health", StringComparison.OrdinalIgnoreCase) ||
             context.Request.Path.StartsWithSegments("/api/dev", StringComparison.OrdinalIgnoreCase) ||
             context.Request.Path.StartsWithSegments("/api/login", StringComparison.OrdinalIgnoreCase) ||
-            context.Request.Path.StartsWithSegments("/api/mission", StringComparison.OrdinalIgnoreCase)
+            context.Request.Path.StartsWithSegments("/api/mission", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/api/sats", StringComparison.OrdinalIgnoreCase)
         )
         {
             await _next(context);

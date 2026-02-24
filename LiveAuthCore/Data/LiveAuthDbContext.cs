@@ -37,6 +37,10 @@ public class LiveAuthDbContext : DbContext
     public DbSet<MintProvider> MintProviders => Set<MintProvider>();
     public DbSet<EcashProof> EcashProofs => Set<EcashProof>();
 
+    // Agent Sats (LND-based)
+    public DbSet<AgentSatsBalance> AgentSatsBalances => Set<AgentSatsBalance>();
+    public DbSet<SatsInvoice> SatsInvoices => Set<SatsInvoice>();
+
     // MCP LiveAuth Gate
     public DbSet<McpGateSession> McpGateSessions => Set<McpGateSession>();
     public DbSet<McpGateToken> McpGateTokens => Set<McpGateToken>();

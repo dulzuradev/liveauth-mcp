@@ -80,8 +80,9 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 builder.Services.AddDistributedMemoryCache();
 
-// Sats Printer Service
-builder.Services.AddScoped<SatsPrinterService>(); // It will resolve IHttpClientFactory automatically
+// Sats Printer Services
+builder.Services.AddScoped<SatsPrinterService>(); // Cashu-based
+builder.Services.AddScoped<AgentSatsService>();    // LND-based
 
 
 // --------------------------------------------------
