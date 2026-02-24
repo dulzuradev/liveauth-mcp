@@ -60,20 +60,41 @@ public class PublicPowController : ControllerBase
             return proj;
 
         // Fallback to demo project if no API key provided
-        return GetDemoProjectAsync(CancellationToken.None).GetAwaiter().GetResult();
+        try
+        {
+            return GetDemoProjectAsync(CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get demo project for PoW challenge");
+            return null;
+        }
     }
 
     private async Task<Project?> GetDemoProjectAsync(CancellationToken ct)
     {
-        // Hardcoded for now - TODO: make configurable
-        var projectId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        // Get demo project ID from config
+        var demoProjectIdStr = _configuration["LiveAuth:DemoProjectId"] ?? "00000000-0000-0000-0000-000000000002";
+        
+        if (!Guid.TryParse(demoProjectIdStr, out var projectId))
+        {
+            _logger.LogError("Invalid DemoProjectId config: {DemoProjectId}", demoProjectIdStr);
+            return null;
+        }
 
-        return await _db.Projects
+        var project = await _db.Projects
             .AsNoTracking()
-            .SingleOrDefaultAsync(p =>
-                    p.Id == projectId &&
-                    p.IsActive,
-                ct);
+            .FirstOrDefaultAsync(p =>
+                p.Id == projectId &&
+                p.IsActive,
+            ct);
+
+        if (project == null)
+        {
+            _logger.LogWarning("Demo project not found in database. Looking for ID: {ProjectId}", projectId);
+        }
+
+        return project;
     }
 
     private static string RandomHex(int bytes)

@@ -28,7 +28,8 @@ public class L402Middleware
         "/api/public",
         "/api/auth",
         "/api/health",
-        "/api/dev"
+        "/api/dev",
+        "/api/login"
     };
 
     public L402Middleware(

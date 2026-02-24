@@ -52,7 +52,9 @@ public class ApiKeyAuthMiddleware
             context.Request.Path.StartsWithSegments("/api/public/demo", StringComparison.OrdinalIgnoreCase) ||
             context.Request.Path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase) ||
             context.Request.Path.StartsWithSegments("/api/health", StringComparison.OrdinalIgnoreCase) ||
-            context.Request.Path.StartsWithSegments("/api/dev", StringComparison.OrdinalIgnoreCase)
+            context.Request.Path.StartsWithSegments("/api/dev", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/api/login", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/api/mission", StringComparison.OrdinalIgnoreCase)
         )
         {
             await _next(context);

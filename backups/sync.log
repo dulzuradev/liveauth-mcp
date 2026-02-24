@@ -10,3 +10,12 @@ liveauth_2026-02-23_030001.db.gz
 
 sent 72 bytes  received 16799 bytes  168710000 bytes/sec
 total size is 63820  speedup is 3.78
+Transfer starting: 6 files
+./
+backup.log
+liveauth_2026-02-22_030001.db.gz
+liveauth_2026-02-23_030001.db.gz
+liveauth_2026-02-24_030001.db.gz
+
+sent 596 bytes  received 17366 bytes  179620000 bytes/sec
+total size is 81254  speedup is 4.52

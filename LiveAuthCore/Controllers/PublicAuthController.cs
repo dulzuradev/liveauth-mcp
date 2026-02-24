@@ -48,12 +48,22 @@ public class PublicAuthController : ControllerBase
             return _db.Projects.FirstOrDefault(p => p.PublicKey == pubKey && p.IsActive);
         }
 
-        // 👇 Optional but very helpful
-        HttpContext.RequestServices
-            .GetService<ILogger<PublicAuthController>>()?
-            .LogWarning("LiveAuth: Project missing from HttpContext.Items");
+        // Fallback to demo project if no API key provided
+        return GetDemoProjectAsync(CancellationToken.None).GetAwaiter().GetResult();
+    }
 
-        return null;
+    private async Task<Project?> GetDemoProjectAsync(CancellationToken ct)
+    {
+        var demoProjectIdStr = _configuration["LiveAuth:DemoProjectId"] ?? "00000000-0000-0000-0000-000000000002";
+        
+        if (!Guid.TryParse(demoProjectIdStr, out var projectId))
+        {
+            return null;
+        }
+
+        return await _db.Projects
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == projectId && p.IsActive, ct);
     }
     
     
