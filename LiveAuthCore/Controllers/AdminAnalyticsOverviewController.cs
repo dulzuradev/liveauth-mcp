@@ -52,6 +52,51 @@ public class AdminAnalyticsOverviewController : ControllerBase
         var paidAuths = await authEvents
             .CountAsync(e => e.SatsPaid > 0, ct);
 
+        // === MCP Gate Metrics ===
+        var mcpSessionsTotal = await _db.McpGateSessions.CountAsync(ct);
+        var mcpSessionsActive = await _db.McpGateSessions
+            .CountAsync(s => s.ExpiresAt > nowUtc, ct);
+        var mcpTokensIssued = await _db.McpGateTokens.CountAsync(ct);
+        // Estimate sats earned from active sessions (each session = SatsPerCallAtStart * estimated calls)
+        var mcpSatsEarned = await _db.McpGateSessions
+            .Where(s => s.Status == "confirmed")
+            .SumAsync(s => s.SatsPerCallAtStart * 10, ct); // Estimate 10 calls per session
+
+        // === L402 Metrics ===
+        // L402 payments tracked via AuthEvents with specific event types
+        var l402InvoicesCreated = await authEvents
+            .CountAsync(e => e.Reason == "L402_INVOICE_CREATED", ct);
+        var l402PaymentsReceived = await authEvents
+            .CountAsync(e => e.Reason == "L402_PAYMENT_RECEIVED", ct);
+        var l402SatsEarned = await authEvents
+            .Where(e => e.Reason == "L402_PAYMENT_RECEIVED")
+            .SumAsync(e => e.SatsPaid ?? 0, ct);
+
+        // === Funnel Metrics ===
+        var challengesIssued = await authEvents
+            .CountAsync(e => e.EventType == AuthEventType.PowChallengeIssued, ct);
+        var authsStarted = await authEvents
+            .CountAsync(e => e.EventType == AuthEventType.LoginRequested, ct);
+        var authsPaid = await authEvents
+            .CountAsync(e => e.EventType == AuthEventType.LoginSucceeded && e.SatsPaid > 0, ct);
+        var authsVerified = await authEvents
+            .CountAsync(e => e.Success, ct);
+        
+        // Tokens used = successful verifications
+        var tokensUsed = authsVerified;
+
+        var funnel = new FunnelMetrics
+        {
+            ChallengesIssued = challengesIssued,
+            AuthsStarted = authsStarted,
+            AuthsPaid = authsPaid,
+            AuthsVerified = authsVerified,
+            TokensUsed = tokensUsed,
+            StartToPaidRate = authsStarted > 0 ? (double)authsPaid / authsStarted * 100 : 0,
+            PaidToVerifiedRate = authsPaid > 0 ? (double)authsVerified / authsPaid * 100 : 0,
+            VerifiedToUsedRate = authsVerified > 0 ? (double)tokensUsed / authsVerified * 100 : 0
+        };
+
         var totalProjects = await _db.Projects.CountAsync(ct);
         var proProjects = await _db.Projects.CountAsync(p => p.Plan == "pro", ct);
 
@@ -139,6 +184,20 @@ public class AdminAnalyticsOverviewController : ControllerBase
 
             ProProjects = proProjects,
             FreeProjects = totalProjects - proProjects,
+
+            // MCP Metrics
+            McpSessionsTotal = mcpSessionsTotal,
+            McpSessionsActive = mcpSessionsActive,
+            McpTokensIssued = mcpTokensIssued,
+            McpSatsEarned = mcpSatsEarned,
+
+            // L402 Metrics
+            L402InvoicesCreated = l402InvoicesCreated,
+            L402PaymentsReceived = l402PaymentsReceived,
+            L402SatsEarned = l402SatsEarned,
+
+            // Funnel
+            Funnel = funnel,
 
             // Expose UTC window externally
             WindowStart = fromUtc.ToUniversalTime(),
