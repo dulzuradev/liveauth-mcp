@@ -1,18 +1,34 @@
 export interface AdminAnalyticsOverviewResponse {
   windowHours: number;
 
+  // Basic Auth Metrics
   totalAuths: number;
   successfulAuths: number;
   failedAuths: number;
+  rateLimitHits: number;
 
+  // Revenue
   totalSatsPaid: number;
   totalInvoicesSettled: number;
 
+  // Projects
   totalProjects: number;
   proProjects: number;
   freeProjects: number;
 
-  rateLimitHits: number;
+  // MCP Gate Metrics
+  mcpSessionsTotal: number;
+  mcpSessionsActive: number;
+  mcpTokensIssued: number;
+  mcpSatsEarned: number;
+
+  // L402 Metrics
+  l402InvoicesCreated: number;
+  l402PaymentsReceived: number;
+  l402SatsEarned: number;
+
+  // Funnel Metrics
+  funnel: FunnelMetrics;
 
   generatedAtUtc: string;
 
@@ -25,6 +41,17 @@ export interface AdminAnalyticsOverviewResponse {
   recentEvents: AdminAuthEventDto[];
 }
 
+export interface FunnelMetrics {
+  challengesIssued: number;
+  authsStarted: number;
+  authsPaid: number;
+  authsVerified: number;
+  tokensUsed: number;
+  
+  startToPaidRate: number;
+  paidToVerifiedRate: number;
+  verifiedToUsedRate: number;
+}
 
 // Project usage leaderboard
 export interface AdminProjectUsageDto {
@@ -68,4 +95,3 @@ export interface AdminAuthEventDto {
   satsPaid?: number;
   clientIpMasked?: string;
 }
-

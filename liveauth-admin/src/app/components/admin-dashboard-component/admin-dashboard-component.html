@@ -123,6 +123,81 @@
           <span>across all projects</span>
         </div>
       </div>
+
+      <!-- MCP Sessions -->
+      <div class="metric-card">
+        <div class="metric-header">
+          <i class="pi pi-server"></i>
+          <span>MCP Sessions</span>
+        </div>
+        <div class="metric-value">{{ data.mcpSessionsTotal }}</div>
+        <div class="metric-footer">
+          <span>{{ data.mcpSessionsActive }} active</span>
+        </div>
+      </div>
+
+      <!-- L402 Revenue -->
+      <div class="metric-card highlight">
+        <div class="metric-header">
+          <i class="pi pi-bolt"></i>
+          <span>L402 Revenue</span>
+        </div>
+        <div class="metric-value">{{ data.l402SatsEarned | number }} sats</div>
+        <div class="metric-footer">
+          <span>{{ data.l402PaymentsReceived }} payments</span>
+        </div>
+      </div>
+
+      <!-- MCP Revenue -->
+      <div class="metric-card highlight">
+        <div class="metric-header">
+          <i class="pi pi-code"></i>
+          <span>MCP Revenue</span>
+        </div>
+        <div class="metric-value">{{ data.mcpSatsEarned | number }} sats</div>
+        <div class="metric-footer">
+          <span>{{ data.mcpTokensIssued }} tokens</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= FUNNEL ANALYTICS ================= -->
+    <section class="metrics-grid" *ngIf="data.funnel">
+      <div class="metric-card full-width">
+        <div class="metric-header">
+          <i class="pi pi-filter"></i>
+          <span>Auth Funnel</span>
+        </div>
+        <div class="funnel-container">
+          <div class="funnel-stage">
+            <div class="funnel-value">{{ data.funnel.challengesIssued }}</div>
+            <div class="funnel-label">Challenges Issued</div>
+          </div>
+          <div class="funnel-arrow">→</div>
+          <div class="funnel-stage">
+            <div class="funnel-value">{{ data.funnel.authsStarted }}</div>
+            <div class="funnel-label">Auths Started</div>
+          </div>
+          <div class="funnel-arrow">→</div>
+          <div class="funnel-stage">
+            <div class="funnel-value">{{ data.funnel.authsPaid }}</div>
+            <div class="funnel-label">Auths Paid</div>
+            <div class="funnel-rate">{{ data.funnel.startToPaidRate | number:'1.0-0' }}%</div>
+          </div>
+          <div class="funnel-arrow">→</div>
+          <div class="funnel-stage">
+            <div class="funnel-value">{{ data.funnel.authsVerified }}</div>
+            <div class="funnel-label">Verified</div>
+            <div class="funnel-rate">{{ data.funnel.paidToVerifiedRate | number:'1.0-0' }}%</div>
+          </div>
+          <div class="funnel-arrow">→</div>
+          <div class="funnel-stage">
+            <div class="funnel-value">{{ data.funnel.tokensUsed }}</div>
+            <div class="funnel-label">Tokens Used</div>
+            <div class="funnel-rate">{{ data.funnel.verifiedToUsedRate | number:'1.0-0' }}%</div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ================= CHARTS ROW ================= -->

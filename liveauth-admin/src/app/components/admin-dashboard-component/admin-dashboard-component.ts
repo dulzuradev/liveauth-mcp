@@ -119,6 +119,46 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return btc * this.btcToUsd;
   }
 
+  // Map backend response to frontend model
+  private mapResponse(res: any): AdminAnalyticsOverviewResponse {
+    return {
+      windowHours: res.windowHours || this.windowHours,
+      totalAuths: res.authRequests || 0,
+      successfulAuths: res.authSuccesses || 0,
+      failedAuths: res.authFailures || 0,
+      rateLimitHits: res.rateLimitHits || 0,
+      totalSatsPaid: res.satsPaid || 0,
+      totalInvoicesSettled: res.paidAuths || 0,
+      totalProjects: res.totalProjects || 0,
+      proProjects: res.proProjects || 0,
+      freeProjects: res.freeProjects || 0,
+      mcpSessionsTotal: res.mcpSessionsTotal || 0,
+      mcpSessionsActive: res.mcpSessionsActive || 0,
+      mcpTokensIssued: res.mcpTokensIssued || 0,
+      mcpSatsEarned: res.mcpSatsEarned || 0,
+      l402InvoicesCreated: res.l402InvoicesCreated || 0,
+      l402PaymentsReceived: res.l402PaymentsReceived || 0,
+      l402SatsEarned: res.l402SatsEarned || 0,
+      funnel: res.funnel || {
+        challengesIssued: 0,
+        authsStarted: 0,
+        authsPaid: 0,
+        authsVerified: 0,
+        tokensUsed: 0,
+        startToPaidRate: 0,
+        paidToVerifiedRate: 0,
+        verifiedToUsedRate: 0
+      },
+      generatedAtUtc: res.windowEnd ? new Date(res.windowEnd).toISOString() : new Date().toISOString(),
+      authsOverTime: (res.authsOverTime || []).map((x: any) => ({
+        timestampUtc: x.timestampUtc,
+        successful: x.successful,
+        failed: x.failed
+      })),
+      recentEvents: res.recentEvents || []
+    };
+  }
+
   // ================= SEARCH =================
 
   onProjectSearch() {
@@ -272,7 +312,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: ({ res }) => {
-          this.data = res;
+          this.data = this.mapResponse(res);
           this.authEvents = res.recentEvents ?? [];
           this.filteredEvents = [...this.authEvents];
           this.loading = false;
@@ -290,7 +330,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         switchMap(() => this.analytics.getOverview(this.windowHours))
       )
       .subscribe(res => {
-        this.data = res;
+        this.data = this.mapResponse(res);
         this.authEvents = res.recentEvents ?? [];
         this.filteredEvents = [...this.authEvents];
         this.changeDetector.detectChanges();

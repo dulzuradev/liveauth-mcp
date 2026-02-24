@@ -48,6 +48,29 @@ export class AdminAnalyticsService {
 
             rateLimitHits: raw.rateLimitHits ?? 0,
 
+            // MCP Metrics
+            mcpSessionsTotal: raw.mcpSessionsTotal ?? 0,
+            mcpSessionsActive: raw.mcpSessionsActive ?? 0,
+            mcpTokensIssued: raw.mcpTokensIssued ?? 0,
+            mcpSatsEarned: raw.mcpSatsEarned ?? 0,
+
+            // L402 Metrics
+            l402InvoicesCreated: raw.l402InvoicesCreated ?? 0,
+            l402PaymentsReceived: raw.l402PaymentsReceived ?? 0,
+            l402SatsEarned: raw.l402SatsEarned ?? 0,
+
+            // Funnel
+            funnel: raw.funnel ?? {
+              challengesIssued: 0,
+              authsStarted: 0,
+              authsPaid: 0,
+              authsVerified: 0,
+              tokensUsed: 0,
+              startToPaidRate: 0,
+              paidToVerifiedRate: 0,
+              verifiedToUsedRate: 0
+            },
+
             generatedAtUtc: new Date().toISOString(),
 
             authsOverTime: Array.isArray(raw.authsOverTime)
