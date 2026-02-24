@@ -3,12 +3,6 @@
  * Tests the actual API at https://api.liveauth.app
  * 
  * Run: node tests/e2e/api.spec.js
- * 
- * Known Issues (API bugs to fix):
- * - /api/public/pow/challenge returns 401 (should use demo project fallback)
- * - /api/public/auth/* returns 401 (should work with API key)
- * - /api/mission/* requires Bearer JWT (not API key)
- * - /api/login/* returns 500 (bug)
  */
 
 const API_KEY = 'la_pk_XSay0x837ww6pYb8kX7iu95t';
@@ -133,10 +127,39 @@ async function main() {
   });
 
   // ==========================================
-  // SECTION 3: PoW (Known Issue - Returns 401)
+  // SECTION 3: PoW Authentication
   // ==========================================
-  console.log('\n=== PoW (Known Issue: Returns 401) ===\n');
-  console.log('   Skipping - /api/public/pow/challenge returns 401 (bug)\n');
+  console.log('\n=== PoW Authentication ===\n');
+
+  await runTest('GET /api/public/pow/challenge - returns challenge (no API key)', async () => {
+    const res = await request('GET', '/api/public/pow/challenge');
+    assertStatus(res, 200, 'PoW challenge');
+    const data = JSON.parse(res.body);
+    assert(data.challengeHex, 'Has challenge');
+    assert(data.difficultyBits > 0, 'Has difficulty');
+    console.log(`   Difficulty: ${data.difficultyBits} bits`);
+  });
+
+  await runTest('GET /api/public/pow/challenge - returns challenge (with API key)', async () => {
+    const res = await requestWithAuth('GET', '/api/public/pow/challenge');
+    assertStatus(res, 200, 'PoW challenge');
+    const data = JSON.parse(res.body);
+    assert(data.challengeHex, 'Has challenge');
+  });
+
+  await runTest('POST /api/public/pow/verify - missing fields', async () => {
+    const res = await requestWithAuth('POST', '/api/public/pow/verify', {});
+    assertStatus(res, 400, 'Missing fields');
+  });
+
+  await runTest('POST /api/public/pow/verify - invalid solution', async () => {
+    const res = await requestWithAuth('POST', '/api/public/pow/verify', { 
+      projectId: DEMO_PROJECT_ID,
+      challenge: 'test-challenge',
+      solution: 'invalid'
+    });
+    assert([200, 401, 400].includes(res.status), 'Invalid solution');
+  });
 
   // ==========================================
   // SECTION 4: MCP Gate (L402 Required)
@@ -276,9 +299,9 @@ async function main() {
   // ==========================================
   console.log('\n=== Rate Limiting & CORS ===\n');
 
-  await runTest('Rate limiting - configured', async () => {
-    const res = await request('GET', '/api/public/pow/challenge?projectId=test');
-    assert([401, 429].includes(res.status), 'Rate limit');
+  await runTest('Rate limiting - endpoint responds', async () => {
+    const res = await request('GET', '/api/public/pow/challenge');
+    assert([200, 429].includes(res.status), 'Rate limit check');
   });
 
   await runTest('OPTIONS /api/health - CORS preflight', async () => {
