@@ -60,7 +60,15 @@ public class PublicPowController : ControllerBase
             return proj;
 
         // Fallback to demo project if no API key provided
-        return GetDemoProjectAsync(CancellationToken.None).GetAwaiter().GetResult();
+        try
+        {
+            return GetDemoProjectAsync(CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get demo project");
+            return null;
+        }
     }
 
     private async Task<Project?> GetDemoProjectAsync(CancellationToken ct)
