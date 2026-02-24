@@ -65,12 +65,8 @@ public class PublicPowController : ControllerBase
 
     private async Task<Project?> GetDemoProjectAsync(CancellationToken ct)
     {
-        var demoProjectId = _configuration["LiveAuth:DemoProjectId"];
-        if (!Guid.TryParse(demoProjectId, out var projectId))
-        {
-            _logger.LogWarning("Failed to parse DemoProjectId from config: {Value}", demoProjectId ?? "null");
-            return null;
-        }
+        // Hardcoded for now - TODO: make configurable
+        var projectId = Guid.Parse("00000000-0000-0000-0000-000000000002");
 
         return await _db.Projects
             .AsNoTracking()
