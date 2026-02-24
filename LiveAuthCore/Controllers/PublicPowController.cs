@@ -60,49 +60,17 @@ public class PublicPowController : ControllerBase
             return proj;
 
         // Fallback to demo project if no API key provided
-        try
-        {
-            var demoProjectId = _configuration["LiveAuth:DemoProjectId"];
-            _logger.LogInformation("Demo project config: {DemoId}", demoProjectId ?? "null");
-            
-            if (Guid.TryParse(demoProjectId, out var projectId))
-            {
-                _logger.LogInformation("Parsed project ID: {ProjectId}", projectId);
-                
-                var project = _db.Projects
-                    .AsNoTracking()
-                    .Where(p => p.Id == projectId && p.IsActive)
-                    .FirstOrDefault();
-                
-                if (project != null)
-                {
-                    _logger.LogInformation("Using demo project {ProjectId} for PoW challenge", projectId);
-                    return project;
-                }
-                else
-                {
-                    _logger.LogWarning("Demo project not found in DB for ID: {ProjectId}", projectId);
-                }
-            }
-            else
-            {
-                _logger.LogWarning("Failed to parse demo project ID from config: {DemoId}", demoProjectId);
-            }
-            
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to get demo project");
-            return null;
-        }
+        return GetDemoProjectAsync(CancellationToken.None).GetAwaiter().GetResult();
     }
 
     private async Task<Project?> GetDemoProjectAsync(CancellationToken ct)
     {
         var demoProjectId = _configuration["LiveAuth:DemoProjectId"];
         if (!Guid.TryParse(demoProjectId, out var projectId))
+        {
+            _logger.LogWarning("Failed to parse DemoProjectId from config: {Value}", demoProjectId ?? "null");
             return null;
+        }
 
         return await _db.Projects
             .AsNoTracking()
