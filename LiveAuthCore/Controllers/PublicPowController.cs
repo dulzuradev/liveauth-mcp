@@ -62,7 +62,22 @@ public class PublicPowController : ControllerBase
         // Fallback to demo project if no API key provided
         try
         {
-            return GetDemoProjectAsync(CancellationToken.None).GetAwaiter().GetResult();
+            var demoProjectId = _configuration["LiveAuth:DemoProjectId"];
+            if (Guid.TryParse(demoProjectId, out var projectId))
+            {
+                var project = _db.Projects
+                    .AsNoTracking()
+                    .FirstOrDefault(p => p.Id == projectId && p.IsActive);
+                
+                if (project != null)
+                {
+                    _logger.LogInformation("Using demo project {ProjectId} for PoW challenge", projectId);
+                    return project;
+                }
+            }
+            
+            _logger.LogWarning("Demo project lookup returned null. Config: {DemoId}", demoProjectId);
+            return null;
         }
         catch (Exception ex)
         {
