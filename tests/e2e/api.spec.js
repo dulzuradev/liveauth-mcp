@@ -9,15 +9,15 @@
  * - ✅ Health check (GET /api/health)
  * - ✅ Demo auth start (POST /api/public/demo/start)
  * - ✅ Demo auth confirm (POST /api/public/demo/confirm)
+ * - ✅ PoW challenge (GET /api/public/pow/challenge) - returns 401
  * - ✅ MCP returns 401 without key (protected)
  * 
  * Needs API key (expected - these are protected endpoints):
  * - L402 invoice creation
  * - Sats Printer
- * - PoW challenge
  * 
- * Issues:
- * - PoW returns 500 instead of 401 (bug)
+ * Fixed:
+ * - PoW was returning 500 (missing LiveAuth:PowHmacSecret config)
  */
 
 const https = require('https');
@@ -134,14 +134,11 @@ async function main() {
   // ========== PROTECTED ENDPOINTS (Require API Key) ==========
   console.log('\n--- Protected Endpoints (Expected 401) ---\n');
 
-  // PoW - returns 500 bug
-  await runTest('GET /api/public/pow/challenge - returns 401 or 500 (bug)', async () => {
-    const res = await request('GET', '/api/public/pow/challenge?projectId=test');
-    // Currently returns 500 - should be 401
-    assert([401, 500].includes(res.status), 'Should return 401 or 500');
-    if (res.status === 500) {
-      console.log(`   ⚠️  BUG: Returns 500 instead of 401`);
-    }
+  // PoW - now correctly returns 401
+  await runTest('GET /api/public/pow/challenge - returns 401 (no API key)', async () => {
+    const res = await request('GET', 'https://api.liveauth.app/api/public/pow/challenge?projectId=test');
+    assertStatus(res, 401, 'PoW without key');
+    console.log(`   ✓ Returns 401 properly`);
   });
 
   // MCP - correctly returns 401
