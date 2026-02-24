@@ -306,6 +306,18 @@ app.UseExceptionHandler(errorApp =>
     errorApp.Run(async context =>
     {
         var ex = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+        var logger = context.RequestServices.GetService<ILogger<Program>>();
+        
+        // Log the actual error with appropriate level
+        if (ex is UnauthorizedAccessException)
+        {
+            logger?.LogWarning(ex, "Unauthorized access attempt");
+        }
+        else
+        {
+            logger?.LogError(ex, "Unhandled exception in request {Method} {Path}", 
+                context.Request.Method, context.Request.Path);
+        }
 
         if (builder.Environment.IsDevelopment())
         {
@@ -318,14 +330,18 @@ app.UseExceptionHandler(errorApp =>
             return;
         }
 
+        // Production: return proper status code but don't leak details
         context.Response.StatusCode =
             ex is UnauthorizedAccessException
                 ? StatusCodes.Status401Unauthorized
                 : StatusCodes.Status500InternalServerError;
 
+        context.Response.ContentType = "application/json";
         await context.Response.WriteAsJsonAsync(new
         {
-            error = "Unauthorized or invalid token"
+            error = ex is UnauthorizedAccessException 
+                ? "Unauthorized or invalid token" 
+                : "An unexpected error occurred"
         });
     });
 });

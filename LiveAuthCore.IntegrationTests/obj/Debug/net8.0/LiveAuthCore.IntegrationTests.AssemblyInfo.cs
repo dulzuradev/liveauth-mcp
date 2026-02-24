@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LiveAuthCore.IntegrationTests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2470f2ff402299bafeae1cc52b9d49b65f636317")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5d6cce6e03e38dd14dce7b3e6cda2fd13ae27d91")]
 [assembly: System.Reflection.AssemblyProductAttribute("LiveAuthCore.IntegrationTests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LiveAuthCore.IntegrationTests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
