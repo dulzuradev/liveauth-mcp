@@ -96,6 +96,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   polling = false;
   loggedIn = false;
   copiedLoginInvoice = false;
+  githubEnabled = false;
 
   get lightningQrValue(): string {
     if (!this.loginSession?.invoice) return '';
@@ -272,6 +273,27 @@ console.log('onTimeRangeChange', range);
   // ---------------------------------------------------------------------------
 
   ngOnInit() {
+    // Check for token in URL (from GitHub OAuth redirect)
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromUrl = urlParams.get('token');
+    if (tokenFromUrl) {
+      this.devAuth.saveToken(tokenFromUrl);
+      // Remove token from URL
+      window.history.replaceState({}, '', '/dev/projects');
+      this.loggedIn = true;
+      this.loadProjects();
+    }
+
+    // Check if GitHub OAuth is enabled
+    this.devAuth.getGitHubStatus().subscribe({
+      next: (res) => {
+        this.githubEnabled = res.enabled;
+      },
+      error: () => {
+        this.githubEnabled = false;
+      }
+    });
+
     const jwt = this.devAuth.getToken();
     if (jwt) {
       this.loggedIn = true;
@@ -397,6 +419,12 @@ console.log('onTimeRangeChange', range);
     const m = Math.floor(this.remainingSeconds / 60);
     const s = this.remainingSeconds % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  // GitHub OAuth login
+  startGitHubLogin(): void {
+    console.log('Starting GitHub login...');
+    this.devAuth.startGitHubLogin();
   }
 
   logout() {

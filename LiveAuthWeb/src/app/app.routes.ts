@@ -6,6 +6,7 @@ import {LandingPageComponent} from './pages/landing-page/landing-page';
 import {AdminComponent} from './pages/dev/admin-component/admin-component';
 import {SatsPrinterComponent} from './pages/sats-printer/sats-printer.component';
 import {KanbanBoardComponent} from './pages/mission/kanban-board.component';
+import {LegalComponent} from './pages/legal/legal';
 
 export const routes: Routes = [
   // Landing Page (new)
@@ -28,6 +29,9 @@ export const routes: Routes = [
 
   // Mock login (used after LN payment)
   { path: 'mock-login', component: MockLoginComponent },
+
+  // Legal
+  { path: 'legal', component: LegalComponent },
 
   // Wildcard fallback
   { path: '**', redirectTo: '' }

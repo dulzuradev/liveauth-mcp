@@ -10,7 +10,7 @@
         Welcome back, {{ developerEmail }}
       </p>
       <p class="dashboard-subtitle" *ngIf="!loggedIn">
-        Sign in with Lightning to manage your projects
+        Sign in with GitHub to manage your projects
       </p>
       <div class="agent-economy-badge" *ngIf="loggedIn">
         <i class="pi pi-bolt"></i> Built for the Agent Economy
@@ -18,17 +18,6 @@
     </div>
 
     <div class="header-actions">
-      <button
-        *ngIf="!loggedIn"
-        (click)="openLoginDialog()"
-        [disabled]="!developerEmail || loginInProgress || polling"
-        [loading]="loginInProgress || polling"
-        icon="pi pi-bolt"
-        label="Sign In"
-        class="p-button-lg btn-primary"
-        pButton>
-      </button>
-
       <button
         *ngIf="loggedIn"
         (click)="logout()"
@@ -46,30 +35,17 @@
   <div class="login-card-wrapper" *ngIf="!loggedIn">
     <div class="login-card">
       <div class="login-card-icon">
-        <i class="pi pi-bolt"></i>
+        <i class="pi pi-github"></i>
       </div>
       <h2 class="gradient-text">Connect Your Account</h2>
-      <p>Enter your developer email and verify with a Lightning micropayment</p>
+      <p>Sign in with GitHub to access your developer dashboard</p>
 
       <div class="login-form">
-        <div class="form-field">
-          <label>Developer Email</label>
-          <input
-            [(ngModel)]="developerEmail"
-            [disabled]="loginInProgress || polling"
-            class="w-full"
-            pInputText
-            placeholder="dev@example.com"
-            type="email"/>
-        </div>
-
         <button
-          (click)="openLoginDialog()"
-          [disabled]="!developerEmail || loginInProgress || polling"
-          [loading]="loginInProgress || polling"
-          icon="pi pi-bolt"
-          label="Sign In with Lightning"
-          class="w-full p-button-lg btn-primary"
+          (click)="startGitHubLogin()"
+          icon="pi pi-github"
+          label="Sign In with GitHub"
+          class="w-full p-button-lg"
           pButton>
         </button>
       </div>
@@ -487,91 +463,6 @@
        ============================================ -->
 
   <!-- LOGIN MODAL -->
-  <p-dialog
-    [(visible)]="loginDialogVisible"
-    (onHide)="stopPolling(); stopCountdown();"
-    [closable]="true"
-    [modal]="true"
-    [style]="{ width: '520px' }"
-    header="Developer Login (Lightning)">
-
-    <div class="p-fluid">
-      <p class="mb-3">
-        Pay a tiny Lightning invoice to verify you control this developer account.
-      </p>
-
-      <button
-        (click)="startLogin()"
-        [disabled]="!!loginSession"
-        [loading]="loginInProgress"
-        class="mb-3 btn-primary"
-        icon="pi pi-bolt"
-        label="Generate Invoice"
-        pButton>
-      </button>
-
-      <div *ngIf="loginSession">
-        <div class="flex justify-content-between align-items-center mb-2">
-          <div>
-            <b>Amount:</b> {{ loginSession.amountSats }} sats
-          </div>
-          <div>
-            <b>Expires in:</b> {{ remainingTimeLabel }}
-          </div>
-        </div>
-
-        <div class="flex justify-content-center mb-3">
-          <div class="ln-qr-svg-box" aria-label="Lightning invoice QR">
-            <qrcode
-              class="ln-qr-svg"
-              [value]="lightningQrValue"
-              [size]="320"
-              [errorLevel]="'M'"
-              [mode]="'svg'">
-            </qrcode>
-          </div>
-        </div>
-
-        <a
-          class="block mt-2 text-sm text-primary text-center"
-          [href]="'LIGHTNING:' + lightningQrValue">
-          Open in Lightning wallet
-        </a>
-
-        <p><b>Invoice (BOLT11):</b></p>
-        <div class="invoice-row" style="display:flex; gap:8px; align-items:center;">
-          <input
-            #loginInvoiceInput
-            (click)="loginInvoiceInput.select()"
-            [value]="loginSession.invoice"
-            class="invoice-input"
-            readonly
-            style="flex:1; padding:8px; border-radius:6px; background:rgba(0,0,0,0.4); color:var(--electric-blue); border:1px solid rgba(0,194,255,0.2); font-family: monospace;"/>
-
-          <button
-            (click)="copyLoginInvoice()"
-            aria-label="Copy invoice"
-            class="p-button-rounded p-button-secondary"
-            icon="pi pi-copy"
-            pButton>
-          </button>
-        </div>
-
-        <p *ngIf="copiedLoginInvoice" style="color:#64ff8f; margin-top:6px;">
-          Copied!
-        </p>
-
-        <p *ngIf="polling" class="mt-2 text-primary">
-          Waiting for payment confirmation…
-        </p>
-
-        <p *ngIf="remainingSeconds <= 0" class="mt-2 text-red-500">
-          Invoice expired. Close and try again.
-        </p>
-      </div>
-    </div>
-  </p-dialog>
-
   <!-- SECRET KEY DIALOG (after project creation) -->
   <p-dialog
     [(visible)]="showSecretDialog"

@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using AspNet.Security.OAuth.GitHub;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -86,9 +87,12 @@ builder.Services.AddScoped<AgentSatsService>();    // LND-based
 
 
 // --------------------------------------------------
-// Authentication (API Key OR JWT)
+// Authentication (API Key OR JWT OR GitHub)
 // --------------------------------------------------
-builder.Services
+var githubClientId = builder.Configuration["GitHub:ClientId"];
+var githubClientSecret = builder.Configuration["GitHub:ClientSecret"];
+
+var authBuilder = builder.Services
     .AddAuthentication(options =>
     {
         options.DefaultScheme = "LiveAuthPolicy";
@@ -143,6 +147,9 @@ builder.Services
             }
         };
     });
+
+// GitHub OAuth is handled manually in DeveloperAuthController
+// (not using middleware for this flow)
 
 // --------------------------------------------------
 // Authorization

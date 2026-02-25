@@ -7,9 +7,14 @@ using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Models;
 using LiveAuthCore.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OAuth;
+using AspNet.Security.OAuth.GitHub;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Text.Json;
 
 [ApiController]
 [Route("api/dev/auth")]
@@ -270,6 +275,202 @@ public class DevAuthController : ControllerBase
             signingCredentials: creds);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    // ============================================================
+    // GitHub OAuth Login
+    // ============================================================
+
+    /// <summary>
+    /// Check if GitHub OAuth is configured
+    /// </summary>
+    [HttpGet("github/status")]
+    public ActionResult<GitHubLoginStatusResponse> GetGitHubStatus()
+    {
+        var clientId = _config["GitHub:ClientId"];
+        var enabled = !string.IsNullOrWhiteSpace(clientId);
+
+        return Ok(new GitHubLoginStatusResponse
+        {
+            Enabled = enabled
+        });
+    }
+
+    /// <summary>
+    /// GitHub OAuth callback - manually exchange code for token
+    /// </summary>
+    [HttpGet("github/callback")]
+    public async Task<ActionResult<GitHubLoginResponse>> GitHubLogin(
+        [FromQuery] string? code,
+        [FromQuery] string? state,
+        CancellationToken ct)
+    {
+        try
+        {
+            // Verify state
+            var stateCookie = Request.Cookies["github_oauth_state"];
+            if (string.IsNullOrEmpty(stateCookie) || state != stateCookie)
+            {
+                return BadRequest("Invalid state parameter");
+            }
+
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                return BadRequest("No authorization code provided");
+            }
+
+            // Exchange code for access token
+            var clientId = _config["GitHub:ClientId"];
+            var clientSecret = _config["GitHub:ClientSecret"];
+            
+            var tokenResponse = await new HttpClient().PostAsync(
+                "https://github.com/login/oauth/access_token",
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    { "client_id", clientId ?? "" },
+                    { "client_secret", clientSecret ?? "" },
+                    { "code", code },
+                    { "redirect_uri", "https://api.liveauth.app/api/dev/auth/github/callback" }
+                }),
+                ct);
+
+            var responseContent = await tokenResponse.Content.ReadAsStringAsync(ct);
+            
+            // Parse the response (it's URL-encoded)
+            var parsed = System.Web.HttpUtility.ParseQueryString(responseContent);
+            var accessToken = parsed["access_token"];
+
+            if (string.IsNullOrWhiteSpace(accessToken))
+            {
+                return BadRequest("Failed to obtain access token: " + responseContent);
+            }
+
+            // Get user info from GitHub
+            var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {accessToken}");
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "LiveAuth");
+            
+            var userResponse = await httpClient.GetAsync("https://api.github.com/user", ct);
+            var userJson = await userResponse.Content.ReadAsStringAsync(ct);
+            
+            // Parse user JSON
+            var userDoc = System.Text.Json.JsonDocument.Parse(userJson);
+            var githubId = userDoc.RootElement.GetProperty("id").GetInt64().ToString();
+            var githubLogin = userDoc.RootElement.GetProperty("login").GetString() ?? "";
+            
+            // Get email (might need separate call if not public)
+            string? email = null;
+            try
+            {
+                var emailResponse = await httpClient.GetAsync("https://api.github.com/user/emails", ct);
+                var emailJson = await emailResponse.Content.ReadAsStringAsync(ct);
+                var emailDoc = System.Text.Json.JsonDocument.Parse(emailJson);
+                foreach (var e in emailDoc.RootElement.EnumerateArray())
+                {
+                    if (e.GetProperty("primary").GetBoolean() && e.GetProperty("verified").GetBoolean())
+                    {
+                        email = e.GetProperty("email").GetString();
+                        break;
+                    }
+                }
+            }
+            catch
+            {
+                // Email might not be available
+            }
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                email = $"{githubLogin}@github";
+            }
+
+            // Find or create developer
+            var dev = await _db.Developers
+                .FirstOrDefaultAsync(d => d.GitHubId == githubId, ct);
+
+            if (dev == null)
+            {
+                // Check if email already exists (could be Lightning login)
+                dev = await _db.Developers
+                    .FirstOrDefaultAsync(d => d.Email == email, ct);
+
+                if (dev != null)
+                {
+                    // Link GitHub to existing account
+                    dev.GitHubId = githubId;
+                    dev.GitHubUsername = githubLogin;
+                }
+                else
+                {
+                    // Create new developer
+                    dev = new Developer
+                    {
+                        Id = Guid.NewGuid(),
+                        Email = email,
+                        GitHubId = githubId,
+                        GitHubUsername = githubLogin
+                    };
+                    _db.Developers.Add(dev);
+                }
+
+                await _db.SaveChangesAsync(ct);
+            }
+            else
+            {
+                // Update username in case it changed
+                dev.GitHubUsername = githubLogin;
+                await _db.SaveChangesAsync(ct);
+            }
+
+            // Issue JWT
+            var token = GenerateJwtForDeveloper(dev);
+
+            // Clear the state cookie
+            Response.Cookies.Delete("github_oauth_state");
+
+            // Redirect to frontend with token
+            var frontendUrl = _config["App:FrontendUrl"] ?? "https://liveauth.app";
+            return Redirect($"{frontendUrl}/dev/projects?token={token}");
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, "Error: " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Redirect to GitHub for OAuth
+    /// </summary>
+    [HttpGet("github/start")]
+    public IActionResult StartGitHubLogin([FromQuery] string? returnUrl)
+    {
+        var clientId = _config["GitHub:ClientId"];
+        if (string.IsNullOrWhiteSpace(clientId))
+        {
+            return BadRequest("GitHub OAuth not configured.");
+        }
+
+        // Generate state for CSRF protection
+        var state = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+        
+        // Build the authorization URL with https callback
+        var callbackUrl = $"https://api.liveauth.app/api/dev/auth/github/callback";
+        var authUrl = $"https://github.com/login/oauth/authorize" +
+            $"?client_id={clientId}" +
+            $"&redirect_uri={Uri.EscapeDataString(callbackUrl)}" +
+            $"&scope={Uri.EscapeDataString("user:email")}" +
+            $"&state={state}";
+
+        // Store state in cookie for verification later
+        Response.Cookies.Append("github_oauth_state", state, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Expires = DateTimeOffset.UtcNow.AddMinutes(10)
+        });
+
+        return Redirect(authUrl);
     }
 
 }

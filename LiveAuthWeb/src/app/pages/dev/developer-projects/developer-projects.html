@@ -170,11 +170,28 @@
     [closable]="true"
     [modal]="true"
     [style]="{ width: '520px' }"
-    header="Developer Login (Lightning)">
+    [header]="githubEnabled ? 'Developer Login' : 'Developer Login (Lightning)'">
 
     <div class="p-fluid">
 
-      <p class="mb-3">
+      <!-- GitHub Login (if enabled) -->
+      <div *ngIf="githubEnabled" class="mb-4">
+        <p class="mb-3">
+          Sign in with GitHub to access your developer dashboard.
+        </p>
+        <button
+          (click)="startGitHubLogin()"
+          class="mb-3"
+          icon="pi pi-github"
+          label="Login with GitHub"
+          pButton>
+        </button>
+        <div class="text-secondary" style="font-size: 0.85rem;">
+          Or pay a Lightning invoice below.
+        </div>
+      </div>
+
+      <p *ngIf="!githubEnabled" class="mb-3">
         Pay a tiny Lightning invoice to verify you control this developer account.
       </p>
 

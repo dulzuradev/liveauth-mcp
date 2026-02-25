@@ -5,15 +5,13 @@ import { BASE_API_URL } from '../config';
 
 export interface DevStartLoginRequest {
   developerEmail: string;
-  // amountSats?: number; // backend currently ignores this; keep if you want future override
 }
 
 export interface DevStartLoginResponse {
   sessionId: string;
-  invoice: string;        // BOLT11
+  invoice: string;
   amountSats: number;
-  expiresAtUnix: number;  // unix timestamp (seconds)
-  // no developerId / paymentHash in current backend response
+  expiresAtUnix: number;
 }
 
 export interface DevConfirmLoginRequest {
@@ -23,6 +21,19 @@ export interface DevConfirmLoginRequest {
 export interface DevConfirmLoginResponse {
   verified: boolean;
   token?: string | null;
+}
+
+export interface GitHubLoginStatusResponse {
+  enabled: boolean;
+}
+
+export interface GitHubLoginResponse {
+  token: string;
+  developer: {
+    id: string;
+    email: string;
+    githubUsername?: string;
+  };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -45,6 +56,18 @@ export class DevAuthService {
       `${this.baseUrl}/api/dev/auth/confirm`,
       req
     );
+  }
+
+  // GET /api/dev/auth/github/status
+  getGitHubStatus(): Observable<GitHubLoginStatusResponse> {
+    return this.http.get<GitHubLoginStatusResponse>(
+      `${this.baseUrl}/api/dev/auth/github/status`
+    );
+  }
+
+  // GET /api/dev/auth/github/start - redirects to GitHub
+  startGitHubLogin(): void {
+    window.location.href = `${this.baseUrl}/api/dev/auth/github/start`;
   }
 
   saveToken(token: string) {
