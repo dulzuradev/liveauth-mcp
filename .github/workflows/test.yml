@@ -18,8 +18,10 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name: Restore dependencies
-      run: dotnet restore LiveAuthCore/LiveAuthCore.csproj
+    - name: Clean and restore
+      run: |
+        dotnet clean LiveAuthCore/LiveAuthCore.csproj
+        dotnet restore LiveAuthCore/LiveAuthCore.csproj
 
     - name: Build
       run: dotnet build LiveAuthCore/LiveAuthCore.csproj --no-restore
