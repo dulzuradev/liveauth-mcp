@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="../build/LiveAuthCore.Tests.props" />
-</Project>
