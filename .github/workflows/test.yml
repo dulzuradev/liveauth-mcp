@@ -41,8 +41,10 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name: Restore dependencies
-      run: dotnet restore LiveAuthCore.IntegrationTests/LiveAuthCore.IntegrationTests.csproj
+    - name: Clean and restore
+      run: |
+        dotnet clean LiveAuthCore.IntegrationTests/LiveAuthCore.IntegrationTests.csproj
+        dotnet restore LiveAuthCore.IntegrationTests/LiveAuthCore.IntegrationTests.csproj
 
     - name: Build integration tests
       run: dotnet build LiveAuthCore.IntegrationTests/LiveAuthCore.IntegrationTests.csproj --no-restore
