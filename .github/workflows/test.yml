@@ -20,17 +20,23 @@ jobs:
 
     - name: Clean
       run: |
-        dotnet clean LiveAuthCore/LiveAuthCore.csproj
-        rm -rf LiveAuthCore/bin LiveAuthCore/obj
+        dotnet clean LiveAuthCore.Tests/LiveAuthCore.Tests.csproj
+        dotnet clean LiveAuthCore/Services.Tests/LiveAuthCore.Services.Tests.csproj 2>/dev/null || true
+        rm -rf LiveAuthCore.Tests/bin LiveAuthCore.Tests/obj
+        rm -rf LiveAuthCore/Services.Tests/bin LiveAuthCore/Services.Tests/obj 2>/dev/null || true
 
     - name: Restore
-      run: dotnet restore LiveAuthCore/LiveAuthCore.csproj
+      run: |
+        dotnet restore LiveAuthCore.Tests/LiveAuthCore.Tests.csproj
+        dotnet restore LiveAuthCore/Services.Tests/LiveAuthCore.Services.Tests.csproj 2>/dev/null || dotnet restore LiveAuthCore/LiveAuthCore.csproj
 
     - name: Build
-      run: dotnet build LiveAuthCore/LiveAuthCore.csproj
+      run: |
+        dotnet build LiveAuthCore.Tests/LiveAuthCore.Tests.csproj
+        dotnet build LiveAuthCore/LiveAuthCore.csproj
 
     - name: Run unit tests
-      run: dotnet test LiveAuthCore/LiveAuthCore.csproj --verbosity normal
+      run: dotnet test LiveAuthCore.Tests/LiveAuthCore.Tests.csproj --verbosity normal
 
   integration-test:
     runs-on: ubuntu-latest
