@@ -18,16 +18,19 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name: Clean and restore
+    - name: Clean
       run: |
         dotnet clean LiveAuthCore/LiveAuthCore.csproj
-        dotnet restore LiveAuthCore/LiveAuthCore.csproj
+        rm -rf LiveAuthCore/bin LiveAuthCore/obj
+
+    - name: Restore
+      run: dotnet restore LiveAuthCore/LiveAuthCore.csproj
 
     - name: Build
-      run: dotnet build LiveAuthCore/LiveAuthCore.csproj --no-restore
+      run: dotnet build LiveAuthCore/LiveAuthCore.csproj
 
     - name: Run unit tests
-      run: dotnet test LiveAuthCore/LiveAuthCore.csproj --no-build --verbosity normal
+      run: dotnet test LiveAuthCore/LiveAuthCore.csproj --verbosity normal
 
   integration-test:
     runs-on: ubuntu-latest

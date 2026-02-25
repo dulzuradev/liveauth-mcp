@@ -1,5 +1,7 @@
 *.nuget
 nuget/
+bin/
+obj/
 # SSH Private Keys
 LiveAuthCore/Services/liveAuth_key
 LiveAuthCore/Services/liveAuth_key.pub
