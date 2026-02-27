@@ -43,7 +43,7 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-**For demo mode (no API key required):** Simply omit the `LIVEAUTH_API_KEY` environment variable.
+**Note:** The MCP server requires a LiveAuth API key. Get one at [liveauth.app](https://liveauth.app). The MCP endpoint also requires L402 payment for production use.
 
 ### Other MCP Clients
 
