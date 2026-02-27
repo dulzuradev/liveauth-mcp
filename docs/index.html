@@ -265,7 +265,8 @@
 import { LiveAuth } from '@liveauth-labs/sdk';
 
 const liveauth = new LiveAuth({
-  publicKey: 'la_pk_xxx'
+  publicKey: 'la_pk_xxx',  // Public key from dashboard
+  apiKey: 'la_sk_xxx'      // Secret key from dashboard
 });
 
 const result = await liveauth.verify();
