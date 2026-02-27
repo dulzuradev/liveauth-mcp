@@ -11,20 +11,25 @@ liveauth.app {
 api.liveauth.app {
     @preflight method OPTIONS
     handle @preflight {
-        header Access-Control-Allow-Origin "https://liveauth.app"
+        header Access-Control-Allow-Origin "*"
         header Access-Control-Allow-Methods "GET, POST, OPTIONS, PATCH"
-        header Access-Control-Allow-Headers "Content-Type, Authorization, X-LW-Public"
+        header Access-Control-Allow-Headers "Content-Type, Authorization, X-LW-Public, X-LW-Sdk-Version, X-LW-Secret"
         header Access-Control-Max-Age "86400"
         respond 204
     }
-
+    
+    header Access-Control-Allow-Origin "*"
     reverse_proxy liveauth-api:8080
 }
 
-
-
 admin.liveauth.app {
     root * /srv/admin
+    try_files {path} /index.html
+    file_server
+}
+
+docs.liveauth.app {
+    root * /srv/docs
     try_files {path} /index.html
     file_server
 }

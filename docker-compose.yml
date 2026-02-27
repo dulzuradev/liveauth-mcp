@@ -38,6 +38,9 @@ services:
       ConnectionStrings__Default: Data Source=/data/liveauth.db
       DB_PROVIDER: sqlite
       Admin__SkipPayment: "true"
+      GitHub__ClientId: "Ov23li5BIPiYaNfLaBsn"
+      GitHub__ClientSecret: "0ee4f29d2b7374442cffb739f455f8db0acc900e"
+      LiveAuth__PowHmacSecret: "17b6b192e379f5689f87d99bf06510dc83e71de2d7429666bdb1c1437b6bd9e0"
     volumes:
       - sqlite_data:/data
     networks:

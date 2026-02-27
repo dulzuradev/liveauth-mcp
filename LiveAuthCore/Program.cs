@@ -159,23 +159,6 @@ builder.Services.AddAuthorization();
 // --------------------------------------------------
 // CORS
 // --------------------------------------------------
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("LiveAuthCors", policy =>
-        policy.WithOrigins(
-                "https://liveauth.app",
-                "https://dev.liveauth.app",
-                "https://admin.liveauth.app",
-                "http://localhost:4200"
-            )
-            .AllowAnyHeader()
-            .AllowAnyMethod());
-});
-
-// --------------------------------------------------
-// Swagger (dev only)
-// --------------------------------------------------
-if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(o =>
@@ -359,7 +342,6 @@ app.UseExceptionHandler(errorApp =>
 // --------------------------------------------------
 app.UseHttpsRedirection();
 app.UseRouting();
-app.UseCors("LiveAuthCors");
 
 // Custom auth middleware BEFORE ASP.NET authentication
 // This handles public endpoints (pow, auth) that need API key validation

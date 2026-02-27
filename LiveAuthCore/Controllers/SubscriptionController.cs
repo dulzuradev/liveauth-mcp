@@ -65,7 +65,7 @@ namespace LiveAuthCore.Controllers
             // v1 pricing (simple + explicit)
             var amountSats = request.Plan switch
             {
-                "pro" => 10_000, // ~ $500 at current rates
+                "pro" => 50_000, // (~ at current BTC rates)
                 _ => throw new ArgumentException("Unknown plan")
             };
 

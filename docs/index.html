@@ -230,7 +230,6 @@
     <nav>
       <a href="#core">Core Auth</a>
       <a href="#mcp">MCP Server</a>
-      <a href="#sats-printer">Sats Printer</a>
       <a href="#l402">L402</a>
       <a href="#api">API Reference</a>
       <a href="https://liveauth.app" target="_blank">← Back to App</a>
@@ -310,34 +309,6 @@ npx @liveauth-labs/mcp-server
     }
   }
 }</pre>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Sats Printer -->
-  <section id="sats-printer" class="section">
-    <h2>Sats Printer</h2>
-    <p class="subtitle">Print sats to any Lightning address. Instant Bitcoin for agents.</p>
-    
-    <div class="cards">
-      <div class="card">
-        <div class="card-icon"><span class="material-icons">print</span></div>
-        <h3>Fund Agents Instantly</h3>
-        <p>Give agents their own wallets. Top up programmatically. Power agent economies with microtransactions.</p>
-        <ul>
-          <li>One-click sats printing</li>
-          <li>Programmatic API access</li>
-          <li>Track balances per agent</li>
-        </ul>
-        <a href="https://liveauth.app/sats" target="_blank">Try Sats Printer →</a>
-        
-        <div class="code-block">
-          <pre># Print sats to a Lightning address
-curl -X POST https://api.liveauth.app/api/sats/print \
-  -H "Authorization: Bearer la_sk_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{"lightningAddress": "user@wallet.com", "sats": 1000}'</pre>
         </div>
       </div>
     </div>
