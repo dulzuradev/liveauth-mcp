@@ -11,6 +11,7 @@ import fetch from 'node-fetch';
 
 const LIVEAUTH_API_BASE = process.env.LIVEAUTH_API_BASE || 'https://api.liveauth.app';
 const LIVEAUTH_API_KEY = process.env.LIVEAUTH_API_KEY || '';
+const LIVEAUTH_DEMO = process.env.LIVEAUTH_DEMO === 'true' || !LIVEAUTH_API_KEY;
 
 // Store JWT after confirm (in-memory for the session)
 let cachedJwt: string | null = null;
@@ -20,7 +21,7 @@ function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (LIVEAUTH_API_KEY) {
+  if (LIVEAUTH_API_KEY && !LIVEAUTH_DEMO) {
     headers['X-LW-Public'] = LIVEAUTH_API_KEY;
   }
   return headers;
@@ -242,7 +243,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'liveauth_mcp_start': {
         const { forceLightning } = args as { forceLightning?: boolean };
 
-        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/start`, {
+        // Use demo endpoint if no API key or DEMO mode enabled
+        const endpoint = LIVEAUTH_DEMO 
+          ? `${LIVEAUTH_API_BASE}/api/public/demo/start`
+          : `${LIVEAUTH_API_BASE}/api/mcp/start`;
+        
+        const response = await fetch(endpoint, {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify({
@@ -256,6 +262,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const result = await response.json() as McpStartResponse;
+
+        // Transform demo response to MCP format
+        if (LIVEAUTH_DEMO && 'invoice' in result) {
+          const demoResult = result as any;
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  quoteId: result.quoteId || demoResult.sessionId,
+                  powChallenge: null,
+                  invoice: demoResult.invoice ? {
+                    bolt11: demoResult.invoice.bolt11 || demoResult.invoice,
+                    amountSats: demoResult.invoice.amountSats || demoResult.amountSats || 0,
+                    expiresAtUnix: demoResult.invoice.expiresAtUnix || demoResult.expiresAtUnix,
+                    paymentHash: demoResult.invoice.paymentHash || '',
+                  } : null,
+                  _demo: true,
+                }, null, 2),
+              },
+            ],
+          };
+        }
 
         return {
           content: [
