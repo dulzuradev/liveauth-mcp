@@ -295,7 +295,20 @@ Refresh the JWT token without re-authenticating. Use the refreshToken returned f
 │ 4. API calls   │     │                 │     │                 │
 │ 5. Charge      │     │ /api/mcp/charge │     │ Meter usage    │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
+
+## x402 Compatibility
+
+LiveAuth supports the x402 standard (Cloudflare/Coinbase). Use either format:
+
+```bash
+# L402 (LiveAuth native)
+curl -H "Authorization: L402 l402_xxx" https://api.liveauth.app/api/mcp/start
+
+# x402 (Cloudflare/Coinbase compatible)
+curl -H "Authorization: x402 preimage_xxx" https://api.liveauth.app/api/mcp/start
 ```
+
+The API accepts both and returns `WWW-Authenticate: x402` in 402 responses.
 
 ## Why LiveAuth?
 
