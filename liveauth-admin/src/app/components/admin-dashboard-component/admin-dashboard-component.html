@@ -16,6 +16,14 @@
     </div>
 
     <div class="controls">
+      <button
+        pButton
+        label="Transactions"
+        icon="pi pi-list"
+        class="p-button-outlined"
+        routerLink="/transactions">
+      </button>
+
       <p-select
         [options]="windowOptions"
         [(ngModel)]="windowHours"

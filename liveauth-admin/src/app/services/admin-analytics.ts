@@ -5,7 +5,9 @@ import {
   AdminAnalyticsOverviewResponse,
   AdminAuthEventDto,
   AdminProjectUsageDto,
-  AdminSubscriptionDto
+  AdminSubscriptionDto,
+  AdminTransactionsResponse,
+  TransactionDetailDto
 } from '../admin-analytics.models';
 import { AdminAuthService } from './admin-auth';
 
@@ -113,6 +115,23 @@ export class AdminAnalyticsService {
   getSubscriptions(): Observable<AdminSubscriptionDto[]> {
     return this.http.get<AdminSubscriptionDto[]>(
       `${this.baseUrl}/api/admin/analytics/subscriptions`,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  getTransactions(search?: string, limit = 50, offset = 0): Observable<AdminTransactionsResponse> {
+    return this.http.get<AdminTransactionsResponse>(
+      `${this.baseUrl}/api/admin/analytics/transactions`,
+      { 
+        params: { search: search || '', limit: limit.toString(), offset: offset.toString() },
+        headers: this.getAuthHeaders() 
+      }
+    );
+  }
+
+  getTransaction(id: string): Observable<TransactionDetailDto> {
+    return this.http.get<TransactionDetailDto>(
+      `${this.baseUrl}/api/admin/analytics/transactions/${id}`,
       { headers: this.getAuthHeaders() }
     );
   }

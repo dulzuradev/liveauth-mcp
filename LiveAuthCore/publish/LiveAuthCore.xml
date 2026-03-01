@@ -1,0 +1,661 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>LiveAuthCore</name>
+    </assembly>
+    <members>
+        <member name="T:LiveAuthCore.Controllers.AdminController">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.AdminController.GetLoginAttempts">
+            <summary>
+            
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.AuthController.Start(LiveAuthCore.Models.AuthStartRequest)">
+            <summary>
+            Dev backend calls this to start a Lightning verification session.
+            Requires: Authorization: Bearer la_sk_...
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.AuthController.Confirm(LiveAuthCore.Models.AuthConfirmRequest)">
+            <summary>
+            Dev backend polls this to confirm settlement + receive LiveAuth token.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.AuthController.VerifyToken(LiveAuthCore.Models.VerifyTokenRequest)">
+            <summary>
+            Anyone can verify a LiveAuth token (no key required).
+            Useful for clients or edge services.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.DevAuthController.GetGitHubStatus">
+            <summary>
+            Check if GitHub OAuth is configured
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.DevAuthController.GitHubLogin(System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            GitHub OAuth callback - manually exchange code for token
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.DevAuthController.StartGitHubLogin(System.String)">
+            <summary>
+            Redirect to GitHub for OAuth
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.HealthController.GetHealth(System.Threading.CancellationToken)">
+            <summary>
+            Health check endpoint that verifies LND connectivity and returns system status.
+            Use this to verify the API is running and Lightning is accessible.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.HealthController.Ping">
+            <summary>
+            Simple ping endpoint for load balancers.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.L402Controller.CreateInvoice(System.String,System.Nullable{System.Int32})">
+            <summary>
+            Create an L402 invoice for API access.
+            </summary>
+            <param name="destination">Optional destination/identifier</param>
+            <param name="amountSats">Satoshis per request (optional, defaults to config)</param>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.L402Controller.ValidatePayment(System.String)">
+            <summary>
+            Validate payment and get L402 token.
+            </summary>
+            <param name="paymentHash">The payment hash (r_hash) from the invoice</param>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.L402Controller.VerifyToken(System.String)">
+            <summary>
+            Check if a token is valid (for debugging/health).
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.LoginController.Login(LiveAuthCore.Controllers.LoginRequest)">
+            <summary>
+            
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.LoginController.GetPaymentStatus(System.String)">
+            <summary>
+            Original endpoint: GET /api/Login/payment-status/{paymentHash}
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.LoginController.GetPaymentStatusWithSession(System.String,System.String)">
+            <summary>
+            Compatibility endpoint for demo:
+            GET /api/Login/payment-status/{sessionId}/{paymentHash}
+            It just ignores the sessionId and forwards the hash to the original logic.
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Controllers.LoginRequest">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.Mcp.McpGateController.GetLnurl(System.String,System.Threading.CancellationToken)">
+            <summary>
+            LNURL-compatible endpoint for lnget. Returns the Lightning invoice for polling.
+            GET /api/mcp/lnurl/{quoteId}
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Controllers.MissionController">
+            <summary>
+            MissionControl API - Kanban board for tracking LiveAuth tasks
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.MissionController.GetTasks(LiveAuthCore.Models.MissionControl.TaskFilterDto)">
+            <summary>
+            Get all tasks with optional filtering
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.MissionController.GetTask(System.Int32)">
+            <summary>
+            Get a single task by ID
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.MissionController.CreateTask(LiveAuthCore.Models.MissionControl.CreateTaskDto)">
+            <summary>
+            Create a new task
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.MissionController.UpdateTask(System.Int32,LiveAuthCore.Models.MissionControl.UpdateTaskDto)">
+            <summary>
+            Update an existing task
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.MissionController.MoveTask(System.Int32,LiveAuthCore.Models.MissionControl.MoveTaskDto)">
+            <summary>
+            Move a task to a different column (status)
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.MissionController.DeleteTask(System.Int32)">
+            <summary>
+            Delete a task
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.MissionController.GetKanbanBoard(LiveAuthCore.Models.MissionControl.TaskFilterDto)">
+            <summary>
+            Get tasks grouped by status (for Kanban board)
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.PublicPowController.CreateChallenge(System.Threading.CancellationToken)">
+            <summary>
+            Creates a new challenge.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.SatsPrinterController.CreateInvoice(LiveAuthCore.Controllers.CreateInvoiceRequest)">
+            <summary>
+            Create a Lightning invoice for adding sats to agent's balance
+            Human pays this invoice, then agent receives sats
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.SatsPrinterController.GetBalance">
+            <summary>
+            Get agent's sats balance
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.SatsPrinterController.CheckPayment(LiveAuthCore.Controllers.CheckPaymentRequest)">
+            <summary>
+            Check invoice payment status and credit if paid
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.SatsPrinterController.GetInvoices">
+            <summary>
+            Get invoice history
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.SatsPrinterController.DemoPrintSats(LiveAuthCore.Controllers.DemoPrintRequest)">
+            <summary>
+            Demo: Print sats to a Lightning address (for testing/demos)
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.SatsPrinterController.DemoConfirmPayment(LiveAuthCore.Controllers.ConfirmDemoRequest)">
+            <summary>
+            Demo: Simulate payment confirmation (for demo/testing only)
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.SatsPrinterController.PrintSats(LiveAuthCore.Controllers.CashuPrintRequest)">
+            <summary>
+            NUT-04: Mint ecash by paying a Lightning invoice
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.SatsPrinterController.MeltSats(LiveAuthCore.Controllers.MeltSatsRequest)">
+            <summary>
+            NUT-05: Melt ecash to pay a Lightning invoice
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Data.Entities.AdminSession">
+            <summary>
+            Admin user session with username/password authentication
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Data.Entities.AdminPaymentSession">
+            <summary>
+            Lightning payment session for admin access
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Data.Entities.EcashProof">
+            <summary>
+            Represents a Cashu ecash proof owned by a user
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.EcashProof.Amount">
+            <summary>
+            Amount in satoshis (power of 2)
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.EcashProof.KeysetId">
+            <summary>
+            The keyset ID from the mint
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.EcashProof.Secret">
+            <summary>
+            The secret (hex-encoded)
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.EcashProof.C">
+            <summary>
+            The unblinded signature point C (hex-encoded)
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.EcashProof.IsSpent">
+            <summary>
+            Whether this proof has been spent
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.EcashProof.MintRequestId">
+            <summary>
+            Optional: Reference to the mint request that created this proof
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Data.Entities.PowUsedNonce">
+            <summary>
+            Tracks used PoW nonces to prevent replay attacks.
+            The unique constraint on (ProjectId, ChallengeHex, Nonce) provides atomic replay protection.
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Entities.RevokedToken">
+            <summary>
+                
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Entities.MissionTask">
+            <summary>
+            Represents a task in the MissionControl Kanban board
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Middleware.L402Middleware">
+            <summary>
+            L402 Payment Middleware
+            Intercepts requests to gated endpoints and validates L402/x402 tokens.
+            Returns 402 Payment Required if no valid token is present.
+            Supports both L402 (LiveAuth) and x402 (Cloudflare/Coinbase) protocols.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Middleware.L402Middleware.ExtractPaymentToken(Microsoft.AspNetCore.Http.HttpRequest)">
+            <summary>
+            Extract payment token from request, supporting both L402 and x402 formats.
+            Returns (token, scheme) tuple.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Middleware.L402Middleware.ValidateX402TokenAsync(System.String)">
+            <summary>
+            Validate x402 token (preimage) and issue L402 token if valid.
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Middleware.L402MiddlewareExtensions">
+            <summary>
+            Extension to register L402 middleware.
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Models.AdminStartLoginRequest.Email">
+            <summary>
+            Admin email address.
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Models.AuthStartRequest.UserRef">
+            <summary>
+            Unique identifier for the user being authenticated (e.g., email, user ID).
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Models.AuthStartRequest.AmountSats">
+            <summary>
+            Satoshis to request for verification (200 sats default).
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Models.AuthStartRequest.Memo">
+            <summary>
+            Memo/description for the Lightning invoice.
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Models.CreateProjectRequest.Name">
+            <summary>
+            Project name.
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Models.Mcp.McpChargeRequest.CallCostSats">
+            <summary>
+            Cost in sats for this MCP call.
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Models.MissionControl.CreateTaskDto">
+            <summary>
+            DTO for creating a new task
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Models.MissionControl.UpdateTaskDto">
+            <summary>
+            DTO for updating an existing task
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Models.MissionControl.TaskDto">
+            <summary>
+            DTO for task response
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Models.MissionControl.TaskFilterDto">
+            <summary>
+            DTO for filtering tasks
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Models.MissionControl.MoveTaskDto">
+            <summary>
+            DTO for moving a task to a different column
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Models.PublicStartAuthRequest.UserHint">
+            <summary>
+            Optional user hint (email, username, etc.) the integrator can pass.
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Models.PublicAuthStartRequest.ProjectPublicKey">
+            <summary>
+            The project's public API key.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.Tests.LightningServicePaymentHashTests.PaymentHash_ShouldBe64CharHex_Not44CharBase64">
+            <summary>
+            Tests that the payment hash stored in the database is HEX (64 chars), not base64 (44 chars).
+            This was a bug where LND returns base64 but we need hex for lookups.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.Tests.LightningServicePaymentHashTests.TryNormalizePaymentHash_With64CharHex_ReturnsTrue">
+            <summary>
+            Verifies that TryNormalizePaymentHash correctly handles hex input.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.Tests.LightningServicePaymentHashTests.TryNormalizePaymentHash_WithBase64_ReturnsTrue">
+            <summary>
+            Verifies that TryNormalizePaymentHash correctly handles base64 input.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.Tests.LightningServicePaymentHashTests.PaymentHash_32Bytes_Produces64HexChars">
+            <summary>
+            Tests that a 32-byte payment hash always converts to exactly 64 hex characters.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.Tests.LightningServicePaymentHashTests.TryNormalizePaymentHash_WithInvalidFormat_ReturnsFalse">
+            <summary>
+            Verifies that invalid payment hash formats are rejected.
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.AgentSatsService">
+            <summary>
+            LND-based sats printer for agent payments
+            Human pays Lightning invoice → agent receives sats balance
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.AgentSatsService.CreateInvoiceAsync(System.String,System.Int64,System.Threading.CancellationToken)">
+            <summary>
+            Create a Lightning invoice for adding sats to agent's balance
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.AgentSatsService.CheckAndCreditInvoiceAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Check if invoice is paid and credit agent's balance
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.AgentSatsService.GetBalanceAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Get agent's sats balance
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.AgentSatsService.DeductAsync(System.String,System.Int64,System.Threading.CancellationToken)">
+            <summary>
+            Deduct sats from agent's balance (for API calls)
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.AgentSatsService.GetInvoicesAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Get all invoices for an agent
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.CashuCryptoService">
+            <summary>
+            Handles Cashu blind signature cryptographic operations
+            Note: This is a simplified implementation. For production use, consider using
+            a dedicated Cashu library or more robust blind signature implementation.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.CashuCryptoService.DecomposeAmount(System.Int64)">
+            <summary>
+            Decomposes an amount into powers of 2
+            Example: 13 = 8 + 4 + 1 = [1, 4, 8]
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.CashuCryptoService.GenerateSecret">
+            <summary>
+            Generates a random secret (32 bytes hex-encoded)
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.CashuCryptoService.CreateBlindedMessage">
+            <summary>
+            Creates a blinded message B_ = Y + r*G
+            where Y = hash_to_curve(secret), r = blinding factor
+            Returns: (blinded_message_hex, secret, blinding_factor_hex)
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.CashuCryptoService.UnblindSignature(System.String,System.String,System.String)">
+            <summary>
+            Unblinds a signature: C = C_ - r*K
+            where C_ is the blinded signature from the mint, K is the mint's public key
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.CashuCryptoService.HashToCurve(System.String)">
+            <summary>
+            Hashes a secret string to a curve point representation
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.CashuCryptoService.ParseHexPoint(System.String)">
+            <summary>
+            Parses a hex point (simplified)
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.CashuCryptoService.ComputeBlindedPoint(System.Byte[],System.Byte[])">
+            <summary>
+            Computes blinded point (simplified implementation)
+            In production, use proper EC point addition
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.CashuCryptoService.ComputeUnblindedPoint(System.Byte[],System.Byte[])">
+            <summary>
+            Computes unblinded point (simplified implementation)
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.CashuCryptoService.DeriveSharedKey(NBitcoin.Key,NBitcoin.PubKey)">
+            <summary>
+            Derives a shared key (used for computing r*K)
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.BlindedMessage">
+            <summary>
+            Represents a blinded message for minting
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.BlindedSignature">
+            <summary>
+            Represents a blinded signature from the mint
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.CashuProof">
+            <summary>
+            Represents an ecash proof
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.L402Service">
+            <summary>
+            L402 Payment Gateway Service
+            Handles Lightning invoice creation and L402 token validation.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.L402Service.CreateInvoiceAsync(System.String,System.Nullable{System.Int32})">
+            <summary>
+            Create an invoice for L402 payment.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.L402Service.ValidateTokenAsync(System.String)">
+            <summary>
+            Validate an L402 token (preimage) against a paid invoice.
+            Returns the token hash if valid, null otherwise.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.L402Service.IssueTokenAsync(System.String)">
+            <summary>
+            Mark a preimage as validated and issue an L402 token.
+            Called after successful payment verification.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.L402Service.IsTokenValid(System.String)">
+            <summary>
+            Check if an L402 token is currently valid.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.L402Service.StorePreimageMapping(System.String,System.String)">
+            <summary>
+            Store preimage mapping when creating invoice (for later validation).
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.L402Service.ComputeTokenHash(System.String)">
+            <summary>
+            Compute SHA256 hash of token for lookup.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.L402Service.GetPriceForEndpoint(System.String)">
+            <summary>
+            Get configured price for an endpoint.
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.InvoiceResult">
+            <summary>
+            Unified result for invoice creation - always returns hex payment hash.
+            Use this instead of accessing invoice.RHash directly.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.CreateInvoice(System.String,System.Int64,System.String)">
+            <summary>
+            Generic invoice creation (existing behavior).
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.CreateInvoiceWithHashAsync(System.String,System.Int64,System.String,System.Int32)">
+            <summary>
+            CENTRALIZED: Create invoice and return hex payment hash.
+            Use this instead of CreateInvoice to get the payment hash in consistent hex format.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.CreateLoginInvoiceAsync(System.String,System.Int64,System.Int32)">
+            <summary>
+            NEW: Create a login-specific invoice for dev auth flow.
+            Wraps LND /v1/invoices and returns an object with Id + BOLT11 string.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.GetInvoiceStatusAsync(System.String)">
+            <summary>
+            NEW: Get detailed status for a login invoice.
+            Uses the same underlying invoice lookup as CheckPaymentStatus but
+            returns a richer object (IsPaid + placeholder Lightning identity).
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.GetLndInfoAsync(System.Threading.CancellationToken)">
+            <summary>
+            Get LND node information for health checks.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.TryNormalizePaymentHash(System.String,System.Byte[]@,System.String@)">
+            <summary>
+            Normalize an input payment hash string to 32 bytes.
+            Accepts base64, base64url, or hex. Returns false if cannot decode or wrong length.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.CheckPaymentStatus(System.String)">
+            <summary>
+            Legacy helper - now delegates to GetInvoiceStatusAsync.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.LightningService.GenerateJwtToken(System.String,System.String,System.Collections.Generic.IEnumerable{System.Security.Claims.Claim},System.Nullable{System.DateTime})">
+            <summary>
+            Preferred overload for new code (optional extra claims + expiry).
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Services.InvoiceStatusResult.PayerLightningAuthKey">
+            <summary>
+            Lightning identity of payer (LNURL-auth pubkey, etc).
+            Currently null until you wire that in.
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.PowNonceCleanupService">
+            <summary>
+            Background service that periodically cleans up expired PoW nonces from the database.
+            Runs every hour to prevent unbounded growth.
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.PowRateLimitService">
+            <summary>
+            In-memory rate limiter for PoW challenge generation.
+            Prevents hash grinding and DoS by limiting challenge requests per IP and per project.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.PowRateLimitService.TryAcquire(System.String,System.Guid)">
+            <summary>
+            Check if this IP or project has exceeded rate limits.
+            Returns true if request is allowed, false if rate-limited.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.PowReplayProtectionService.TryMarkNonceUsedAsync(System.Guid,System.String,System.String,System.Int64,System.Threading.CancellationToken)">
+             <summary>
+             Returns true if this (project, challenge, nonce) has NOT been used yet and we successfully marked it used.
+             Returns false if it's already used (replay).
+            
+             NOTE: IDistributedCache does not guarantee atomic "set-if-not-exists".
+             This is still very effective for v1, and becomes fully robust if you later swap in Redis with SET NX.
+             </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.PowReplayService">
+            <summary>
+            Atomic replay protection using database unique constraint.
+            Prevents race conditions that existed in the cache-based implementation.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.PowReplayService.TryMarkNonceUsedAsync(System.Guid,System.String,System.String,System.Int64,System.Threading.CancellationToken)">
+            <summary>
+            Returns true if this nonce has NOT been used before and is now marked as used.
+            Returns false if it was already used (replay detected).
+            
+            Uses database unique constraint for atomic check-and-insert.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.ProjectBillingHelpers.GetMonthlyAuthLimit(LiveAuthCore.Data.Entities.Project)">
+            <summary>
+            Gets the monthly auth limit for a project based on its plan.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.ProjectBillingHelpers.GetEffectiveSatsPerLogin(LiveAuthCore.Data.Entities.Project)">
+            <summary>
+            Gets the effective sats per login for a project, respecting environment.
+            TEST => always 0 sats (no Lightning payment required).
+            LIVE => uses stored SatsPerLogin (clamped to >= 0).
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.ProjectBillingHelpers.RequiresLightningPayment(LiveAuthCore.Data.Entities.Project)">
+            <summary>
+            Should this project require a real Lightning invoice for logins?
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.ProjectBillingHelpers.CheckMonthlyQuota(LiveAuthCore.Data.Entities.Project)">
+            <summary>
+            Checks if the project's monthly usage has exceeded its quota.
+            Also handles monthly reset if we're in a new billing period.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.SatsPrinterService.MintSatsAsync(System.String,System.Int64,System.String)">
+            <summary>
+            NUT-04: Mint ecash tokens by paying a Lightning invoice
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.SatsPrinterService.MeltSatsAsync(System.String,System.String,System.String)">
+            <summary>
+            NUT-05: Melt ecash tokens to pay a Lightning invoice
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.SatsPrinterService.GetUserBalanceAsync(System.String)">
+            <summary>
+            Get user's ecash balance across all mints
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.WebhookService.EnqueueAsync(LiveAuthCore.Data.Entities.Project,System.String,System.Object,System.Threading.CancellationToken)">
+            <summary>
+            Enqueue a webhook event for the given project.
+            If no webhook URL is configured, this is a no-op.
+            </summary>
+        </member>
+    </members>
+</doc>

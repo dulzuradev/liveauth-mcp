@@ -95,3 +95,33 @@ export interface AdminAuthEventDto {
   satsPaid?: number;
   clientIpMasked?: string;
 }
+
+// Transaction models
+export interface TransactionDto {
+  id: string;
+  type: string;
+  projectId: string;
+  projectName?: string;
+  projectPublicKey?: string;
+  amountSats: number;
+  paymentHash: string;
+  invoice: string;
+  status: string;
+  createdAt: string;
+  paidAt?: string;
+  clientIp?: string;
+  environment?: string;
+}
+
+export interface TransactionDetailDto extends TransactionDto {
+  userHint?: string;
+  payerLightningKey?: string;
+  powChallenge?: string;
+  powDifficultyBits?: number;
+}
+
+export interface AdminTransactionsResponse {
+  transactions: TransactionDto[];
+  total: number;
+  totalSats: number;
+}

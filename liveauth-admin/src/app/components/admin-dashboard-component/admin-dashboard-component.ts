@@ -1,7 +1,7 @@
 import {Component, OnInit, OnDestroy, ChangeDetectorRef} from '@angular/core';
 import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AdminAnalyticsService } from '../../services/admin-analytics';
 import { AdminAuthService } from '../../services/admin-auth';
 import {
@@ -30,6 +30,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
     DecimalPipe,
     DatePipe,
     FormsModule,
+    RouterLink,
     AdminAuthsLineChartComponent,
     AdminProjectsDonutComponent,
     TableModule,

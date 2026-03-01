@@ -281,6 +281,31 @@ const result = await liveauth.verify();
     <h2>MCP Server</h2>
     <p class="subtitle">Authenticate AI agents with the Model Context Protocol.</p>
     
+    <!-- Quick Start -->
+    <div class="card" style="margin-bottom: 2rem; background: linear-gradient(135deg, #1a2535, #0d1525);">
+      <h3 style="color: #00C2FF;">⚡ Quick Start (5 Minutes)</h3>
+      <p><strong>Demo Mode (no config needed):</strong></p>
+      <div class="code-block">
+        <pre>npx @liveauth-labs/mcp-server</pre>
+      </div>
+      <p><strong>Production (with API key):</strong></p>
+      <div class="code-block">
+        <pre># Get keys at https://liveauth.app
+# Add to Claude Desktop:
+{
+  "mcpServers": {
+    "liveauth": {
+      "command": "npx",
+      "args": ["-y", "@liveauth-labs/mcp-server"],
+      "env": {
+        "LIVEAUTH_API_KEY": "la_pk_xxx"
+      }
+    }
+  }
+}</pre>
+      </div>
+    </div>
+    
     <div class="cards">
       <div class="card">
         <div class="card-icon"><span class="material-icons">smart_toy</span></div>
@@ -317,7 +342,7 @@ npx @liveauth-labs/mcp-server
 
   <!-- L402 -->
   <section id="l402" class="section">
-    <h2>L402 Payments</h2>
+    <h2>L402 + x402 Payments</h2>
     <p class="subtitle">Monetize your API with per-request Lightning payments.</p>
     
     <div class="cards">
@@ -329,6 +354,7 @@ npx @liveauth-labs/mcp-server
           <li>1-10 sats per API call</li>
           <li>Automatic payment flow (402 → invoice → token)</li>
           <li>Token valid for 1 hour</li>
+          <li>Compatible with x402 (Cloudflare/Coinbase standard)</li>
         </ul>
         
         <div class="code-block">
@@ -340,8 +366,11 @@ curl -X POST https://api.liveauth.app/api/public/l402/invoice
 curl -X POST "https://api.liveauth.app/api/public/l402/validate?paymentHash=..."
 # → { "token": "l402_xxx" }
 
-# 3. Access gated endpoint
-curl -H "Authorization: L402 l402_xxx" https://api.liveauth.app/api/mcp/start</pre>
+# 3. Access gated endpoint (L402 format)
+curl -H "Authorization: L402 l402_xxx" https://api.liveauth.app/api/mcp/start
+
+# OR use x402 format (Cloudflare/Coinbase compatible)
+curl -H "Authorization: x402 preimage_xxx" https://api.liveauth.app/api/mcp/start</pre>
         </div>
       </div>
     </div>

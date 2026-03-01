@@ -202,6 +202,21 @@ public class PublicPowController : ControllerBase
         _logger.LogDebug("PoW challenge generated: project={ProjectId}, difficulty={Difficulty}, expires={Expires}", 
             project.Id, difficultyBits, expiresAtUnix);
 
+        // Record AuthEvent for PoW challenge issued
+        _db.AuthEvents.Add(new AuthEvent
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            ApiKeyId = null,
+            EventType = AuthEventType.PowChallengeIssued,
+            CreatedAt = DateTime.UtcNow,
+            ClientIp = ipAddress,
+            Success = true,
+            SatsPaid = null,
+            Reason = $"difficulty:{difficultyBits}"
+        });
+        await _db.SaveChangesAsync(ct);
+
         return Ok(new PowChallengeResponse(
             ProjectPublicKey: project.PublicKey,
             ChallengeHex: challengeHex,
@@ -419,6 +434,22 @@ public async Task<IActionResult> Verify(
         extraClaims: extraClaims,
         expiresUtc: DateTime.UtcNow.AddMinutes(10)
     );
+
+    // Record AuthEvent for successful PoW verification
+    var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    _db.AuthEvents.Add(new AuthEvent
+    {
+        Id = Guid.NewGuid(),
+        ProjectId = project.Id,
+        ApiKeyId = null,
+        EventType = AuthEventType.LoginSucceeded,
+        CreatedAt = DateTime.UtcNow,
+        ClientIp = clientIp,
+        Success = true,
+        SatsPaid = null, // PoW is free
+        Reason = $"pow:{difficultyBits}bits"
+    });
+    await _db.SaveChangesAsync(ct);
 
     return Ok(new PowVerifyResponse(true, token, null));
 }
