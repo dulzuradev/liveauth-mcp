@@ -463,6 +463,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'liveauth_mcp_usage': {
+        // Return demo usage in demo mode
+        if (LIVEAUTH_DEMO) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  status: 'active',
+                  callsUsed: 0,
+                  satsUsed: 0,
+                  maxSatsPerDay: 1000,
+                  remainingBudgetSats: 1000,
+                  maxCallsPerMinute: 60,
+                  _demo: true,
+                }, null, 2),
+              },
+            ],
+          };
+        }
+
         const authHeaders: Record<string, string> = {
           'Content-Type': 'application/json',
         };
