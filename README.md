@@ -2,6 +2,51 @@
 
 Model Context Protocol (MCP) server for LiveAuth authentication. Enables AI agents to authenticate using proof-of-work or Lightning Network payments.
 
+## ⚡ Quick Start (5 Minutes)
+
+### Option 1: Demo Mode (No Config)
+
+```bash
+# Just run - no API key needed
+npx @liveauth-labs/mcp-server
+```
+
+That's it! The server runs in demo mode with 3 sats per verification.
+
+### Option 2: Production Mode
+
+1. **Get API keys** at [liveauth.app](https://liveauth.app)
+2. **Add to Claude Desktop** (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "liveauth": {
+      "command": "npx",
+      "args": ["-y", "@liveauth-labs/mcp-server"],
+      "env": {
+        "LIVEAUTH_API_KEY": "la_pk_xxx"
+      }
+    }
+  }
+}
+```
+
+3. **Restart Claude** - Done!
+
+### Option 3: CLI (Programmatic)
+
+```bash
+# Production
+export LIVEAUTH_API_KEY=la_pk_xxx
+npx @liveauth-labs/mcp-server
+
+# Demo
+npx @liveauth-labs/mcp-server
+```
+
+---
+
 ## What is This?
 
 This MCP server allows AI agents (Claude, GPT, AutoGPT, etc.) to:
