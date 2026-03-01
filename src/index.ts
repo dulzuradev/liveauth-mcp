@@ -16,6 +16,17 @@ const LIVEAUTH_DEMO = process.env.LIVEAUTH_DEMO === 'true' || !LIVEAUTH_API_KEY;
 // Store JWT after confirm (in-memory for the session)
 let cachedJwt: string | null = null;
 
+// Demo mode session tracking (in-memory)
+interface DemoSession {
+  quoteId: string;
+  invoice: string;
+  amountSats: number;
+  paymentHash: string;
+  paid: boolean;
+  createdAt: number;
+}
+const demoSessions = new Map<string, DemoSession>();
+
 // Helper to build auth headers (optional API key)
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
@@ -266,12 +277,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         // Transform demo response to MCP format
         if (LIVEAUTH_DEMO && 'invoice' in result) {
           const demoResult = result as any;
+          const sessionId = result.quoteId || demoResult.sessionId;
+          
+          // Store demo session for status tracking
+          if (demoResult.invoice) {
+            demoSessions.set(sessionId, {
+              quoteId: sessionId,
+              invoice: demoResult.invoice.bolt11 || demoResult.invoice,
+              amountSats: demoResult.invoice.amountSats || demoResult.amountSats || 0,
+              paymentHash: demoResult.invoice.paymentHash || '',
+              paid: false,
+              createdAt: Date.now(),
+            });
+          }
+          
           return {
             content: [
               {
                 type: 'text',
                 text: JSON.stringify({
-                  quoteId: result.quoteId || demoResult.sessionId,
+                  quoteId: sessionId,
                   powChallenge: null,
                   invoice: demoResult.invoice ? {
                     bolt11: demoResult.invoice.bolt11 || demoResult.invoice,
@@ -280,6 +305,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     paymentHash: demoResult.invoice.paymentHash || '',
                   } : null,
                   _demo: true,
+                  _instructions: 'Demo mode: Payment simulated. Use liveauth_mcp_confirm to complete.',
                 }, null, 2),
               },
             ],
@@ -306,6 +332,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           difficultyBits?: number;
           signature?: string;
         };
+
+        // Handle demo mode confirm
+        if (LIVEAUTH_DEMO && demoSessions.has(quoteId)) {
+          const session = demoSessions.get(quoteId)!;
+          session.paid = true;
+          
+          // Generate a demo JWT (in production, this would come from the API)
+          const demoJwt = `demo_jwt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          cachedJwt = demoJwt;
+          
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  jwt: demoJwt,
+                  expiresIn: 3600,
+                  remainingBudgetSats: 1000,
+                  paymentStatus: 'paid',
+                  _demo: true,
+                  _note: 'Demo mode - this is a simulated JWT',
+                }, null, 2),
+              },
+            ],
+          };
+        }
 
         const body: Record<string, unknown> = { quoteId };
         
@@ -442,6 +494,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'liveauth_mcp_status': {
         const { quoteId } = args as { quoteId: string };
+
+        // Check demo session first
+        if (LIVEAUTH_DEMO && demoSessions.has(quoteId)) {
+          const session = demoSessions.get(quoteId)!;
+          // In demo mode, auto-mark as paid after 2 seconds
+          if (!session.paid && Date.now() - session.createdAt > 2000) {
+            session.paid = true;
+          }
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  quoteId: session.quoteId,
+                  status: session.paid ? 'confirmed' : 'pending',
+                  paymentStatus: session.paid ? 'paid' : 'pending',
+                  expiresAt: new Date(Date.now() + 300000).toISOString(),
+                  _demo: true,
+                  _instructions: session.paid 
+                    ? 'Payment confirmed in demo mode. Use liveauth_mcp_confirm to get JWT.'
+                    : 'Demo mode: Invoice generated but not actually paid. Use liveauth_mcp_confirm to simulate completion.',
+                }, null, 2),
+              },
+            ],
+          };
+        }
 
         const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/status/${quoteId}`, {
           method: 'GET',
