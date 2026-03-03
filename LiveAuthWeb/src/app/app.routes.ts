@@ -4,7 +4,6 @@ import { MockLoginComponent } from './pages/demo/mock-login/mock-login.component
 import {DeveloperProjectsComponent} from './pages/dev/developer-projects/developer-projects';
 import {LandingPageComponent} from './pages/landing-page/landing-page';
 import {AdminComponent} from './pages/dev/admin-component/admin-component';
-import {SatsPrinterComponent} from './pages/sats-printer/sats-printer.component';
 import {KanbanBoardComponent} from './pages/mission/kanban-board.component';
 import {LegalComponent} from './pages/legal/legal';
 import {BlogComponent} from './pages/blog/blog';
@@ -18,9 +17,6 @@ export const routes: Routes = [
 
   // Lightning Wall demo
   { path: 'demo', component: LoginComponent },
-
-  // Sats Printer
-  { path: 'sats', component: SatsPrinterComponent },
 
   // Mission Control (Kanban)
   { path: 'mission', component: KanbanBoardComponent },
