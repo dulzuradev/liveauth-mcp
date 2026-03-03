@@ -2,6 +2,18 @@
 
 Model Context Protocol (MCP) server for LiveAuth authentication. Enables AI agents to authenticate using proof-of-work or Lightning Network payments.
 
+## ⚡ One-Liner Demo
+
+```bash
+npx @liveauth-labs/mcp-server
+```
+
+That's it! Runs in demo mode (3 sats per verification). No API key needed.
+
+**Demo vs Production:**
+- **Demo mode**: Returns real Lightning invoice (paid by user's wallet) but simulates confirmation for testing
+- **Production**: Real payment required, real JWT issued
+
 ## ⚡ Quick Start (5 Minutes)
 
 ### Option 1: Demo Mode (No Config)
@@ -12,6 +24,8 @@ npx @liveauth-labs/mcp-server
 ```
 
 That's it! The server runs in demo mode with 3 sats per verification.
+
+> **Note:** Demo mode returns a real Lightning invoice (so you can see the actual payment flow), but confirmation is simulated for testing. For production, set `LIVEAUTH_API_KEY`.
 
 ### Option 2: Production Mode
 
