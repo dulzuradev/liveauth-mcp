@@ -13,7 +13,52 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using AspNet.Security.OAuth.GitHub;
 
+// --------------------------------------------------
+// CONFIGURATION VALIDATION - Fail fast on missing required config
+// --------------------------------------------------
 var builder = WebApplication.CreateBuilder(args);
+
+// Validate required configs
+var requiredConfigs = new (string Name, string? Value)[]
+{
+    ("DB_PROVIDER", builder.Configuration["DB_PROVIDER"]),
+    ("ConnectionStrings:Default", builder.Configuration["ConnectionStrings:Default"]),
+    ("LiveAuth:PowHmacSecret", builder.Configuration["LiveAuth:PowHmacSecret"]),
+    ("LiveAuth:DemoProjectId", builder.Configuration["LiveAuth:DemoProjectId"]),
+    ("Jwt:SigningKey", builder.Configuration["Jwt:SigningKey"] ?? builder.Configuration["Jwt:Key"]),
+};
+
+var missingConfigs = requiredConfigs.Where(c => string.IsNullOrWhiteSpace(c.Value)).Select(c => c.Name).ToList();
+
+if (missingConfigs.Any())
+{
+    var error = $"[FATAL] Missing required configuration: {string.Join(", ", missingConfigs)}. Set via environment variables.";
+    Console.Error.WriteLine(error);
+    // Fail fast in dev, or if critical configs missing
+    if (builder.Environment.IsDevelopment() || missingConfigs.Any(c => c is "LiveAuth:DemoProjectId" or "LiveAuth:PowHmacSecret"))
+    {
+        throw new InvalidOperationException(error);
+    }
+}
+
+// Validate Lightning config
+var lndUseMock = builder.Configuration["Lnd:UseMock"]?.ToLowerInvariant() == "true";
+if (!lndUseMock)
+{
+    if (string.IsNullOrWhiteSpace(builder.Configuration["Lnd:BaseUrl"]))
+    {
+        Console.Error.WriteLine("[WARNING] Lnd:UseMock is false but Lnd:BaseUrl is not configured. Lightning payments will fail.");
+    }
+    if (string.IsNullOrWhiteSpace(builder.Configuration["Lnd:Macaroon"]))
+    {
+        Console.Error.WriteLine("[WARNING] Lnd:UseMock is false but Lnd:Macaroon is not configured. Lightning payments will fail.");
+    }
+}
+
+Console.WriteLine($"[CONFIG] DB Provider: {builder.Configuration["DB_PROVIDER"] ?? "sqlite"}");
+Console.WriteLine($"[CONFIG] Demo Project ID: {builder.Configuration["LiveAuth:DemoProjectId"] ?? "(not set)"}");
+Console.WriteLine($"[CONFIG] LND UseMock: {lndUseMock}");
+Console.WriteLine($"[CONFIG] JWT Issuer: {builder.Configuration["Jwt:Issuer"] ?? "(not set, using default)"}");
 
 // --------------------------------------------------
 // DbContext (PostgreSQL or SQLite via env)

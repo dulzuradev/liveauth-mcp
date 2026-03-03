@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LiveAuthCore.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[AllowAnonymous] // Health checks should be public
 public class HealthController : ControllerBase
 {
     private readonly Services.LightningService _lightning;
@@ -79,6 +81,34 @@ public class HealthController : ControllerBase
             health.Status = "degraded";
         }
 
+        // Check critical configuration
+        try
+        {
+            var demoProjectId = _configuration["LiveAuth:DemoProjectId"];
+            var jwtKey = _configuration["Jwt:SigningKey"] ?? _configuration["Jwt:Key"];
+            var lndUseMock = _configuration["Lnd:UseMock"]?.ToLowerInvariant() == "true";
+            
+            health.Config = new ConfigHealth
+            {
+                DemoProjectIdConfigured = !string.IsNullOrEmpty(demoProjectId),
+                JwtKeyConfigured = !string.IsNullOrEmpty(jwtKey),
+                LndUseMock = lndUseMock
+            };
+            
+            if (string.IsNullOrEmpty(demoProjectId))
+            {
+                health.Warnings.Add("DemoProjectId not configured - demo auth will fail");
+            }
+            if (string.IsNullOrEmpty(jwtKey))
+            {
+                health.Warnings.Add("JWT signing key not configured");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Config health check failed");
+        }
+
         return Ok(health);
     }
 
@@ -94,6 +124,8 @@ public class HealthController : ControllerBase
         public DateTime Timestamp { get; set; }
         public LndHealth? Lnd { get; set; }
         public DatabaseHealth? Database { get; set; }
+        public ConfigHealth? Config { get; set; }
+        public List<string> Warnings { get; set; } = new();
     }
 
     public class LndHealth
@@ -111,5 +143,12 @@ public class HealthController : ControllerBase
         public bool Connected { get; set; }
         public string Provider { get; set; } = "unknown";
         public string? Error { get; set; }
+    }
+
+    public class ConfigHealth
+    {
+        public bool DemoProjectIdConfigured { get; set; }
+        public bool JwtKeyConfigured { get; set; }
+        public bool LndUseMock { get; set; }
     }
 }
