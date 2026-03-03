@@ -45,7 +45,18 @@ public class PublicAuthController : ControllerBase
             !string.IsNullOrWhiteSpace(pubKeyValues.FirstOrDefault()))
         {
             var pubKey = pubKeyValues.FirstOrDefault();
-            return _db.Projects.FirstOrDefault(p => p.PublicKey == pubKey && p.IsActive);
+            
+            // First try project public key
+            var project = _db.Projects.FirstOrDefault(p => p.PublicKey == pubKey && p.IsActive);
+            if (project != null)
+                return project;
+            
+            // Then try API key (ProjectApiKeys.PublicKey)
+            var apiKey = _db.ProjectApiKeys
+                .Include(k => k.Project)
+                .FirstOrDefault(k => k.PublicKey == pubKey && k.IsActive);
+            if (apiKey?.Project != null && apiKey.Project.IsActive)
+                return apiKey.Project;
         }
 
         // Fallback to demo project if no API key provided
