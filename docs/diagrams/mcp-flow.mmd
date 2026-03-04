@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant Agent as AI Agent
+    participant MCP as MCP Server
+    participant API as LiveAuth API
+    participant LND as Lightning Node
+
+    Note over Agent,LND: Option 1: PoW Authentication
+    Agent->>MCP: liveauth_mcp_start()
+    MCP->>API: POST /api/mcp/start
+    API->>MCP: PoW Challenge (difficulty, expiry)
+    MCP->>Agent: Challenge + quoteId
+    Agent->>Agent: Solve PoW (compute hash)
+    Agent->>MCP: liveauth_mcp_confirm(nonce, hash)
+    MCP->>API: POST /api/mcp/confirm
+    API->>MCP: JWT Token
+    MCP->>Agent: JWT + refreshToken
+
+    Note over Agent,LND: Option 2: Lightning Authentication
+    Agent->>MCP: liveauth_mcp_start(forceLightning=true)
+    MCP->>API: POST /api/mcp/start
+    API->>LND: Create Invoice (3-10 sats)
+    LND->>API: BOLT11 Invoice
+    API->>MCP: Invoice + quoteId
+    MCP->>Agent: Invoice (pay with wallet)
+    Agent->>Agent: Pay invoice
+    Agent->>MCP: liveauth_mcp_status(quoteId)
+    MCP->>API: Check payment
+    API->>LND: Verify payment
+    LND->>API: PAID
+    API->>MCP: Payment confirmed
+    MCP->>Agent: JWT Token

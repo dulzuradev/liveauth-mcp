@@ -1,0 +1,30 @@
+graph TB
+    subgraph "Client Side"
+        Agent[AI Agent]
+        Wallet[Lightning Wallet]
+    end
+
+    subgraph "LiveAuth"
+        MCP[MCP Server]
+        API[REST API]
+        DB[(SQLite DB)]
+        Auth[Auth Services]
+        L402[L402 Service]
+    end
+
+    subgraph "Infrastructure"
+        LND[Lightning Node]
+        Caddy[Reverse Proxy]
+    end
+
+    Agent -->|stdio| MCP
+    Agent -->|HTTPS| API
+    Wallet -->|LN| LND
+    
+    MCP -->|HTTPS| API
+    API --> DB
+    API --> Auth
+    API --> L402
+    L402 -->|gRPC| LND
+    API --> Caddy
+    Caddy -->|443| Agent

@@ -397,6 +397,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseL402(); // L402 Payment Gateway
+app.UseMcpProxy(); // L402-Gated MCP Proxy
 
 app.MapControllers();
 app.Run();
