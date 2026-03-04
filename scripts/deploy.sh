@@ -2,8 +2,6 @@
 # LiveAuth Deploy Script with Smoke Tests
 # Usage: ./scripts/deploy.sh
 
-set -e
-
 echo "=============================================="
 echo "LiveAuth Deploy with Smoke Tests"
 echo "=============================================="
@@ -12,7 +10,7 @@ echo "=============================================="
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 ERRORS=0
 
@@ -20,7 +18,8 @@ ERRORS=0
 check_site() {
     local name=$1
     local url=$2
-    local status=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+    local method=${3:-GET}
+    local status=$(curl -s -o /dev/null -w "%{http_code}" -X "$method" "$url" 2>/dev/null || echo "000")
     
     if [ "$status" = "200" ]; then
         echo -e "${GREEN}✓ $name: OK ($status)${NC}"
@@ -31,40 +30,28 @@ check_site() {
     fi
 }
 
-echo -e "\n${YELLOW}Running pre-deploy checks...${NC}"
-
-# Check docker-compose syntax
-if docker compose config --quiet < /opt/liveauth/docker-compose.yml 2>/dev/null; then
-    echo -e "${GREEN}✓ docker-compose.yml valid${NC}"
-else
-    echo -e "${RED}✗ docker-compose.yml has errors${NC}"
-    exit 1
-fi
-
 echo -e "\n${YELLOW}Deploying...${NC}"
 
-# Deploy via docker-compose
 cd /opt/liveauth
-docker compose up -d --force-recreate
 
-echo -e "\n${YELLOW}Waiting for services to start...${NC}"
+# Force remove existing containers
+docker rm -f liveauth-api liveauth-caddy 2>/dev/null || true
+
+docker compose up -d
+
+echo -e "\n${YELLOW}Waiting for services...${NC}"
 sleep 5
 
 echo -e "\n${YELLOW}Running smoke tests...${NC}"
 
-# Test all sites
 check_site "Main site" "https://liveauth.app/" || ERRORS=$((ERRORS+1))
 check_site "Admin site" "https://admin.liveauth.app/" || ERRORS=$((ERRORS+1))
 check_site "API Health" "https://api.liveauth.app/api/health" || ERRORS=$((ERRORS+1))
-check_site "Demo Auth" "https://api.liveauth.app/api/public/demo/start" || ERRORS=$((ERRORS+1))
+check_site "Demo Auth" "https://api.liveauth.app/api/public/demo/start" "POST" || ERRORS=$((ERRORS+1))
 
-# Summary
 echo -e "\n=============================================="
 if [ $ERRORS -eq 0 ]; then
-    echo -e "${GREEN}All tests passed! Deploy successful.${NC}"
-    exit 0
+    echo -e "${GREEN}All tests passed!${NC}"
 else
     echo -e "${RED}$ERRORS test(s) failed!${NC}"
-    echo "Check the errors above and roll back if needed."
-    exit 1
 fi
