@@ -3,6 +3,7 @@ namespace LiveAuthCore.Tests.Sdk;
 using LiveAuthCore.Tests.Controllers;
 using Xunit;
 using FluentAssertions;
+using JsonSerializerOptions = System.Text.Json.JsonSerializerOptions;
 
 /// <summary>
 /// Tests for the AgentAuth SDK types
@@ -22,7 +23,7 @@ public class AgentAuthDtoTests
 
         // Act
         var json = System.Text.Json.JsonSerializer.Serialize(request);
-        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AgentAuthStartRequestDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AgentAuthStartRequestDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         deserialized.Should().NotBeNull();
@@ -42,7 +43,7 @@ public class AgentAuthDtoTests
         }";
 
         // Act - use case-insensitive options
-        var options = new System.Text.Json.System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthStartResponseDto>(json, options);
 
         // Assert
@@ -65,7 +66,7 @@ public class AgentAuthDtoTests
 
         // Act
         var json = System.Text.Json.JsonSerializer.Serialize(request);
-        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AgentAuthVerifyRequestDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AgentAuthVerifyRequestDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         deserialized.Should().NotBeNull();
@@ -84,7 +85,7 @@ public class AgentAuthDtoTests
         }";
 
         // Act
-        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthVerifyResponseDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthVerifyResponseDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         response.Should().NotBeNull();
@@ -103,7 +104,7 @@ public class AgentAuthDtoTests
         }";
 
         // Act
-        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthVerifyResponseDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthVerifyResponseDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         response.Should().NotBeNull();
@@ -122,7 +123,7 @@ public class AgentAuthDtoTests
 
         // Act
         var json = System.Text.Json.JsonSerializer.Serialize(request);
-        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AgentAuthValidateRequestDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AgentAuthValidateRequestDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         deserialized.Should().NotBeNull();
@@ -138,7 +139,7 @@ public class AgentAuthDtoTests
         }";
 
         // Act
-        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthValidateResponseDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthValidateResponseDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         response.Should().NotBeNull();
@@ -158,7 +159,7 @@ public class AgentAuthDtoTests
         }";
 
         // Act
-        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthValidateResponseDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthValidateResponseDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         response.Should().NotBeNull();
