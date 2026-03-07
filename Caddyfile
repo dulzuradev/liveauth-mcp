@@ -23,7 +23,7 @@ api.liveauth.app {
 }
 
 admin.liveauth.app {
-    root * /srv/browser/admin
+    root * /srv/browser/liveauth-admin/browser
     try_files {path} /index.html
     file_server
 }

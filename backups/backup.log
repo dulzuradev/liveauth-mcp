@@ -8,4 +8,3 @@ Backup created: liveauth_2026-02-25_030001.db.gz
 Backup complete. Kept last 7 days.
 /bin/sh: 1: /opt/liveauth/backup-db.sh: not found
 /bin/sh: 1: /opt/liveauth/backup-db.sh: not found
-/bin/sh: 1: /opt/liveauth/backup-db.sh: not found

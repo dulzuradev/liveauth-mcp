@@ -22,7 +22,7 @@ public class AgentAuthDtoTests
 
         // Act
         var json = System.Text.Json.JsonSerializer.Serialize(request);
-        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AgentAuthStartRequestDto>(json);
+        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AgentAuthStartRequestDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         deserialized.Should().NotBeNull();
@@ -33,7 +33,7 @@ public class AgentAuthDtoTests
     [Fact]
     public void AgentAuthStartResponse_CanBeDeserialized()
     {
-        // Arrange
+        // Arrange - use camelCase for System.Text.Json default
         var json = @"{
             ""sessionId"": ""550e8400-e29b-41d4-a716-446655440000"",
             ""challenge"": ""abc123def456"",
@@ -41,8 +41,9 @@ public class AgentAuthDtoTests
             ""expiresAtUnix"": 1700000000
         }";
 
-        // Act
-        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthStartResponseDto>(json);
+        // Act - use case-insensitive options
+        var options = new System.Text.Json.System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthStartResponseDto>(json, options);
 
         // Assert
         response.Should().NotBeNull();
@@ -64,7 +65,7 @@ public class AgentAuthDtoTests
 
         // Act
         var json = System.Text.Json.JsonSerializer.Serialize(request);
-        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AgentAuthVerifyRequestDto>(json);
+        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AgentAuthVerifyRequestDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         deserialized.Should().NotBeNull();
@@ -83,7 +84,7 @@ public class AgentAuthDtoTests
         }";
 
         // Act
-        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthVerifyResponseDto>(json);
+        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthVerifyResponseDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         response.Should().NotBeNull();
@@ -102,7 +103,7 @@ public class AgentAuthDtoTests
         }";
 
         // Act
-        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthVerifyResponseDto>(json);
+        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthVerifyResponseDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         response.Should().NotBeNull();
@@ -121,7 +122,7 @@ public class AgentAuthDtoTests
 
         // Act
         var json = System.Text.Json.JsonSerializer.Serialize(request);
-        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AgentAuthValidateRequestDto>(json);
+        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AgentAuthValidateRequestDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         deserialized.Should().NotBeNull();
@@ -137,7 +138,7 @@ public class AgentAuthDtoTests
         }";
 
         // Act
-        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthValidateResponseDto>(json);
+        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthValidateResponseDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         response.Should().NotBeNull();
@@ -157,7 +158,7 @@ public class AgentAuthDtoTests
         }";
 
         // Act
-        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthValidateResponseDto>(json);
+        var response = System.Text.Json.JsonSerializer.Deserialize<AgentAuthValidateResponseDto>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Assert
         response.Should().NotBeNull();
