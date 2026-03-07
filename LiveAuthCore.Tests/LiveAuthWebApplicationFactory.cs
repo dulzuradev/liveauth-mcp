@@ -118,7 +118,31 @@ public class LiveAuthWebApplicationFactory : WebApplicationFactory<Program>
                 CreatedAt = DateTime.UtcNow,
                 Plan = "free"
             });
-            db.SaveChanges();
+            
+            // Add developer for project
+            db.Developers.Add(new Data.Entities.Developer
+            {
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                Email = "test@example.com",
+                CreatedAt = DateTime.UtcNow
+            });
         }
+
+        // Admin
+        if (!db.AdminSessions.Any(a => a.Username == "admin"))
+        {
+            db.AdminSessions.Add(new Data.Entities.AdminSession
+            {
+                Id = Guid.NewGuid(),
+                Username = "admin",
+                PasswordHash = "hashedpassword",
+                PasswordSalt = "testsalt",
+                IsOwner = true,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddYears(1)
+            });
+        }
+
+        db.SaveChanges();
     }
 }
