@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Local dev API (no Caddy, no TLS)
+  liveauth-api:
+    image: liveauth-api:dev
+    build:
+      context: ./LiveAuthCore
+      dockerfile: Dockerfile
+    container_name: liveauth-api-dev
+    restart: unless-stopped
+    ports:
+      - "5000:8080"
+    env_file:
+      - .env.local
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - sqlite_data_dev:/data
+    networks:
+      - liveauth-dev
+
+  # Optional: Local frontend (dev server with hot reload)
+  liveauth-web:
+    image: node:20
+    container_name: liveauth-web-dev
+    working_dir: /app
+    command: npm run start -- --host 0.0.0.0
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./LiveAuthWeb:/app
+    depends_on:
+      - liveauth-api
+    environment:
+      - API_URL=http://localhost:5000
+    networks:
+      - liveauth-dev
+
+networks:
+  liveauth-dev:
+    driver: bridge
+
+volumes:
+  sqlite_data_dev:

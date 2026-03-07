@@ -30,6 +30,7 @@ public class LiveAuthDbContext : DbContext
     public DbSet<AdminLoginSession> AdminLoginSessions => Set<AdminLoginSession>();
     public DbSet<AdminSession> AdminSessions => Set<AdminSession>();
     public DbSet<AdminPaymentSession> AdminPaymentSessions => Set<AdminPaymentSession>();
+    public DbSet<AgentAuthSession> AgentAuthSessions => Set<AgentAuthSession>();
     public DbSet<AuthEventLog> AuthEventLogs => Set<AuthEventLog>();
     public DbSet<PowUsedNonce> PowUsedNonces => Set<PowUsedNonce>();
 

@@ -1,0 +1,29 @@
+# LiveAuth Test Environment (Home Directory)
+# Uses separate DB on port 5001, isolated from production
+
+services:
+  liveauth-test:
+    image: liveauth-api:latest
+    build:
+      context: ./LiveAuthCore
+      dockerfile: Dockerfile
+    container_name: liveauth-test
+    restart: unless-stopped
+    ports:
+      - "5001:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Test
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Default: Data Source=/data/liveauth-test.db
+      DB_PROVIDER: sqlite
+      Admin__SkipPayment: "true"
+      LiveAuth__DemoProjectId: "00000000-0000-0000-0000-000000000002"
+      LiveAuth__PowHmacSecret: "17b6b192e379f5689f87d99bf06510dc83e71de2d7429666bdb1c1437b6bd9e0"
+      Jwt__SigningKey: test-signing-key-not-for-production
+      Jwt__Issuer: LiveAuthTest
+      Jwt__Audience: LiveAuthTestUsers
+    volumes:
+      - sqlite_test:/data
+
+volumes:
+  sqlite_test:
