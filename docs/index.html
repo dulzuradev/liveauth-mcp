@@ -337,6 +337,39 @@ npx @liveauth-labs/mcp-server
 }</pre>
         </div>
       </div>
+
+      <!-- Agent Auth API -->
+      <div class="card">
+        <div class="card-icon"><span class="material-icons">api</span></div>
+        <h3>Agent Auth API</h3>
+        <p>Low-level API for building custom agent authentication. Perfect for OpenClaw and autonomous agents.</p>
+        <ul>
+          <li>PoW-based verification</li>
+          <li>Token-based session management</li>
+          <li>Works with any AI framework</li>
+        </ul>
+        <a href="https://github.com/dulzuradev/LiveAuth" target="_blank">View on GitHub →</a>
+        
+        <div class="code-block">
+          <pre># Start auth - get PoW challenge
+curl -X POST https://api.liveauth.app/api/agent/auth/start \
+  -H "Content-Type: application/json" \
+  -H "X-LW-Public: your-public-key" \
+  -d '{"agentId":"my-agent","publicKey":"your-secret-key"}'
+
+# Verify solution - get auth token
+curl -X POST https://api.liveauth.app/api/agent/auth/verify \
+  -H "Content-Type: application/json" \
+  -H "X-LW-Public: your-public-key" \
+  -d '{"sessionId":"uuid","solution":"challenge:nonce"}'
+
+# Validate token
+curl -X POST https://api.liveauth.app/api/agent/auth/validate \
+  -H "Content-Type: application/json" \
+  -H "X-LW-Public: your-public-key" \
+  -d '{"token":"jwt-token-here"}'</pre>
+        </div>
+      </div>
     </div>
   </section>
 

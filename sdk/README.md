@@ -8,7 +8,7 @@ AI agent authentication for LiveAuth using Proof-of-Work verification.
 npm install @liveauth-labs/sdk
 ```
 
-## Usage
+## Quick Start
 
 ```typescript
 import { AgentAuth } from '@liveauth-labs/sdk';
@@ -21,23 +21,41 @@ const agent = new AgentAuth({
     baseUrl: 'https://api.liveauth.app'  // Optional
 });
 
-// Full auth flow with your own PoW solver
+// Full auth flow - automatically solves PoW and gets token
 const token = await agent.authenticate(async (challenge, difficultyBits) => {
-    // Your PoW implementation
     return solvePoW(challenge, difficultyBits);
 });
-
-// Or manual flow
-const { sessionId, challenge, difficultyBits } = await agent.start();
-const solution = await myPowSolver(challenge, difficultyBits);
-const result = await agent.verify(sessionId, solution);
-
-// Validate existing token
-const validation = await agent.validate(token);
-console.log(validation.valid);  // true/false
+console.log('Authenticated! Token:', token);
 ```
 
-## PoW Solver Example
+## Manual Flow
+
+If you need more control:
+
+```typescript
+// Step 1: Start auth - get PoW challenge
+const { sessionId, challenge, difficultyBits, expiresAtUnix } = await agent.start();
+
+// Step 2: Solve PoW (compute nonce that makes hash start with zeros)
+const solution = await solvePoW(challenge, difficultyBits);
+
+// Step 3: Verify solution - get auth token
+const result = await agent.verify(sessionId, solution);
+
+if (result.verified && result.token) {
+    console.log('Auth token:', result.token);
+}
+
+// Step 4: Validate existing token (check if still valid)
+const validation = await agent.validate(result.token!);
+console.log('Token valid:', validation.valid);
+console.log('Agent ID:', validation.agentId);
+console.log('Project:', validation.projectName);
+```
+
+## PoW Solver Implementation
+
+The proof-of-work requires finding a nonce that makes the SHA256 hash start with a certain number of zeros:
 
 ```typescript
 async function solvePoW(challenge: string, difficultyBits: number): Promise<string> {
@@ -50,9 +68,15 @@ async function solvePoW(challenge: string, difficultyBits: number): Promise<stri
         const hash = await sha256(data);
         
         if (hash.startsWith(target)) {
+            // Return format: challenge:nonce
             return challenge + ':' + nonce;
         }
         nonce++;
+        
+        // Add timeout protection
+        if (nonce > 1000000) {
+            throw new Error('PoW solving took too long');
+        }
     }
 }
 
@@ -64,23 +88,61 @@ async function sha256(message: string): Promise<string> {
 }
 ```
 
-## API
+## OpenClaw Integration
+
+Example integration with OpenClaw agents:
+
+```typescript
+import { AgentAuth } from '@liveauth-labs/sdk';
+
+// In your OpenClaw agent
+const agent = new AgentAuth({
+    agentId: process.env.AGENT_ID || 'openclaw-agent',
+    publicKey: process.env.LIVEAUTH_PUBLIC_KEY,
+    apiKey: process.env.LIVEAUTH_SECRET_KEY
+});
+
+// Authenticate on startup
+const token = await agent.authenticate(solvePoW);
+
+// Use token for API calls
+async function callProtectedAPI(endpoint: string) {
+    return fetch(endpoint, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    });
+}
+```
+
+## API Reference
 
 ### `new AgentAuth(config)`
 
-- `config.agentId` - Unique identifier for the agent
-- `config.publicKey` - Project public key (from dashboard)
-- `config.apiKey` - Project secret key (from dashboard)
-- `config.baseUrl` - Optional API URL (default: `https://api.liveauth.app`)
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `agentId` | Yes | Unique identifier for the agent |
+| `publicKey` | Yes | Project public key from dashboard |
+| `apiKey` | Yes | Project secret key from dashboard |
+| `baseUrl` | No | API URL (default: `https://api.liveauth.app`) |
 
 ### Methods
 
-- `start()` - Get PoW challenge
-- `verify(sessionId, solution)` - Verify solution, get token
-- `validate(token)` - Validate existing token
-- `authenticate(powSolver)` - Full flow with custom PoW solver
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `start()` | `{sessionId, challenge, difficultyBits, expiresAtUnix}` | Get PoW challenge |
+| `verify(sessionId, solution)` | `{verified, token?, expiresAtUnix?, error?}` | Verify solution, get token |
+| `validate(token)` | `{valid, agentId?, projectId?, projectName?, expiresAtUnix?}` | Validate token |
+| `authenticate(powSolver)` | `string` | Full flow: start → solve → verify |
 
 ## Pricing
 
-- 1-5 sats per authentication (configurable in dashboard)
-- Token valid for 24 hours
+- **1-5 sats** per authentication (configurable in dashboard)
+- **Token valid for 24 hours**
+- Pay-per-call MCP mode also available
+
+## Related
+
+- [Agent Auth API Docs](https://docs.liveauth.app) - REST API reference
+- [MCP Server](https://github.com/dulzuradev/liveauth-mcp) - Drop-in MCP authentication
+- [LiveAuth Dashboard](https://liveauth.app) - Get your API keys
