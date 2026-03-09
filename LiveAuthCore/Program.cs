@@ -126,6 +126,7 @@ builder.Services.AddScoped<PowDifficultyService>();
 builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<PowReplayService>();
 builder.Services.AddScoped<WebhookService>();
+builder.Services.AddWebhookDeliveryWorker();
 
 builder.Services.AddHostedService<DevLoginSessionCleanupService>();
 builder.Services.AddHostedService<WebhookDeliveryWorker>();

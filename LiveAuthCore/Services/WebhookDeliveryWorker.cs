@@ -1,187 +1,161 @@
-namespace LiveAuthCore.Services;
-
-using System.Security.Cryptography;
-using System.Text;
+using System.Net.Http.Json;
+using System.Text.Json;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
+namespace LiveAuthCore.Services;
+
+/// <summary>
+/// Background worker that processes webhook delivery queue.
+/// </summary>
 public class WebhookDeliveryWorker : BackgroundService
 {
     private readonly IServiceProvider _services;
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<WebhookDeliveryWorker> _logger;
-    private readonly IConfiguration _config;
-
-    private const int MaxAttempts = 5;
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(10);
+    private readonly TimeSpan _interval = TimeSpan.FromSeconds(10);
 
     public WebhookDeliveryWorker(
         IServiceProvider services,
-        IHttpClientFactory httpClientFactory,
-        ILogger<WebhookDeliveryWorker> logger,
-        IConfiguration config)
+        ILogger<WebhookDeliveryWorker> logger)
     {
         _services = services;
-        _httpClientFactory = httpClientFactory;
         _logger = logger;
-        _config = config;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("WebhookDeliveryWorker started.");
+        _logger.LogInformation("Webhook delivery worker started");
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                await ProcessBatchAsync(stoppingToken);
-            }
-            catch (TaskCanceledException)
-            {
-                // shutting down
+                await ProcessPendingWebhooks(stoppingToken);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing webhook events batch.");
+                _logger.LogError(ex, "Error processing webhooks");
             }
 
-            await Task.Delay(PollInterval, stoppingToken);
+            await Task.Delay(_interval, stoppingToken);
         }
-
-        _logger.LogInformation("WebhookDeliveryWorker stopped.");
     }
 
-    private async Task ProcessBatchAsync(CancellationToken ct)
+    private async Task ProcessPendingWebhooks(CancellationToken ct)
     {
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
 
-        var now = DateTime.UtcNow;
-
-        var events = await db.WebhookEvents
+        // Get pending webhooks that are due for delivery
+        var pendingEvents = await db.WebhookEvents
+            .Where(e => e.Status == WebhookEventStatus.Pending || e.Status == WebhookEventStatus.Failed)
+            .Where(e => e.NextAttemptAt <= DateTime.UtcNow)
+            .Where(e => e.AttemptCount < 5) // Max 5 retries
+            .OrderBy(e => e.CreatedAt)
+            .Take(10) // Process 10 at a time
             .Include(e => e.Project)
-            .Where(e =>
-                (e.Status == WebhookEventStatus.Pending || e.Status == WebhookEventStatus.Delivering) &&
-                e.NextAttemptAt <= now &&
-                e.AttemptCount < MaxAttempts)
-            .OrderBy(e => e.NextAttemptAt)
-            .ThenBy(e => e.CreatedAt)
-            .Take(20)
             .ToListAsync(ct);
 
-        if (!events.Any())
-            return;
-
-        var client = _httpClientFactory.CreateClient("webhooks");
-
-        foreach (var evt in events)
+        foreach (var evt in pendingEvents)
         {
-            if (ct.IsCancellationRequested) break;
+            await DeliverWebhook(evt, db, ct);
+        }
+    }
 
-            try
+    private async Task DeliverWebhook(WebhookEvent evt, LiveAuthDbContext db, CancellationToken ct)
+    {
+        if (evt.Project == null || string.IsNullOrWhiteSpace(evt.Project.WebhookUrl))
+        {
+            evt.Status = WebhookEventStatus.Failed;
+            evt.LastError = "No webhook URL configured";
+            evt.AttemptCount++;
+            evt.NextAttemptAt = DateTime.UtcNow.AddMinutes(5);
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+
+        evt.AttemptCount++;
+        evt.Status = WebhookEventStatus.InProgress;
+        await db.SaveChangesAsync(ct);
+
+        try
+        {
+            using var httpClient = new HttpClient
             {
-                await DeliverEventAsync(db, client, evt, ct);
-            }
-            catch (Exception ex)
+                Timeout = TimeSpan.FromSeconds(30)
+            };
+
+            // Add signature header for verification
+            var payload = evt.PayloadJson ?? "{}";
+            var signature = ComputeSignature(payload, evt.Project.WebhookSecret ?? "");
+            
+            var request = new HttpRequestMessage(HttpMethod.Post, evt.Project.WebhookUrl);
+            request.Content = JsonContent.Create(JsonSerializer.Deserialize<object>(payload));
+            request.Headers.Add("X-LiveAuth-Signature", signature);
+            request.Headers.Add("X-LiveAuth-Event", evt.EventType);
+            request.Headers.Add("X-LiveAuth-Event-Id", evt.Id.ToString());
+
+            var response = await httpClient.SendAsync(request, ct);
+
+            if (response.IsSuccessStatusCode)
             {
-                _logger.LogError(ex, "Error delivering webhook event {EventId}", evt.Id);
+                evt.Status = WebhookEventStatus.Delivered;
+                evt.DeliveredAt = DateTime.UtcNow;
+                evt.LastError = null;
+                _logger.LogInformation("Webhook delivered successfully: {EventId} to {Url}", 
+                    evt.Id, evt.Project.WebhookUrl);
             }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync(ct);
+                evt.Status = WebhookEventStatus.Failed;
+                evt.LastError = $"HTTP {response.StatusCode}: {error[..Math.Min(500, error.Length)]}";
+                evt.NextAttemptAt = DateTime.UtcNow.AddMinutes(GetRetryDelay(evt.AttemptCount));
+                _logger.LogWarning("Webhook delivery failed: {EventId} - {Error}", 
+                    evt.Id, evt.LastError);
+            }
+        }
+        catch (Exception ex)
+        {
+            evt.Status = WebhookEventStatus.Failed;
+            evt.LastError = ex.Message[..Math.Min(200, ex.Message.Length)];
+            evt.NextAttemptAt = DateTime.UtcNow.AddMinutes(GetRetryDelay(evt.AttemptCount));
+            _logger.LogError(ex, "Webhook delivery error: {EventId}", evt.Id);
         }
 
         await db.SaveChangesAsync(ct);
     }
 
-    private async Task DeliverEventAsync(
-        LiveAuthDbContext db,
-        HttpClient client,
-        WebhookEvent evt,
-        CancellationToken ct)
+    private static int GetRetryDelay(int attemptCount) => attemptCount switch
     {
-        var project = evt.Project;
+        1 => 1,   // 1 minute
+        2 => 5,   // 5 minutes  
+        3 => 15,  // 15 minutes
+        4 => 60,  // 1 hour
+        _ => 60   // default 1 hour
+    };
 
-        if (string.IsNullOrWhiteSpace(project.WebhookUrl))
-        {
-            // No longer has a webhook URL – mark as dead
-            evt.Status = WebhookEventStatus.Dead;
-            evt.LastError = "Project has no webhook URL configured.";
-            evt.LastAttemptAt = DateTime.UtcNow;
-            return;
-        }
-
-        evt.Status = WebhookEventStatus.Delivering;
-        evt.AttemptCount++;
-        evt.LastAttemptAt = DateTime.UtcNow;
-
-        var body = evt.PayloadJson;
-        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-
-        var secret = project.WebhookSecret ?? _config["Webhooks:DefaultSecret"];
-        string? signatureHeader = null;
-
-        if (!string.IsNullOrEmpty(secret))
-        {
-            var payloadToSign = $"{ts}.{body}";
-            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-            var sig = hmac.ComputeHash(Encoding.UTF8.GetBytes(payloadToSign));
-            var sigHex = Convert.ToHexString(sig).ToLowerInvariant();
-            signatureHeader = $"sha256={sigHex}";
-        }
-
-        var request = new HttpRequestMessage(HttpMethod.Post, project.WebhookUrl)
-        {
-            Content = new StringContent(body, Encoding.UTF8, "application/json")
-        };
-
-        // LiveAuth standard headers for webhook requests
-        request.Headers.Add("X-LiveAuth-Event", evt.EventType);
-        request.Headers.Add("X-LiveAuth-Project-Id", project.Id.ToString());
-        request.Headers.Add("X-LiveAuth-Timestamp", ts);
-
-        if (signatureHeader != null)
-        {
-            request.Headers.Add("X-LiveAuth-Signature", signatureHeader);
-        }
-
-        var response = await client.SendAsync(request, ct);
-        evt.LastStatusCode = (int)response.StatusCode;
-
-        if (response.IsSuccessStatusCode)
-        {
-            evt.Status = WebhookEventStatus.Delivered;
-            evt.LastError = null;
-        }
-        else
-        {
-            var errorBody = await response.Content.ReadAsStringAsync(ct);
-            evt.LastError = errorBody;
-
-            if (evt.AttemptCount >= MaxAttempts)
-            {
-                evt.Status = WebhookEventStatus.Dead;
-            }
-            else
-            {
-                evt.Status = WebhookEventStatus.Pending;
-                evt.NextAttemptAt = DateTime.UtcNow + ComputeBackoff(evt.AttemptCount);
-            }
-
-            _logger.LogWarning(
-                "Webhook delivery failed for event {EventId}, project {ProjectId}, status {StatusCode}, attempt {Attempt}",
-                evt.Id, project.Id, evt.LastStatusCode, evt.AttemptCount);
-        }
+    private static string ComputeSignature(string payload, string secret)
+    {
+        if (string.IsNullOrEmpty(secret))
+            return "";
+        
+        using var hmac = new System.Security.Cryptography.HMACSHA256(
+            System.Text.Encoding.UTF8.GetBytes(secret));
+        var hash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(payload));
+        return Convert.ToBase64String(hash);
     }
+}
 
-    private static TimeSpan ComputeBackoff(int attempt)
+public static class WebhookDeliveryWorkerExtensions
+{
+    public static IServiceCollection AddWebhookDeliveryWorker(this IServiceCollection services)
     {
-        // 1st fail: 1 min, 2nd: 5 min, 3rd: 15 min, 4+: 1 hr
-        return attempt switch
-        {
-            1 => TimeSpan.FromMinutes(1),
-            2 => TimeSpan.FromMinutes(5),
-            3 => TimeSpan.FromMinutes(15),
-            _ => TimeSpan.FromHours(1)
-        };
+        services.AddHostedService<WebhookDeliveryWorker>();
+        return services;
     }
 }

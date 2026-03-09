@@ -6,9 +6,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 public enum WebhookEventStatus
 {
     Pending   = 0,
-    Delivering = 1,
+    InProgress = 1,
     Delivered = 2,
-    Dead      = 3
+    Failed    = 3,
+    Dead      = 4
 }
 
 public class WebhookEvent
@@ -38,6 +39,6 @@ public class WebhookEvent
 
     public DateTime? LastAttemptAt { get; set; }
     public int? LastStatusCode { get; set; }
-
     public string? LastError { get; set; }
+    public DateTime? DeliveredAt { get; set; }
 }
