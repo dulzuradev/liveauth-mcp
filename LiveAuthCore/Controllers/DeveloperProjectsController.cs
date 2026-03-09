@@ -306,7 +306,7 @@ public class DeveloperProjectsController : ControllerBase
 
     // ✅ Get logs
     [HttpGet("{projectId:guid}/logs")]
-    public async Task<ActionResult<IReadOnlyList<LogEntry>>> GetLogs(Guid projectId, [FromQuery] int limit = 50, [FromQuery] int windowHours = 24, CancellationToken ct = default)
+    public async Task<ActionResult<IReadOnlyList<ApiLogEntry>>> GetLogs(Guid projectId, [FromQuery] int limit = 50, [FromQuery] int windowHours = 24, CancellationToken ct = default)
     {
         var devId = GetDeveloperId();
 
@@ -347,7 +347,7 @@ public class DeveloperProjectsController : ControllerBase
                 };
             }
 
-            return new LogEntry
+            return new ApiLogEntry
             {
                 Timestamp = e.CreatedAt,
                 IpMasked = e.ClientIp ?? "unknown",
