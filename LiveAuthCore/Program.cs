@@ -99,6 +99,17 @@ builder.Services.AddControllers()
     })
     .AddApplicationPart(typeof(HealthController).Assembly);
 
+// CORS for developer dashboard
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAngular", policy =>
+    {
+        policy.WithOrigins("https://liveauth.app", "https://admin.liveauth.app")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 builder.Services.AddSingleton<StripeService>();
 builder.Services.AddSingleton<OpenNodeService>();
 builder.Services.AddSingleton<PowAttemptLogger>();
@@ -386,6 +397,7 @@ app.UseExceptionHandler(errorApp =>
 // Pipeline
 // --------------------------------------------------
 app.UseHttpsRedirection();
+app.UseCors("AllowAngular");
 app.UseRouting();
 
 // Custom auth middleware BEFORE ASP.NET authentication
