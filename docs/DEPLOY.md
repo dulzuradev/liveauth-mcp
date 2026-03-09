@@ -114,3 +114,20 @@ ssh $SERVER "docker cp /opt/liveauth/LiveAuthWeb/dist/liveauth-web/browser/* liv
 
 echo "Done!"
 ```
+
+## ⚠️ Safety Rules
+
+1. **NEVER use `--delete` on `/opt/liveauth` root** — it will wipe everything if path is wrong
+2. **Target specific folders** — always rsync to the specific subfolder, not the parent
+3. **Test with `--dry-run` first** if unsure
+4. **Keep admin site backups** — admin is in separate folder, don't overwrite without rebuilding
+
+## Safer Commands
+
+```bash
+# GOOD - targets specific folder
+rsync -avz dist/ liveauth@server:/opt/liveauth/LiveAuthWeb/dist/liveauth-web/
+
+# BAD - dangerous!
+rsync -avz --delete LiveAuth/ liveauth@server:/opt/liveauth/
+```
