@@ -774,6 +774,37 @@ console.log('onTimeRangeChange', range);
     });
   }
 
+  testingLnd = false;
+  lndTestResult: { success: boolean; version?: string; error?: string } | null = null;
+
+  testLndConnection(): void {
+    if (!this.selectedProject || !this.projectForm.lndBaseUrl) return;
+    
+    this.testingLnd = true;
+    this.lndTestResult = null;
+    this.error = undefined;
+
+    // Only pass macaroon if it was changed (not masked)
+    const macaroon = this.projectForm.lndMacaroon && !this.projectForm.lndMacaroon.startsWith('••')
+      ? this.projectForm.lndMacaroon
+      : null;
+
+    this.devService.testLndConnection(
+      this.selectedProject.projectId,
+      this.projectForm.lndBaseUrl,
+      macaroon
+    ).subscribe({
+      next: (res: any) => {
+        this.testingLnd = false;
+        this.lndTestResult = res;
+      },
+      error: (err) => {
+        this.testingLnd = false;
+        this.lndTestResult = { success: false, error: this.extractErrorMessage(err) || 'Connection failed' };
+      }
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // API KEYS
   // ---------------------------------------------------------------------------

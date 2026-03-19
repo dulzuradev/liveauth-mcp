@@ -196,6 +196,14 @@ export class DeveloperProjectsService {
     );
   }
 
+  testLndConnection(projectId: string, baseUrl: string, macaroon: string | null): Observable<any> {
+    return this.http.post(
+      `${this.baseUrl}/api/dev/projects/${projectId}/test-lnd`,
+      { baseUrl, macaroon },
+      this.devAuth.authHeaders()
+    );
+  }
+
   getProjectAnalytics(
     projectId: string,
     range: '1h' | '24h' | '7d'

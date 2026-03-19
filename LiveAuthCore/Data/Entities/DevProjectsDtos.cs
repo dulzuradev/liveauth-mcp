@@ -33,6 +33,22 @@ public sealed class UpdateProjectSettingsRequest
     public string? LndMacaroon { get; set; }
 }
 
+public sealed class TestLndConnectionRequest
+{
+    public string BaseUrl { get; set; } = string.Empty;
+    public string? Macaroon { get; set; }
+}
+
+public sealed class TestLndConnectionResponse
+{
+    public bool Success { get; set; }
+    public string? Version { get; set; }
+    public long BlockHeight { get; set; }
+    public int NumActiveChannels { get; set; }
+    public int NumPeers { get; set; }
+    public string? Error { get; set; }
+}
+
 public sealed class UpdateProjectStatusRequest
 {
     public bool Active { get; set; }

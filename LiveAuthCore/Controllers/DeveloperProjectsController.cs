@@ -20,17 +20,20 @@ public class DeveloperProjectsController : ControllerBase
     private readonly ApiKeyService _keys;
     private readonly WebhookService _webhooks;
     private readonly BillingService _billingService;
+    private readonly LightningService _lightning;
 
     public DeveloperProjectsController(
         LiveAuthDbContext db,
         ApiKeyService keys,
         WebhookService webhooks,
-        BillingService billingService)
+        BillingService billingService,
+        LightningService lightning)
     {
         _db = db;
         _keys = keys;
         _webhooks = webhooks;
         _billingService = billingService;
+        _lightning = lightning;
     }
 
     private bool IsAdmin() => User.IsInRole("Admin");
@@ -268,6 +271,49 @@ public class DeveloperProjectsController : ControllerBase
 
         await _db.SaveChangesAsync(ct);
         return NoContent();
+    }
+
+    // ✅ Test LND connection
+    [HttpPost("{projectId}/test-lnd")]
+    public async Task<ActionResult<TestLndConnectionResponse>> TestLndConnection(
+        string projectId, 
+        [FromBody] TestLndConnectionRequest request, 
+        CancellationToken ct)
+    {
+        var devId = GetDeveloperId();
+
+        if (!Guid.TryParse(projectId, out var projectGuid))
+            return BadRequest("Invalid project id.");
+
+        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectGuid, ct);
+        if (project == null) return NotFound("Project not found.");
+
+        if (!IsAdmin() && project.DeveloperId != devId)
+            return Forbid("Not your project.");
+
+        if (string.IsNullOrWhiteSpace(request.BaseUrl))
+            return BadRequest("BaseUrl is required.");
+
+        try
+        {
+            var info = await _lightning.TestConnectionAsync(request.BaseUrl, request.Macaroon, ct);
+            return Ok(new TestLndConnectionResponse
+            {
+                Success = true,
+                Version = info.Version,
+                BlockHeight = info.BlockHeight,
+                NumActiveChannels = info.NumActiveChannels,
+                NumPeers = info.NumPeers
+            });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new TestLndConnectionResponse
+            {
+                Success = false,
+                Error = ex.Message
+            });
+        }
     }
 
     // ✅ Get analytics

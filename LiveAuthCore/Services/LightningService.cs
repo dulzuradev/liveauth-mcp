@@ -398,6 +398,27 @@ public class LightningService
     /// </summary>
     public async Task<LndInfo> GetLndInfoAsync(CancellationToken ct)
     {
+        return await GetLndInfoWithConfigAsync(null, null, ct);
+    }
+
+    /// <summary>
+    /// Test LND connection with custom config.
+    /// </summary>
+    public async Task<LndInfo> TestConnectionAsync(string baseUrl, string? macaroonHex, CancellationToken ct)
+    {
+        return await GetLndInfoWithConfigAsync(baseUrl, macaroonHex, ct);
+    }
+
+    private async Task<LndInfo> GetLndInfoWithConfigAsync(string? customBaseUrl, string? customMacaroonHex, CancellationToken ct)
+    {
+        var (baseUrl, macaroonHex) = GetEffectiveLndConfig(null);
+        
+        // Override with custom values if provided
+        if (!string.IsNullOrWhiteSpace(customBaseUrl))
+            baseUrl = customBaseUrl.TrimEnd('/');
+        if (!string.IsNullOrWhiteSpace(customMacaroonHex))
+            macaroonHex = NormalizeMacaroonToHex(customMacaroonHex.Trim());
+
         if (_useMock)
         {
             return new LndInfo
@@ -409,9 +430,17 @@ public class LightningService
             };
         }
 
-        await EnsureMacaroonHeaderAsync();
+        // Set custom macaroon for this request
+        if (!string.IsNullOrWhiteSpace(macaroonHex))
+        {
+            SetMacaroonHeader(macaroonHex);
+        }
+        else
+        {
+            await EnsureMacaroonHeaderAsync();
+        }
 
-        var response = await _httpClient.GetAsync($"{_baseUrl}/v1/getinfo", ct);
+        var response = await _httpClient.GetAsync($"{baseUrl}/v1/getinfo", ct);
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync(ct);

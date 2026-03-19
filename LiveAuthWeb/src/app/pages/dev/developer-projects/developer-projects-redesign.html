@@ -666,6 +666,16 @@
                   <label>Macaroon (hex or base64)</label>
                   <input type="password" [(ngModel)]="projectForm.lndMacaroon" pInputText class="w-full"
                          placeholder="Enter macaroon or leave blank to keep current"/>
+                  <button class="mt-2" pButton label="Test Connection" icon="pi pi-bolt"
+                          (click)="testLndConnection()" [loading]="testingLnd"></button>
+                  <div *ngIf="lndTestResult" class="mt-2 text-sm">
+                    <span *ngIf="lndTestResult.success" class="text-green-400">
+                      ✓ Connected! Version: {{ lndTestResult.version }}
+                    </span>
+                    <span *ngIf="!lndTestResult.success" class="text-red-400">
+                      ✗ {{ lndTestResult.error }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
