@@ -645,6 +645,31 @@
               </div>
             </div>
 
+            <!-- Custom LND Node Section -->
+            <div class="mt-3 pt-3 border-top-1 border-300">
+              <div class="flex align-items-center gap-2 mb-2">
+                <p-inputSwitch [(ngModel)]="projectForm.useCustomNode"></p-inputSwitch>
+                <label class="mb-0">Use custom Lightning node</label>
+              </div>
+              
+              <p class="text-sm mb-2" style="opacity: 0.7;" *ngIf="!projectForm.useCustomNode">
+                Payments route through LiveAuth's node. Enable to use your own LND.
+              </p>
+
+              <div *ngIf="projectForm.useCustomNode" class="grid">
+                <div class="col-12 md:col-6">
+                  <label>LND REST URL</label>
+                  <input type="text" [(ngModel)]="projectForm.lndBaseUrl" pInputText class="w-full"
+                         placeholder="https://your-node:8283"/>
+                </div>
+                <div class="col-12 md:col-6">
+                  <label>Macaroon (hex or base64)</label>
+                  <input type="password" [(ngModel)]="projectForm.lndMacaroon" pInputText class="w-full"
+                         placeholder="Enter macaroon or leave blank to keep current"/>
+                </div>
+              </div>
+            </div>
+
             <p class="mt-2" style="font-size: 0.8rem; opacity: 0.8;" *ngIf="selectedProject">
               <b>Effective sats per login:</b> {{ getEffectiveSatsLabel() }}
             </p>

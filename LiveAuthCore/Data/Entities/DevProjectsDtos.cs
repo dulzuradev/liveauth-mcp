@@ -11,6 +11,10 @@ public sealed class ProjectSettingsResponse
     
     public bool AllowDemoAuth { get; set; }
 
+    // Custom LND node config
+    public bool UseCustomNode { get; set; }
+    public string? LndBaseUrl { get; set; }
+    public string? LndMacaroon { get; set; }
 }
 
 
@@ -23,6 +27,10 @@ public sealed class UpdateProjectSettingsRequest
     
     public bool AllowDemoAuth { get; set; }
 
+    // Custom LND node config
+    public bool UseCustomNode { get; set; }
+    public string? LndBaseUrl { get; set; }
+    public string? LndMacaroon { get; set; }
 }
 
 public sealed class UpdateProjectStatusRequest

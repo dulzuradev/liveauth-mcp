@@ -50,6 +50,10 @@ export interface ProjectSettingsForm {
   webhookUrl: string;
   satsPerLogin: number | null;
   maxAuthsPerIpPerHour: number | null;
+  // Custom LND node config
+  useCustomNode: boolean;
+  lndBaseUrl: string;
+  lndMacaroon: string;
 }
 
 @Component({
@@ -143,7 +147,10 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
     allowedDomains: '',
     webhookUrl: '',
     satsPerLogin: null,
-    maxAuthsPerIpPerHour: null
+    maxAuthsPerIpPerHour: null,
+    useCustomNode: false,
+    lndBaseUrl: '',
+    lndMacaroon: ''
   };
 
   savingSettings = false;
@@ -604,7 +611,10 @@ console.log('onTimeRangeChange', range);
           allowedDomains: (res.allowedDomains || []).join('\n'),
           webhookUrl: res.webhookUrl ?? '',
           satsPerLogin: res.satsPerLogin,
-          maxAuthsPerIpPerHour: res.maxAuthsPerIpPerHour
+          maxAuthsPerIpPerHour: res.maxAuthsPerIpPerHour,
+          useCustomNode: res.useCustomNode ?? false,
+          lndBaseUrl: res.lndBaseUrl ?? '',
+          lndMacaroon: res.lndMacaroon ? '••••••••' : ''  // Masked
         };
       },
       error: (err) => {
@@ -693,15 +703,25 @@ console.log('onTimeRangeChange', range);
     this.savingSettings = true;
     this.error = undefined;
 
-    const payload = {
+    // Only include macaroon if it was changed (not masked)
+    const includeMacaroon = this.projectForm.lndMacaroon && 
+                           !this.projectForm.lndMacaroon.startsWith('••');
+
+    const payload: any = {
       allowedDomains: this.projectForm.allowedDomains
         .split('\n')
         .map(x => x.trim())
         .filter(Boolean),
       webhookUrl: this.projectForm.webhookUrl || null,
       satsPerLogin: this.projectForm.satsPerLogin ?? 0,
-      maxAuthsPerIpPerHour: this.projectForm.maxAuthsPerIpPerHour ?? 0
+      maxAuthsPerIpPerHour: this.projectForm.maxAuthsPerIpPerHour ?? 0,
+      useCustomNode: this.projectForm.useCustomNode,
+      lndBaseUrl: this.projectForm.lndBaseUrl || null
     };
+
+    if (includeMacaroon) {
+      payload.lndMacaroon = this.projectForm.lndMacaroon;
+    }
 
     this.devService.updateProjectSettings(this.selectedProject.projectId, payload)
       .subscribe({

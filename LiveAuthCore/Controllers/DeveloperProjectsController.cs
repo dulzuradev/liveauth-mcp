@@ -223,7 +223,10 @@ public class DeveloperProjectsController : ControllerBase
             WebhookUrl = project.WebhookUrl,
             SatsPerLogin = project.SatsPerLogin,
             MaxAuthsPerIpPerHour = project.MaxAuthsPerIpPerHour,
-            AllowDemoAuth = project.AllowDemoAuth
+            AllowDemoAuth = project.AllowDemoAuth,
+            UseCustomNode = project.UseCustomNode,
+            LndBaseUrl = project.LndBaseUrl,
+            LndMacaroon = project.LndMacaroon
         });
     }
 
@@ -254,6 +257,14 @@ public class DeveloperProjectsController : ControllerBase
 
         project.AllowedDomains = cleanedDomains;
         project.AllowDemoAuth = request.AllowDemoAuth;
+
+        // Custom LND node config
+        project.UseCustomNode = request.UseCustomNode;
+        project.LndBaseUrl = request.LndBaseUrl;
+        if (!string.IsNullOrWhiteSpace(request.LndMacaroon))
+        {
+            project.LndMacaroon = request.LndMacaroon;
+        }
 
         await _db.SaveChangesAsync(ct);
         return NoContent();

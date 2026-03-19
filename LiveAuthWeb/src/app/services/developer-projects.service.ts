@@ -50,6 +50,10 @@ export interface ProjectSettingsResponse {
   webhookUrl: string | null;
   satsPerLogin: number;
   maxAuthsPerIpPerHour: number;
+  // Custom LND node config
+  useCustomNode: boolean;
+  lndBaseUrl: string | null;
+  lndMacaroon: string | null;   // Masked in UI
 }
 
 export interface UpdateProjectSettingsRequest extends ProjectSettingsResponse {}
