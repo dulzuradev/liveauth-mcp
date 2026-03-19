@@ -139,7 +139,8 @@ public class McpGateController : ControllerBase
             var invoiceResult = await _lightning.CreateLoginInvoiceAsync(
                 $"mcp:{project.Id}",
                 satsAmount,
-                expiryMinutes: 10
+                10,
+                project
             );
 
             session = new McpGateSession
@@ -308,7 +309,7 @@ public class McpGateController : ControllerBase
         // Lightning confirm - check if invoice is paid
         if (!string.IsNullOrWhiteSpace(session.LightningPaymentHash))
         {
-            var status = await _lightning.GetInvoiceStatusAsync(session.LightningPaymentHash);
+            var status = await _lightning.GetInvoiceStatusAsync(session.LightningPaymentHash, project);
 
             if (!status.IsPaid)
             {
@@ -480,7 +481,7 @@ public class McpGateController : ControllerBase
         string? paymentStatus = null;
         if (!string.IsNullOrWhiteSpace(session.LightningPaymentHash))
         {
-            var status = await _lightning.GetInvoiceStatusAsync(session.LightningPaymentHash);
+            var status = await _lightning.GetInvoiceStatusAsync(session.LightningPaymentHash, project);
             paymentStatus = status.IsPaid ? "paid" : "pending";
         }
 

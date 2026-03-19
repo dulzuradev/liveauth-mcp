@@ -42,6 +42,11 @@ public class Project
     public string Plan { get; set; } = "free";
     public DateTime? ProPaidUntil { get; set; }
 
+    // Custom LND node configuration
+    public bool UseCustomNode { get; set; } = false;
+    public string? LndBaseUrl { get; set; }
+    public string? LndMacaroon { get; set; } // Encrypted
+
     // ✅ FIX: nullable disables EF concurrency + RETURNING
     // Removed TypeName to allow EF Core to map correctly for each DB provider (bytea for Postgres, BLOB for SQLite)
     public byte[]? RowVersion { get; set; } = Guid.NewGuid().ToByteArray();

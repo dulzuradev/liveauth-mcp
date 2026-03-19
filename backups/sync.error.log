@@ -1,0 +1,33 @@
+rsync: [sender] change_dir "/opt/liveauth/backups" failed: No such file or directory (2)
+rsync(23250): warning: receiver has empty file list: exiting
+rsync(23250): warning: child 23251 exited with status 23
+rsync: [sender] change_dir "/opt/liveauth/backups" failed: No such file or directory (2)
+rsync(22336): warning: receiver has empty file list: exiting
+rsync(22336): warning: child 22337 exited with status 23
+rsync: [sender] change_dir "/opt/liveauth/backups" failed: No such file or directory (2)
+rsync(21474): warning: receiver has empty file list: exiting
+rsync(21474): warning: child 21475 exited with status 23
+rsync: [sender] change_dir "/opt/liveauth/backups" failed: No such file or directory (2)
+rsync(20688): warning: receiver has empty file list: exiting
+rsync(20688): warning: child 20690 exited with status 23
+rsync: [sender] change_dir "/opt/liveauth/backups" failed: No such file or directory (2)
+rsync(63509): warning: receiver has empty file list: exiting
+rsync(63509): warning: child 63510 exited with status 23
+rsync: [sender] change_dir "/opt/liveauth/backups" failed: No such file or directory (2)
+rsync(62833): warning: receiver has empty file list: exiting
+rsync(62833): warning: child 62834 exited with status 23
+rsync: [sender] change_dir "/opt/liveauth/backups" failed: No such file or directory (2)
+rsync(61745): warning: receiver has empty file list: exiting
+rsync(61745): warning: child 61746 exited with status 23
+rsync: [sender] change_dir "/opt/liveauth/backups" failed: No such file or directory (2)
+rsync(62607): warning: receiver has empty file list: exiting
+rsync(62607): warning: child 62610 exited with status 23
+rsync: [sender] change_dir "/opt/liveauth/backups" failed: No such file or directory (2)
+rsync(64555): warning: receiver has empty file list: exiting
+rsync(64555): warning: child 64556 exited with status 23
+rsync: [sender] change_dir "/opt/liveauth/backups" failed: No such file or directory (2)
+rsync(66572): warning: receiver has empty file list: exiting
+rsync(66572): warning: child 66573 exited with status 23
+rsync: [sender] change_dir "/opt/liveauth/backups" failed: No such file or directory (2)
+rsync(66516): warning: receiver has empty file list: exiting
+rsync(66516): warning: child 66517 exited with status 23

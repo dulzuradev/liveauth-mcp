@@ -15,6 +15,33 @@
             </summary>
             <returns></returns>
         </member>
+        <member name="T:LiveAuthCore.Controllers.AgentAuthController">
+            <summary>
+            Agent authentication for AI agents (OpenClaw, etc.)
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.AgentAuthController.StartAgentAuth(LiveAuthCore.Controllers.AgentAuthStartRequest,System.Threading.CancellationToken)">
+            <summary>
+            Start agent authentication - returns a PoW challenge
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.AgentAuthController.VerifyAgentAuth(LiveAuthCore.Controllers.AgentAuthVerifyRequest,System.Threading.CancellationToken)">
+            <summary>
+            Verify PoW solution and get auth token
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.AgentAuthController.ValidateToken(LiveAuthCore.Controllers.AgentAuthValidateRequest,System.Threading.CancellationToken)">
+            <summary>
+            Validate an agent auth token
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.AgentScoreController.GetScore(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Get reputation score for an agent (identified by API key).
+            Returns a score based on authentication history, payment history, and behavior.
+            </summary>
+            <param name="apiKey">The API key (public key like la_pk_xxx)</param>
+        </member>
         <member name="M:LiveAuthCore.Controllers.AuthController.Start(LiveAuthCore.Models.AuthStartRequest)">
             <summary>
             Dev backend calls this to start a Lightning verification session.
@@ -106,6 +133,31 @@
             GET /api/mcp/lnurl/{quoteId}
             </summary>
         </member>
+        <member name="M:LiveAuthCore.Controllers.McpProxyController.List(System.Threading.CancellationToken)">
+            <summary>
+            List all MCP proxies for the authenticated project
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.McpProxyController.Create(LiveAuthCore.Controllers.CreateMcpProxyRequest,System.Threading.CancellationToken)">
+            <summary>
+            Register a new MCP proxy
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.McpProxyController.Update(System.Guid,LiveAuthCore.Controllers.UpdateMcpProxyRequest,System.Threading.CancellationToken)">
+            <summary>
+            Update an MCP proxy
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.McpProxyController.Delete(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Delete an MCP proxy
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.McpProxyController.GetStats(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Get proxy usage stats
+            </summary>
+        </member>
         <member name="T:LiveAuthCore.Controllers.MissionController">
             <summary>
             MissionControl API - Kanban board for tracking LiveAuth tasks
@@ -144,6 +196,23 @@
         <member name="M:LiveAuthCore.Controllers.MissionController.GetKanbanBoard(LiveAuthCore.Models.MissionControl.TaskFilterDto)">
             <summary>
             Get tasks grouped by status (for Kanban board)
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Controllers.NostrAuthController">
+            <summary>
+            Nostr-based agent authentication
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.NostrAuthController.Register(LiveAuthCore.Controllers.NostrRegisterRequest,System.Threading.CancellationToken)">
+            <summary>
+            POST /api/public/nostr/register
+            Register a Nostr npub and get a verification challenge
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Controllers.NostrAuthController.Verify(LiveAuthCore.Controllers.NostrVerifyRequest,System.Threading.CancellationToken)">
+            <summary>
+            POST /api/public/nostr/verify
+            Verify the agent owns the private key by checking the Schnorr signature
             </summary>
         </member>
         <member name="M:LiveAuthCore.Controllers.PublicPowController.CreateChallenge(System.Threading.CancellationToken)">
@@ -203,6 +272,11 @@
             Lightning payment session for admin access
             </summary>
         </member>
+        <member name="T:LiveAuthCore.Data.Entities.AgentAuthSession">
+            <summary>
+            Agent authentication session (for AI agents like OpenClaw)
+            </summary>
+        </member>
         <member name="T:LiveAuthCore.Data.Entities.EcashProof">
             <summary>
             Represents a Cashu ecash proof owned by a user
@@ -236,6 +310,81 @@
         <member name="P:LiveAuthCore.Data.Entities.EcashProof.MintRequestId">
             <summary>
             Optional: Reference to the mint request that created this proof
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Data.Entities.McpProxy">
+            <summary>
+            Registered MCP server proxy configuration
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.McpProxy.Name">
+            <summary>
+            User-friendly name for this proxy
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.McpProxy.UpstreamUrl">
+            <summary>
+            Upstream MCP server URL (e.g., https://mcp-server.example.com)
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.McpProxy.SatsPerRequest">
+            <summary>
+            Price per request in sats
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.McpProxy.IsActive">
+            <summary>
+            Whether this proxy is active
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.McpProxy.CustomPath">
+            <summary>
+            Custom path for this proxy (e.g., "my-agent" -> /mcp/my-agent)
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.McpProxy.TotalRequests">
+            <summary>
+            Total requests served
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.McpProxy.TotalSatsEarned">
+            <summary>
+            Total sats earned
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Data.Entities.NostrAgentSession">
+            <summary>
+            Session for Nostr-based agent authentication
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.NostrAgentSession.NpubHex">
+            <summary>
+            Public key in hex format (32 bytes)
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.NostrAgentSession.Lud16">
+            <summary>
+            Lightning address for receiving zaps (e.g., agent@getalby.com)
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.NostrAgentSession.Challenge">
+            <summary>
+            Challenge string the agent must sign
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.NostrAgentSession.VerifiedAt">
+            <summary>
+            When the agent successfully verified ownership
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.NostrAgentSession.ExpiresAt">
+            <summary>
+            When this session expires
+            </summary>
+        </member>
+        <member name="P:LiveAuthCore.Data.Entities.NostrAgentSession.CreatedAt">
+            <summary>
+            When this session was created
             </summary>
         </member>
         <member name="T:LiveAuthCore.Data.Entities.PowUsedNonce">
@@ -276,6 +425,15 @@
         <member name="T:LiveAuthCore.Middleware.L402MiddlewareExtensions">
             <summary>
             Extension to register L402 middleware.
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Middleware.McpProxyMiddleware">
+            <summary>
+            L402-Gated MCP Proxy Middleware
+            
+            Validates L402 tokens and forwards requests to registered MCP servers.
+            
+            Usage: Register MCP proxy via /api/mcpproxy, then access via /mcp/{path}
             </summary>
         </member>
         <member name="P:LiveAuthCore.Models.AdminStartLoginRequest.Email">
@@ -572,6 +730,34 @@
             Currently null until you wire that in.
             </summary>
         </member>
+        <member name="T:LiveAuthCore.Services.NostrService">
+            <summary>
+            Service for Nostr identity verification using Schnorr signatures
+            NOTE: This uses a simplified verification. For production, use a proper secp256k1 library.
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.NostrService.GenerateChallenge(System.String)">
+            <summary>
+            Generate a verification challenge for a Nostr npub
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.NostrService.VerifySignature(System.String,System.String,System.String)">
+            <summary>
+            Verify a Schnorr signature against a message
+            NOTE: This is a placeholder - returns true for testing. 
+            In production, use a proper secp256k1 library (e.g., nostr-sdk-net or verify server-side)
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.NostrService.NpubToHex(System.String)">
+            <summary>
+            Convert npub to hex public key (Bech32 decode)
+            </summary>
+        </member>
+        <member name="M:LiveAuthCore.Services.NostrService.HexToNpub(System.String)">
+            <summary>
+            Convert hex public key to npub (Bech32 encode)
+            </summary>
+        </member>
         <member name="T:LiveAuthCore.Services.PowNonceCleanupService">
             <summary>
             Background service that periodically cleans up expired PoW nonces from the database.
@@ -649,6 +835,11 @@
         <member name="M:LiveAuthCore.Services.SatsPrinterService.GetUserBalanceAsync(System.String)">
             <summary>
             Get user's ecash balance across all mints
+            </summary>
+        </member>
+        <member name="T:LiveAuthCore.Services.WebhookDeliveryWorker">
+            <summary>
+            Background worker that processes webhook delivery queue.
             </summary>
         </member>
         <member name="M:LiveAuthCore.Services.WebhookService.EnqueueAsync(LiveAuthCore.Data.Entities.Project,System.String,System.Object,System.Threading.CancellationToken)">

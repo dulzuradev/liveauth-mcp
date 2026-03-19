@@ -193,7 +193,9 @@ public class PublicAuthController : ControllerBase
             var invoiceResult = await _lightning.CreateInvoiceWithHashAsync(
                 project.Id.ToString(),
                 satsPerLogin,
-                memo);
+                memo,
+                60,
+                project);
 
             bolt11 = invoiceResult.Bolt11;
             rHashHex = invoiceResult.PaymentHash;
@@ -380,7 +382,7 @@ public class PublicAuthController : ControllerBase
         // LIVE mode: check invoice
         if (!session.IsPaid)
         {
-            var status = await _lightning.GetInvoiceStatusAsync(session.InvoiceRHash!);
+            var status = await _lightning.GetInvoiceStatusAsync(session.InvoiceRHash!, project);
             if (status.IsPaid)
             {
                 session.IsPaid = true;

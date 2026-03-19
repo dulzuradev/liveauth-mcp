@@ -142,6 +142,9 @@ builder.Services.AddDistributedMemoryCache();
 builder.Services.AddScoped<SatsPrinterService>(); // Cashu-based
 builder.Services.AddScoped<AgentSatsService>();    // LND-based
 
+// Nostr Service
+builder.Services.AddSingleton<NostrService>();
+
 
 // --------------------------------------------------
 // Authentication (API Key OR JWT OR GitHub)

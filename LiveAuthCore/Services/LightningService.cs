@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using LiveAuthCore.Data.Entities;
 using Microsoft.IdentityModel.Tokens;
 
 namespace LiveAuthCore.Services;
@@ -53,6 +54,25 @@ public class LightningService
     private readonly int _developerTokenExpiryHours;
     private readonly int _defaultTokenExpiryMinutes;
 
+    /// <summary>
+    /// Gets effective LND config for a project. If UseCustomNode is true on the project,
+    /// returns the project's custom config; otherwise returns the default config.
+    /// </summary>
+    private (string baseUrl, string? macaroonHex) GetEffectiveLndConfig(Project? project)
+    {
+        if (project?.UseCustomNode == true && !string.IsNullOrWhiteSpace(project.LndBaseUrl))
+        {
+            // Use project's custom LND node
+            var macaroonHex = !string.IsNullOrWhiteSpace(project.LndMacaroon)
+                ? NormalizeMacaroonToHex(project.LndMacaroon.Trim())
+                : null;
+            return (project.LndBaseUrl.TrimEnd('/'), macaroonHex);
+        }
+
+        // Use default config
+        return (_baseUrl, null); // null triggers default macaroon loading
+    }
+
     public LightningService(IConfiguration configuration)
     {
         _configuration = configuration;
@@ -86,11 +106,21 @@ public class LightningService
     /// <summary>
     /// Generic invoice creation (existing behavior).
     /// </summary>
-    public async Task<InvoiceResponse> CreateInvoice(string userId, long amountSats, string memo)
+    public async Task<InvoiceResponse> CreateInvoice(string userId, long amountSats, string memo, Project? project = null)
     {
-        await EnsureMacaroonHeaderAsync();
+        var (baseUrl, macaroonHex) = GetEffectiveLndConfig(project);
+        
+        // Set macaroon for this request
+        if (!string.IsNullOrWhiteSpace(macaroonHex))
+        {
+            SetMacaroonHeader(macaroonHex);
+        }
+        else
+        {
+            await EnsureMacaroonHeaderAsync();
+        }
 
-        var url = $"{_baseUrl}/v1/invoices";
+        var url = $"{baseUrl}/v1/invoices";
 
         var requestBody = new
         {
@@ -129,9 +159,10 @@ public class LightningService
         string userId, 
         long amountSats, 
         string memo,
-        int expiryMinutes = 60)
+        int expiryMinutes = 60,
+        Project? project = null)
     {
-        var invoice = await CreateInvoice(userId, amountSats, memo);
+        var invoice = await CreateInvoice(userId, amountSats, memo, project);
         
         // CENTRALIZED: Convert base64 r_hash to hex once - never use invoice.RHash directly!
         var rHashBytes = Convert.FromBase64String(invoice.RHash);
@@ -155,7 +186,8 @@ public class LightningService
     public async Task<LoginInvoiceResult> CreateLoginInvoiceAsync(
         string email,
         long amountSats,
-        int expiryMinutes)
+        int expiryMinutes,
+        Project? project = null)
     {
         if (_useMock)
         {
@@ -169,9 +201,19 @@ public class LightningService
             };
         }
 
-        await EnsureMacaroonHeaderAsync();
+        var (baseUrl, macaroonHex) = GetEffectiveLndConfig(project);
+        
+        // Set macaroon for this request
+        if (!string.IsNullOrWhiteSpace(macaroonHex))
+        {
+            SetMacaroonHeader(macaroonHex);
+        }
+        else
+        {
+            await EnsureMacaroonHeaderAsync();
+        }
 
-        var url = $"{_baseUrl}/v1/invoices";
+        var url = $"{baseUrl}/v1/invoices";
 
         var requestBody = new
         {
@@ -223,7 +265,7 @@ public class LightningService
     /// Uses the same underlying invoice lookup as CheckPaymentStatus but
     /// returns a richer object (IsPaid + placeholder Lightning identity).
     /// </summary>
-    public async Task<InvoiceStatusResult> GetInvoiceStatusAsync(string paymentHashB64)
+    public async Task<InvoiceStatusResult> GetInvoiceStatusAsync(string paymentHashB64, Project? project = null)
     {
         // DEBUG
         Console.WriteLine($"[DEBUG] GetInvoiceStatusAsync called with: '{paymentHashB64}' (length={paymentHashB64?.Length})");
@@ -264,7 +306,18 @@ public class LightningService
             };
         }
 
-        await EnsureMacaroonHeaderAsync();
+        var (baseUrl, macaroonHex) = GetEffectiveLndConfig(project);
+        
+        // Set macaroon for this request
+        if (!string.IsNullOrWhiteSpace(macaroonHex))
+        {
+            SetMacaroonHeader(macaroonHex);
+        }
+        else
+        {
+            await EnsureMacaroonHeaderAsync();
+        }
+
         paymentHashB64 = paymentHashB64.Trim();
 
         // Normalize 32-byte payment hash
@@ -479,9 +532,9 @@ public class LightningService
     /// <summary>
     /// Legacy helper - now delegates to GetInvoiceStatusAsync.
     /// </summary>
-    public async Task<bool> CheckPaymentStatus(string paymentHashB64)
+    public async Task<bool> CheckPaymentStatus(string paymentHashB64, Project? project = null)
     {
-        var status = await GetInvoiceStatusAsync(paymentHashB64);
+        var status = await GetInvoiceStatusAsync(paymentHashB64, project);
         return status.IsPaid;
     }
 
@@ -592,13 +645,23 @@ public class LightningService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public async Task<(string PaymentHash, string Preimage)> PayInvoice(string invoice)
+    public async Task<(string PaymentHash, string Preimage)> PayInvoice(string invoice, Project? project = null)
     {
-        await EnsureMacaroonHeaderAsync();
+        var (baseUrl, macaroonHex) = GetEffectiveLndConfig(project);
+        
+        // Set macaroon for this request
+        if (!string.IsNullOrWhiteSpace(macaroonHex))
+        {
+            SetMacaroonHeader(macaroonHex);
+        }
+        else
+        {
+            await EnsureMacaroonHeaderAsync();
+        }
 
         try
         {
-            var url = $"{_baseUrl}/v2/router/send";
+            var url = $"{baseUrl}/v2/router/send";
             var requestBody = new
             {
                 payment_request = invoice,

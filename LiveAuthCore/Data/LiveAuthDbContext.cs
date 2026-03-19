@@ -47,6 +47,9 @@ public class LiveAuthDbContext : DbContext
     public DbSet<McpGateSession> McpGateSessions => Set<McpGateSession>();
     public DbSet<McpGateToken> McpGateTokens => Set<McpGateToken>();
 
+    // Nostr Agent Auth
+    public DbSet<NostrAgentSession> NostrAgentSessions => Set<NostrAgentSession>();
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         // In this project we sometimes bootstrap schema via EnsureCreated + raw SQL guards.

@@ -76,7 +76,9 @@ namespace LiveAuthCore.Controllers
             var invoiceResult = await _lightning.CreateInvoiceWithHashAsync(
                 project.Id.ToString(),
                 amountSats,
-                memo
+                memo,
+                60,
+                project
             );
 
             var session = new BillingSubscription
@@ -133,7 +135,7 @@ namespace LiveAuthCore.Controllers
                 return Ok(new ConfirmSubscriptionResponse { Paid = false });
 
             // Check Lightning
-            var status = await _lightning.GetInvoiceStatusAsync(session.InvoiceRHash);
+            var status = await _lightning.GetInvoiceStatusAsync(session.InvoiceRHash, session.Project);
             if (!status.IsPaid)
             {
                 await tx.CommitAsync(ct);
