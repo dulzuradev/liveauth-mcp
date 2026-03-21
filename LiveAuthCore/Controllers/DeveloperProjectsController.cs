@@ -117,7 +117,7 @@ public class DeveloperProjectsController : ControllerBase
             await GetOrCreateDeveloperAsync(devId, ct);
 
             var projects = await _db.Projects
-                .Where(p => IsAdmin() || p.DeveloperId == devId)
+                .Where(p => !p.IsDeleted && (IsAdmin() || p.DeveloperId == devId))
                 .OrderByDescending(p => p.CreatedAt)
                 .Select(p => new ProjectDto
                 {
@@ -200,6 +200,27 @@ public class DeveloperProjectsController : ControllerBase
             return Forbid("Not your project.");
 
         project.IsActive = request.Active;
+
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    // ✅ Soft delete project
+    [HttpDelete("{projectId:guid}")]
+    public async Task<IActionResult> DeleteProject(Guid projectId, CancellationToken ct)
+    {
+        var devId = GetDeveloperId();
+
+        var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId, ct);
+        if (project == null) return NotFound("Project not found.");
+
+        if (!IsAdmin() && project.DeveloperId != devId)
+            return Forbid("Not your project.");
+
+        // Soft delete
+        project.IsDeleted = true;
+        project.DeletedAt = DateTime.UtcNow;
+        project.IsActive = false;
 
         await _db.SaveChangesAsync(ct);
         return NoContent();

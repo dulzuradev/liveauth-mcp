@@ -443,6 +443,14 @@
             [pTooltip]="p.environment === 'LIVE' ? 'Switch to TEST' : 'Switch to LIVE'"
             (click)="toggleProjectEnvironment(p)">
           </button>
+
+          <button
+            pButton
+            icon="pi pi-trash"
+            class="p-button-outlined p-button-danger"
+            pTooltip="Delete Project"
+            (click)="deleteProject(p)">
+          </button>
         </div>
       </div>
     </div>

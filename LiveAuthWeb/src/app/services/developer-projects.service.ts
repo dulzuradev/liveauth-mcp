@@ -173,6 +173,14 @@ export class DeveloperProjectsService {
     );
   }
 
+  // Delete project (soft delete)
+  deleteProject(projectId: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.baseUrl}/api/dev/projects/${projectId}`,
+      this.devAuth.authHeaders()
+    );
+  }
+
   // Settings
   getProjectSettings(projectId: string): Observable<ProjectSettingsResponse> {
     return this.http.get<ProjectSettingsResponse>(

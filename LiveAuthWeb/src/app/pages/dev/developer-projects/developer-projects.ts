@@ -533,6 +533,27 @@ console.log('onTimeRangeChange', range);
     });
   }
 
+  deleteProject(project: any) {
+    if (!confirm(`Are you sure you want to delete "${project.name}"? This cannot be undone.`)) {
+      return;
+    }
+
+    this.error = undefined;
+
+    this.devService.deleteProject(project.projectId).subscribe({
+      next: () => {
+        // Remove from list
+        this.projects = this.projects.filter(p => p.projectId !== project.projectId);
+        if (this.selectedProject?.projectId === project.projectId) {
+          this.selectedProject = null;
+        }
+      },
+      error: (err) => {
+        this.error = this.extractErrorMessage(err) || 'Failed to delete project.';
+      }
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // COPY HELPERS
   // ---------------------------------------------------------------------------

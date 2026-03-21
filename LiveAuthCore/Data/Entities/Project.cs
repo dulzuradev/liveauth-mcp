@@ -47,6 +47,9 @@ public class Project
     public string? LndBaseUrl { get; set; }
     public string? LndMacaroon { get; set; } // Encrypted
 
+    public bool IsDeleted { get; set; } = false;
+    public DateTime? DeletedAt { get; set; }
+
     // ✅ FIX: nullable disables EF concurrency + RETURNING
     // Removed TypeName to allow EF Core to map correctly for each DB provider (bytea for Postgres, BLOB for SQLite)
     public byte[]? RowVersion { get; set; } = Guid.NewGuid().ToByteArray();
