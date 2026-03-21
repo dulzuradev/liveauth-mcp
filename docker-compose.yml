@@ -25,9 +25,8 @@ services:
   # -------------------------
   liveauth-api:
     image: liveauth-api:latest
-    build:
-      context: ./LiveAuthCore
-      dockerfile: Dockerfile
+    # Image is built locally and pushed to server via deploy.sh
+    # To rebuild: run deploy.sh which builds locally and pushes
     container_name: liveauth-api
     restart: unless-stopped
     extra_hosts:
@@ -40,13 +39,13 @@ services:
       Admin__SkipPayment: "true"
       GitHub__ClientId: "Ov23li5BIPiYaNfLaBsn"
       GitHub__ClientSecret: "0ee4f29d2b7374442cffb739f455f8db0acc900e"
-      Jwt__SigningKey: "faffda742870fc04b9ad90474a05c6d31aad8d1eaa58d66e73602f7182d4de80"
+      Jwt__SigningKey: "swm3lIZ+arLWaU4Uz9zaUpzUbdV87O7p72Foo6RLtGstLmyeA3bNedhZenBn3H4t8n1IzsToxOVyaL1ILcFOtA=="
       Jwt__Issuer: "LiveAuth"
       Jwt__Audience: "LiveAuthUsers"
-      LiveAuth__PowHmacSecret: "17b6b192e379f5689f87d99bf06510dc83e71de2d7429666bdb1c1437b6bd9e0"
+      LiveAuth__PowHmacSecret: "swm3lIZ+arLWaU4Uz9zaUpzUbdV87O7p72Foo6RLtGstLmyeA3bNedhZenBn3H4t8n1IzsToxOVyaL1ILcFOtA=="
       LiveAuth__DemoProjectId: "00000000-0000-0000-0000-000000000002"
-      Lnd__BaseUrl: "https://host.docker.internal:8080"
-      Lnd__Macaroon: "0201036c6e6402f801030a109331f9cfc0e5682d12b766c6f9730c891201301a160a0761646472657373120472656164120577726974651a130a04696e666f120472656164120577726974651a170a08696e766f69636573120472656164120577726974651a210a086d616361726f6f6e120867656e6572617465120472656164120577726974651a160a076d657373616765120472656164120577726974651a170a086f6666636861696e120472656164120577726974651a160a076f6e636861696e120472656164120577726974651a140a057065657273120472656164120577726974651a180a067369676e6572120867656e6572617465120472656164000006204759b9103010c5515e5a80bfeb24a7a2500026684b2b5bf1a9665b87f5cbedfe"
+      Lnd__BaseUrl: "https://172.17.0.1:8080"
+      Lnd__Macaroon: "0201036c6e64024e030a106945c51d9c6384f95a6e806f29e808691201301a0f0a07616464726573731204726561641a0c0a04696e666f1204726561641a170a08696e766f696365731204726561641205777269746500000620c3811fa1751d53c71a722feae9517d0afc568532415d9fb39bec09dfbe8d1297"
     volumes:
       - sqlite_data:/data
     networks:

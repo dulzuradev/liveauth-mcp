@@ -1,11 +1,12 @@
 #!/bin/bash
-# Full deploy script for LiveAuth
+# Full deploy script for LiveAuth using docker-compose
 # Usage: ./scripts/deploy.sh
 
 set -e
 
 SERVER="liveauth@64.225.32.102"
 LOCAL_DIR="/users/sydney/.openclaw/workspace/LiveAuth"
+REMOTE_DIR="/opt/liveauth"
 
 echo "=== LiveAuth Deploy Script ==="
 
@@ -15,18 +16,14 @@ if [[ ! -d "$LOCAL_DIR/LiveAuthCore" ]]; then
     exit 1
 fi
 
-# Build and publish .NET
-echo "Building API..."
+# Build API image locally
+echo "Building API image..."
 cd $LOCAL_DIR/LiveAuthCore
-dotnet publish -c Release -o /tmp/liveauth-publish
+docker build -t liveauth-api:latest .
 
-# Sync API (only publish folder, NOT root)
-echo "Syncing API..."
-rsync -avz --progress /tmp/liveauth-publish/ $SERVER:/opt/liveauth/
-
-# Restart API
-echo "Restarting API..."
-ssh $SERVER "docker restart liveauth-api"
+# Push image to server
+echo "Pushing image to server..."
+docker save liveauth-api:latest | ssh $SERVER "docker load"
 
 # Build frontend
 echo "Building frontend..."
@@ -34,18 +31,33 @@ cd $LOCAL_DIR/LiveAuthWeb
 npm run build
 
 # Copy demo to browser folder
-cp $LOCAL_DIR/docs/demo.html dist/liveauth-web/browser/demo.html
+mkdir -p dist/liveauth-web/browser
+cp $LOCAL_DIR/docs/demo.html dist/liveauth-web/browser/
 
-# Sync web files (NEVER --delete on root)
+# Sync docker-compose.yml
+echo "Syncing docker-compose.yml..."
+rsync -avz --progress $LOCAL_DIR/docker-compose.yml $SERVER:$REMOTE_DIR/
+
+# Sync Caddyfile
+echo "Syncing Caddyfile..."
+rsync -avz --progress $LOCAL_DIR/Caddyfile $SERVER:$REMOTE_DIR/
+
+# Sync web files to temp location, then move (avoids permission issues)
 echo "Syncing web files..."
-rsync -avz --progress dist/liveauth-web/browser/ $SERVER:/opt/liveauth/LiveAuthWeb/dist/liveauth-web/
+ssh $SERVER "rm -rf $REMOTE_DIR/LiveAuthWeb/dist-new 2>/dev/null || true"
+rsync -avz --progress --delete dist/liveauth-web/browser/ $SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/
+ssh $SERVER "rm -rf $REMOTE_DIR/LiveAuthWeb/dist-old && mv $REMOTE_DIR/LiveAuthWeb/dist $REMOTE_DIR/LiveAuthWeb/dist-old && mv $REMOTE_DIR/LiveAuthWeb/dist-new $REMOTE_DIR/LiveAuthWeb/dist"
 
-# Copy to Caddy container
-echo "Copying to container..."
-ssh $SERVER "docker cp /opt/liveauth/LiveAuthWeb/dist/liveauth-web/. liveauth-caddy:/srv/browser/"
+# Deploy using docker compose on server
+echo "Deploying services..."
+ssh $SERVER "cd $REMOTE_DIR && docker compose down && docker compose up -d"
 
-# Reload Caddy
-echo "Reloading Caddy..."
-ssh $SERVER "docker exec liveauth-caddy caddy reload --config /etc/caddy/Caddyfile"
+# Wait for services to be ready
+echo "Waiting for services..."
+sleep 10
+
+# Verify
+echo "Verifying services..."
+ssh $SERVER "docker ps --format '{{.Names}}: {{.Status}}'"
 
 echo "=== Done! ==="
