@@ -1,133 +1,94 @@
 # LiveAuth Deployment Guide
 
-## Server Structure
+## Quick Deploy (One Command)
 
+From your local machine, in the repo root:
+
+```bash
+cd /users/sydney/.openclaw/workspace/LiveAuth
+./scripts/deploy.sh
 ```
-/opt/liveauth/
-├── LiveAuthWeb/dist/liveauth-web/     # Main app (liveauth.app)
-│   └── browser/                      # Angular build output
-│       ├── index.html                # SPA entry
-│       └── demo.html                 # PoW demo page
-│
-├── LiveAuthAdmin/                    # Admin panel (admin.liveauth.app)
-│   └── browser/                      # Angular build output
-│
-├── docs/                            # Static docs
-│
-└── Caddyfile                        # Web server config
-```
+
+That's it. The script handles:
+1. Building the API image locally
+2. Pushing to server
+3. Building frontend
+4. Syncing files
+5. Restarting services via docker-compose
 
 ## URLs
 
-| Site | URL | Source |
-|------|-----|--------|
-| Main App | https://liveauth.app | `/srv/browser` (from LiveAuthWeb build) |
-| Demo | https://liveauth.app/demo.html | `/srv/browser/demo.html` |
-| Admin | https://admin.liveauth.app | `/srv/liveauth-admin` |
-| API | https://api.liveauth.app | Docker: `liveauth-api:8080` |
-| Docs | https://docs.liveauth.app | `/srv/browser/docs` |
+| Site | URL |
+|------|-----|
+| Main App | https://liveauth.app |
+| Demo | https://liveauth.app/demo |
+| Admin | https://admin.liveauth.app |
+| API | https://api.liveauth.app |
+| Docs | https://docs.liveauth.app |
 
-## Building & Deploying
+## Verify Deployment
 
-### 1. Build Frontend (Local)
 ```bash
-cd LiveAuthWeb
-npm install && npm run build
-# Output: dist/liveauth-web/browser/
+# Check all sites
+curl -s -o /dev/null -w "%{http_code}" https://liveauth.app/
+curl -s -o /dev/null -w "%{http_code}" https://liveauth.app/demo
+curl -s -o /dev/null -w "%{http_code}" https://admin.liveauth.app/
+curl -s -o /dev/null -w "%{http_code}" https://docs.liveauth.app/
+curl -s -o /dev/null -w "%{http_code}" https://api.liveauth.app/api/health
+
+# Check GitHub OAuth
+curl -s https://api.liveauth.app/api/dev/auth/github/status
 ```
 
-### 2. Build Admin (Local)
-```bash
-cd LiveAuthAdmin
-npm install && npm run build
-# Output: LiveAuthAdmin/browser/
-```
+## Manual Deploy (If Script Fails)
 
-### 3. Deploy to Server
-```bash
-# Sync main app
-rsync -avz LiveAuthWeb/dist/liveauth-web/ liveauth@64.225.32.102:/opt/liveauth/LiveAuthWeb/dist/liveauth-web/
-
-# Copy admin build
-scp -r LiveAuthAdmin/browser/* liveauth@64.225.32.102:/opt/liveauth/LiveAuthAdmin/
-
-# Sync docs
-rsync -avz docs/ liveauth@64.225.32.102:/opt/liveauth/docs/
-```
-
-### 4. Update Static Files (Inside Container)
-```bash
-# Copy built files to container mount points
-docker cp LiveAuthWeb/dist/liveauth-web/browser/* liveauth-caddy:/srv/browser/
-docker cp LiveAuthAdmin/browser/* liveauth-caddy:/srv/liveauth-admin/
-docker cp docs/* liveauth-caddy:/srv/browser/docs/
-```
-
-### 5. Reload Caddy
-```bash
-ssh liveauth@64.225.32.102 "docker exec liveauth-caddy caddy reload --config /etc/caddy/Caddyfile"
-```
-
-## Caddyfile Locations
-
-The Caddyfile maps domains to static file directories:
-- `liveauth.app` → `/srv/browser`
-- `admin.liveauth.app` → `/srv/liveauth-admin`  
-- `docs.liveauth.app` → `/srv/browser/docs`
-- `api.liveauth.app` → `liveauth-api:8080` (reverse proxy)
-
-## Common Issues
-
-### 404 on new route
-- Angular SPA: check `try_files {path} /index.html` in Caddyfile
-- Static file: verify file exists in correct directory inside container
-
-### Demo page shows Angular
-- Demo must be at `/srv/browser/demo.html` (not in `/browser/` subfolder)
-
-### Admin 404
-- Verify files at `/srv/liveauth-admin/` inside container
-- Check Caddyfile has correct `root` path
-
-## Quick Deploy Script
+### Option 1: Just Frontend
 
 ```bash
-#!/bin/bash
-# deploy.sh - Run from repo root
-
-SERVER="liveauth@64.225.32.102"
-
-echo "Building..."
+# Build locally
 cd LiveAuthWeb && npm run build
-cd ../LiveAuthAdmin && npm run build
-cd ..
 
-echo "Syncing files..."
-rsync -avz --delete LiveAuthWeb/dist/liveauth-web/ $SERVER:/opt/liveauth/LiveAuthWeb/dist/liveauth-web/
-scp -r LiveAuthAdmin/browser/* $SERVER:/opt/liveauth/LiveAuthAdmin/
-rsync -avz --delete docs/ $SERVER:/opt/liveauth/docs/
+# Sync to server (uses temp dir to avoid permissions)
+rsync -avz --delete dist/liveauth-web/ liveauth@64.225.32.102:/tmp/liveauth-web/
+ssh liveauth@64.225.32.102 "rm -rf /opt/liveauth/LiveAuthWeb/dist-old && mv /opt/liveauth/LiveAuthWeb/dist /opt/liveauth/LiveAuthWeb/dist-old && mv /tmp/liveauth-web /opt/liveauth/LiveAuthWeb/dist"
 
-echo "Updating container..."
-ssh $SERVER "docker cp /opt/liveauth/LiveAuthWeb/dist/liveauth-web/browser/* liveauth-caddy:/srv/browser/ && \
-  docker cp /opt/liveauth/LiveAuthAdmin/browser/* liveauth-caddy:/srv/liveauth-admin/ && \
-  docker exec liveauth-caddy caddy reload --config /etc/caddy/Caddyfile"
-
-echo "Done!"
+# Reload Caddy
+ssh liveauth@64.225.32.102 "docker exec liveauth-caddy caddy reload"
 ```
 
-## ⚠️ Safety Rules
-
-1. **NEVER use `--delete` on `/opt/liveauth` root** — it will wipe everything if path is wrong
-2. **Target specific folders** — always rsync to the specific subfolder, not the parent
-3. **Test with `--dry-run` first** if unsure
-4. **Keep admin site backups** — admin is in separate folder, don't overwrite without rebuilding
-
-## Safer Commands
+### Option 2: Just API
 
 ```bash
-# GOOD - targets specific folder
-rsync -avz dist/ liveauth@server:/opt/liveauth/LiveAuthWeb/dist/liveauth-web/
+# Build and push image
+docker build -t liveauth-api:latest ./LiveAuthCore
+docker save liveauth-api:latest | ssh liveauth@64.225.32.102 "docker load"
 
-# BAD - dangerous!
-rsync -avz --delete LiveAuth/ liveauth@server:/opt/liveauth/
+# Restart container
+ssh liveauth@64.225.32.102 "docker compose -f /opt/liveauth/docker-compose.yml restart liveauth-api"
+```
+
+## Server Info
+
+- **IP:** 64.225.32.102
+- **SSH:** `ssh liveauth@64.225.32.102`
+- **Docker:** Services managed via `/opt/liveauth/docker-compose.yml`
+
+### Check Services
+
+```bash
+ssh liveauth@64.225.32.102 "docker ps"
+```
+
+## Config
+
+All environment variables are in `docker-compose.yml`:
+- GitHub OAuth credentials
+- LND settings
+- JWT signing key
+- Demo project ID
+
+After editing `docker-compose.yml`, redeploy with `./scripts/deploy.sh` or:
+
+```bash
+ssh liveauth@64.225.32.102 "cd /opt/liveauth && docker compose up -d"
 ```
