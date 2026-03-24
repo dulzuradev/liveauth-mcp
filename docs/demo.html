@@ -517,17 +517,24 @@
       if (!currentLnSession) return;
       
       const result = document.getElementById('ln-result');
-      const paymentHash = currentLnSession.paymentHash || currentLnSession.hash;
+      const sessionId = currentLnSession.sessionId;
       
       result.innerHTML = `<strong>⏳ Checking payment...</strong>`;
       
       try {
+        // Use demo confirm endpoint for demo sessions
         const checkRes = await fetch(
-          `${API_URL}/api/public/l402/validate?paymentHash=${paymentHash}`, 
-          { method: 'POST' }
+          `${API_URL}/api/public/demo/confirm`, 
+          { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId })
+          }
         );
         
-        if (checkRes.ok) {
+        const data = await checkRes.json();
+        
+        if (data.verified) {
           document.getElementById('ln-status').textContent = '✅ paid';
           result.innerHTML = `
             <strong>✅ Payment Verified!</strong>
