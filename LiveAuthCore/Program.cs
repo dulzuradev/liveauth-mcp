@@ -65,9 +65,17 @@ Console.WriteLine($"[CONFIG] JWT Issuer: {builder.Configuration["Jwt:Issuer"] ??
 // --------------------------------------------------
 // DbContext (SQLite)
 // --------------------------------------------------
-var sqliteConn = builder.Configuration.GetConnectionString("LiveAuth") 
-    ?? builder.Configuration.GetConnectionString("Default") 
-    ?? "Data Source=liveauth.db";
+var liveAuthConn = builder.Configuration.GetConnectionString("LiveAuth");
+var defaultConn = builder.Configuration.GetConnectionString("Default");
+var sqliteConn = liveAuthConn ?? defaultConn ?? "Data Source=liveauth.db";
+
+// Validate connection string is SQLite-compatible
+if (sqliteConn.Contains("host=") || sqliteConn.Contains("Host="))
+{
+    throw new InvalidOperationException($"Invalid SQLite connection string. Found PostgreSQL format. Use 'Data Source=filename.db' instead of 'Host=...'. Connection string: {sqliteConn}");
+}
+
+Console.WriteLine($"[CONFIG] Database: {sqliteConn}");
 
 builder.Services.AddDbContextFactory<LiveAuthDbContext>(
     opts => opts.UseSqlite(sqliteConn),
