@@ -287,14 +287,14 @@
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            'X-LW-Public': 'demo_pk_test'
+            'X-LW-Public': 'la_pk_demo'
           },
           body: JSON.stringify({
             agentId: identifier,
-            publicKey: 'demo_sk_test'
+            publicKey: 'la_pk_demo'
           })
         });
-        
+
         if (!startRes.ok) {
           // Fallback: use simple client-side demo
           result.innerHTML = `<strong>⚠️ Using client-side demo</strong>`;
@@ -336,7 +336,7 @@
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            'X-LW-Public': 'demo_pk_test'
+            'X-LW-Public': 'la_pk_demo'
           },
           body: JSON.stringify({
             sessionId: session.sessionId,

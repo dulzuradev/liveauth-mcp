@@ -35,6 +35,7 @@ import {
   DevConfirmLoginResponse
 } from '../../../services/dev-auth.service';
 import { Tab, TabList, TabPanel, TabPanels, Tabs } from 'primeng/tabs';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import {LocalTimePipe} from '../../../directives/local-time.pipe';
 
 
@@ -75,6 +76,7 @@ export interface ProjectSettingsForm {
     TabList,
     Tab,
     TabPanel,
+    ToggleSwitchModule,
     LocalTimePipe
   ],
   templateUrl: './developer-projects-redesign.html',

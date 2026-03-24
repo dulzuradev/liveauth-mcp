@@ -9,21 +9,23 @@ liveauth.app {
 }
 
 api.liveauth.app {
-    @preflight method OPTIONS
-    handle @preflight {
-        header Access-Control-Allow-Origin "*"
-        header Access-Control-Allow-Methods "GET, POST, OPTIONS, PATCH"
-        header Access-Control-Allow-Headers "Content-Type, Authorization, X-LW-Public, X-LW-Sdk-Version, X-LW-Secret"
-        header Access-Control-Max-Age "86400"
-        respond 204
+    @options method OPTIONS
+    handle @options {
+        header {
+            Access-Control-Allow-Origin "*"
+            Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, PATCH, DELETE"
+            Access-Control-Allow-Headers "content-type, authorization, x-lw-public, x-lw-secret, x-lw-api-key, x-lw-sdk-version"
+            Access-Control-Max-Age "86400"
+        }
+        respond "" 204
     }
-    
-    header Access-Control-Allow-Origin "*"
-    reverse_proxy liveauth-api:8080
+    reverse_proxy liveauth-api:8080 {
+        header_down Access-Control-Allow-Origin "{header.origin}"
+    }
 }
 
 admin.liveauth.app {
-    root * /srv/browser/liveauth-admin/browser
+    root * /srv/liveauth-admin
     try_files {path} /index.html
     file_server
 }

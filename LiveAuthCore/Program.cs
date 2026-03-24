@@ -345,9 +345,9 @@ using (var scope = app.Services.CreateScope())
                 CreatedAt TEXT NOT NULL
             );
             
-            // Add IsDeleted column to Projects if it doesn't exist
-            ALTER TABLE Projects ADD COLUMN IsDeleted INTEGER NOT NULL DEFAULT 0;
-            ALTER TABLE Projects ADD COLUMN DeletedAt TEXT;
+            -- Add IsDeleted column to Projects if it doesn't exist (SQLite compatible)
+            -- ALTER TABLE Projects ADD COLUMN IsDeleted INTEGER DEFAULT 0;
+            -- ALTER TABLE Projects ADD COLUMN DeletedAt TEXT;
         ";
         cmd.ExecuteNonQuery();
     }
