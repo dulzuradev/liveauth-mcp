@@ -67,7 +67,8 @@ Console.WriteLine($"[CONFIG] JWT Issuer: {builder.Configuration["Jwt:Issuer"] ??
 // --------------------------------------------------
 var pg = builder.Configuration.GetConnectionString("LiveAuth");
 var sqlite = builder.Configuration.GetConnectionString("Default");
-var provider = (builder.Configuration["DB_PROVIDER"] ?? (pg != null ? "postgres" : "sqlite")).ToLowerInvariant();
+var dbProvider = builder.Configuration["DB_PROVIDER"]?.ToLowerInvariant();
+var provider = (dbProvider ?? (pg != null && !pg.Contains("Data Source") ? "postgres" : "sqlite")).ToLowerInvariant();
 
 if (provider == "postgres")
 {
