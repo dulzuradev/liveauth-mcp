@@ -19,26 +19,28 @@ using AspNet.Security.OAuth.GitHub;
 var builder = WebApplication.CreateBuilder(args);
 
 // Validate required configs
-var requiredConfigs = new (string Name, string? Value)[]
+var requiredConfigs = new (string Name, string? Value, bool Required)[]
 {
-    ("DB_PROVIDER", builder.Configuration["DB_PROVIDER"]),
-    ("ConnectionStrings:Default", builder.Configuration["ConnectionStrings:Default"]),
-    ("LiveAuth:PowHmacSecret", builder.Configuration["LiveAuth:PowHmacSecret"]),
-    ("LiveAuth:DemoProjectId", builder.Configuration["LiveAuth:DemoProjectId"]),
-    ("Jwt:SigningKey", builder.Configuration["Jwt:SigningKey"] ?? builder.Configuration["Jwt:Key"]),
+    ("DB_PROVIDER", builder.Configuration["DB_PROVIDER"], false), // Optional - defaults to sqlite
+    ("ConnectionStrings:LiveAuth", builder.Configuration["ConnectionStrings:LiveAuth"], false), // Optional if DB_PROVIDER set
+    ("LiveAuth:PowHmacSecret", builder.Configuration["LiveAuth:PowHmacSecret"], false), // Optional for dev
+    ("LiveAuth:DemoProjectId", builder.Configuration["LiveAuth:DemoProjectId"], false), // Optional for dev
+    ("Jwt:SigningKey", builder.Configuration["Jwt:SigningKey"] ?? builder.Configuration["Jwt:Key"], true),
 };
 
-var missingConfigs = requiredConfigs.Where(c => string.IsNullOrWhiteSpace(c.Value)).Select(c => c.Name).ToList();
+var missingRequired = requiredConfigs.Where(c => c.Required && string.IsNullOrWhiteSpace(c.Value)).Select(c => c.Name).ToList();
 
-if (missingConfigs.Any())
+if (missingRequired.Any())
 {
-    var error = $"[FATAL] Missing required configuration: {string.Join(", ", missingConfigs)}. Set via environment variables.";
+    var error = $"[FATAL] Missing required configuration: {string.Join(", ", missingRequired)}. Set via environment variables.";
     Console.Error.WriteLine(error);
-    // Fail fast in dev, or if critical configs missing
-    if (builder.Environment.IsDevelopment() || missingConfigs.Any(c => c is "LiveAuth:DemoProjectId" or "LiveAuth:PowHmacSecret"))
-    {
-        throw new InvalidOperationException(error);
-    }
+    throw new InvalidOperationException(error);
+}
+
+var missingOptional = requiredConfigs.Where(c => !c.Required && string.IsNullOrWhiteSpace(c.Value)).Select(c => c.Name).ToList();
+if (missingOptional.Any())
+{
+    Console.WriteLine($"[INFO] Using defaults for: {string.Join(", ", missingOptional)}");
 }
 
 // Validate Lightning config
