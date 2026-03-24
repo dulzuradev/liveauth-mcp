@@ -8,7 +8,7 @@ using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
+
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using AspNet.Security.OAuth.GitHub;
@@ -57,39 +57,23 @@ if (!lndUseMock)
     }
 }
 
-Console.WriteLine($"[CONFIG] DB Provider: {builder.Configuration["DB_PROVIDER"] ?? "sqlite"}");
+Console.WriteLine($"[CONFIG] Database: SQLite");
 Console.WriteLine($"[CONFIG] Demo Project ID: {builder.Configuration["LiveAuth:DemoProjectId"] ?? "(not set)"}");
 Console.WriteLine($"[CONFIG] LND UseMock: {lndUseMock}");
 Console.WriteLine($"[CONFIG] JWT Issuer: {builder.Configuration["Jwt:Issuer"] ?? "(not set, using default)"}");
 
 // --------------------------------------------------
-// DbContext (PostgreSQL or SQLite via env)
+// DbContext (SQLite)
 // --------------------------------------------------
-var pg = builder.Configuration.GetConnectionString("LiveAuth");
-var sqlite = builder.Configuration.GetConnectionString("Default");
-var dbProvider = builder.Configuration["DB_PROVIDER"]?.ToLowerInvariant();
-var provider = (dbProvider ?? (pg != null && !pg.Contains("Data Source") ? "postgres" : "sqlite")).ToLowerInvariant();
+var sqliteConn = builder.Configuration.GetConnectionString("LiveAuth") 
+    ?? builder.Configuration.GetConnectionString("Default") 
+    ?? "Data Source=liveauth.db";
 
-if (provider == "postgres")
-{
-    if (string.IsNullOrWhiteSpace(pg))
-        throw new InvalidOperationException("Missing LiveAuth (Postgres) connection string");
-
-    builder.Services.AddDbContextFactory<LiveAuthDbContext>(
-        opts => opts.UseNpgsql(pg),
-        ServiceLifetime.Scoped);
-    builder.Services.AddDbContext<LiveAuthDbContext>(
-        opts => opts.UseNpgsql(pg));
-}
-else
-{
-    var sqliteConn = !string.IsNullOrWhiteSpace(sqlite) ? sqlite : "Data Source=liveauth.db";
-    builder.Services.AddDbContextFactory<LiveAuthDbContext>(
-        opts => opts.UseSqlite(sqliteConn),
-        ServiceLifetime.Scoped);
-    builder.Services.AddDbContext<LiveAuthDbContext>(
-        opts => opts.UseSqlite(sqliteConn));
-}
+builder.Services.AddDbContextFactory<LiveAuthDbContext>(
+    opts => opts.UseSqlite(sqliteConn),
+    ServiceLifetime.Scoped);
+builder.Services.AddDbContext<LiveAuthDbContext>(
+    opts => opts.UseSqlite(sqliteConn));
 
 // --------------------------------------------------
 // Core services
