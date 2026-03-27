@@ -1,6 +1,7 @@
 using System.Text.Json;
 using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Data.Entities.Mcp;
+using LiveAuthCore.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -15,6 +16,7 @@ public class LiveAuthDbContext : DbContext
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<VerificationSession> VerificationSessions => Set<VerificationSession>();
     public DbSet<UsageEvent> UsageEvents => Set<UsageEvent>();
+    public DbSet<RevokedToken> RevokedTokens => Set<RevokedToken>();
     public DbSet<DeveloperLoginSession> DeveloperLoginSessions => Set<DeveloperLoginSession>();
     public DbSet<DevLoginSession> DevLoginSessions { get; set; } = default!;
 

@@ -1,4 +1,6 @@
 ﻿using LiveAuthCore.Entities;
+using LiveAuthCore.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace LiveAuthCore.Middleware
 {
@@ -11,10 +13,10 @@ namespace LiveAuthCore.Middleware
             _next = next;
         }
 
-        public async Task InvokeAsync(HttpContext context, AppDbContext dbContext)
+        public async Task InvokeAsync(HttpContext context, LiveAuthDbContext db)
         {
             var token = context.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            if (!string.IsNullOrEmpty(token) && dbContext.RevokedTokens.Any(t => t.Token == token))
+            if (!string.IsNullOrEmpty(token) && db.RevokedTokens.Any(t => t.Token == token))
             {
                 context.Response.StatusCode = 401;
                 await context.Response.WriteAsync("Token has been revoked.");
