@@ -12,7 +12,6 @@ public class DevStartLoginResponse
     public string Invoice { get; set; } = string.Empty;
     public long AmountSats { get; set; }
     public long ExpiresAtUnix { get; set; }
-    public string? DebugToken { get; set; }
 }
 
 public class DevConfirmLoginRequest

@@ -14,8 +14,9 @@ namespace LiveAuthCore.Middleware;
 public class L402Middleware
 {
     private readonly RequestDelegate _next;
+    private readonly L402Service _l402;
+    private readonly LightningService _lightning;
     private readonly ILogger<L402Middleware> _logger;
-    private readonly IServiceScopeFactory _scopeFactory;
     
     // Paths that require L402 payment
     private static readonly string[] GatedPaths = new[]
@@ -36,11 +37,13 @@ public class L402Middleware
 
     public L402Middleware(
         RequestDelegate next,
-        IServiceScopeFactory scopeFactory,
+        L402Service l402,
+        LightningService lightning,
         ILogger<L402Middleware> logger)
     {
         _next = next;
-        _scopeFactory = scopeFactory;
+        _l402 = l402;
+        _lightning = lightning;
         _logger = logger;
     }
 
@@ -90,18 +93,15 @@ public class L402Middleware
         // Validate token based on scheme
         bool isValid;
         
-        using var scope = _scopeFactory.CreateScope();
-        var l402 = scope.ServiceProvider.GetRequiredService<L402Service>();
-        
         if (scheme == "x402")
         {
             // x402: token is the preimage - validate and convert to L402
-            isValid = await ValidateX402TokenAsync(l402, token);
+            isValid = await ValidateX402TokenAsync(token);
         }
         else
         {
             // L402: native validation
-            isValid = l402.IsTokenValid(token);
+            isValid = _l402.IsTokenValid(token);
         }
         
         if (!isValid)
@@ -176,7 +176,7 @@ public class L402Middleware
     /// <summary>
     /// Validate x402 token (preimage) and issue L402 token if valid.
     /// </summary>
-    private async Task<bool> ValidateX402TokenAsync(L402Service l402, string preimage)
+    private async Task<bool> ValidateX402TokenAsync(string preimage)
     {
         try
         {
@@ -206,7 +206,7 @@ public class L402Middleware
             _logger.LogInformation("x402 token validated for payment hash {Hash}", paymentHash);
             
             // Issue L402 token for the x402 preimage
-            var token = await l402.IssueTokenAsync(paymentHash);
+            var token = await _l402.IssueTokenAsync(paymentHash);
             
             return !string.IsNullOrEmpty(token);
         }

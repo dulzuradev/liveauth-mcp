@@ -67,10 +67,7 @@ export class DevAuthService {
 
   // GET /api/dev/auth/github/start - redirects to GitHub
   startGitHubLogin(): void {
-    // Pass debug=true to force skip-GitHub flow on the API side
-    // Also pass returnUrl so we land on the right page after login
-    const returnUrl = encodeURIComponent(window.location.origin + '/dev/projects');
-    window.location.href = `${this.baseUrl}/api/dev/auth/github/start?debug=true&returnUrl=${returnUrl}`;
+    window.location.href = `${this.baseUrl}/api/dev/auth/github/start`;
   }
 
   saveToken(token: string) {

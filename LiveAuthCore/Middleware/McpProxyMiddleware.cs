@@ -17,17 +17,20 @@ namespace LiveAuthCore.Middleware;
 public class McpProxyMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly LiveAuthDbContext _db;
+    private readonly L402Service _l402;
     private readonly ILogger<McpProxyMiddleware> _logger;
-    private readonly IServiceScopeFactory _scopeFactory;
     private static readonly HttpClient _httpClient = new();
 
     public McpProxyMiddleware(
         RequestDelegate next,
-        IServiceScopeFactory scopeFactory,
+        LiveAuthDbContext db,
+        L402Service l402,
         ILogger<McpProxyMiddleware> logger)
     {
         _next = next;
-        _scopeFactory = scopeFactory;
+        _db = db;
+        _l402 = l402;
         _logger = logger;
     }
 
@@ -84,7 +87,7 @@ public class McpProxyMiddleware
         }
 
         // Validate the L402 token
-        var tokenHash = await ValidateTokenAsync(l402Token);
+        var tokenHash = await _l402.ValidateTokenAsync(l402Token ?? "");
         if (string.IsNullOrEmpty(tokenHash))
         {
             // Token invalid or expired - require payment
@@ -98,21 +101,18 @@ public class McpProxyMiddleware
 
     private async Task<McpProxy?> FindProxyAsync(string pathOrId)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
-        
         // Try custom path first
-        var proxy = await db.McpProxies
+        var proxy = await _db.McpProxies
             .FirstOrDefaultAsync(p => p.CustomPath == pathOrId && p.IsActive);
         
         if (proxy != null)
             return proxy;
 
         // Try by ID prefix
-        if (pathOrId.Length >= 8 && Guid.TryParseExact(pathOrId[..8], "N", out _))
+        if (Guid.TryParseExact(pathOrId[..Math.Min(8, pathOrId.Length)], "N", out _))
         {
             // Search by ID prefix
-            var allProxies = await db.McpProxies
+            var allProxies = await _db.McpProxies
                 .Where(p => p.IsActive)
                 .ToListAsync();
             
@@ -123,27 +123,16 @@ public class McpProxyMiddleware
         return null;
     }
 
-    private async Task<string?> ValidateTokenAsync(string token)
-    {
-        using var scope = _scopeFactory.CreateScope();
-        var l402 = scope.ServiceProvider.GetRequiredService<L402Service>();
-        return await l402.ValidateTokenAsync(token);
-    }
-
     private async Task RequirePayment(HttpContext context, McpProxy proxy)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var l402 = scope.ServiceProvider.GetRequiredService<L402Service>();
-        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
-        
         // Generate invoice
-        var invoice = await l402.CreateInvoiceAsync(
+        var invoice = await _l402.CreateInvoiceAsync(
             $"MCP proxy: {proxy.Name}",
             proxy.SatsPerRequest);
 
         // Update stats (we'll track attempted requests)
         proxy.TotalRequests++;
-        await db.SaveChangesAsync();
+        await _db.SaveChangesAsync();
 
         // Return 402 Payment Required with invoice
         context.Response.StatusCode = 402;
@@ -163,9 +152,6 @@ public class McpProxyMiddleware
 
     private async Task ForwardRequest(HttpContext context, McpProxy proxy)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
-        
         var upstreamUrl = proxy.UpstreamUrl;
         var path = context.Request.Path.Value?.Replace("/mcp/", "", StringComparison.OrdinalIgnoreCase) ?? "";
         
@@ -229,7 +215,7 @@ public class McpProxyMiddleware
             // Update stats on successful request
             proxy.TotalRequests++;
             proxy.TotalSatsEarned += proxy.SatsPerRequest;
-            await db.SaveChangesAsync();
+            await _db.SaveChangesAsync();
 
             await response.Content.CopyToAsync(context.Response.Body);
             

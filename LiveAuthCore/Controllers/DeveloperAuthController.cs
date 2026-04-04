@@ -48,26 +48,6 @@ public class DevAuthController : ControllerBase
             return BadRequest("Developer email is required.");
 
         // ─────────────────────────────────────────────
-        // DEBUG MODE: Skip Lightning invoice, use demo account
-        // Only works in Development environment with #debug in email
-        // ─────────────────────────────────────────────
-        if (email.Contains("#debug", StringComparison.OrdinalIgnoreCase) 
-            && Request.Host.Host.Contains("localhost", StringComparison.OrdinalIgnoreCase))
-        {
-            var demoDev = await GetOrCreateDemoDeveloperAsync(ct);
-            var token = _ln.GenerateJwtToken(demoDev.Id.ToString(), "Developer");
-            
-            return Ok(new DevStartLoginResponse
-            {
-                SessionId = Guid.Empty,
-                Invoice = "DEBUG_MODE",
-                AmountSats = 0,
-                ExpiresAtUnix = DateTimeOffset.UtcNow.AddYears(1).ToUnixTimeSeconds(),
-                DebugToken = token
-            });
-        }
-
-        // ─────────────────────────────────────────────
         // Amount sats & expiry from config (defaults if missing)
         // ─────────────────────────────────────────────
         var amountSats =
@@ -115,28 +95,6 @@ public class DevAuthController : ControllerBase
             AmountSats    = amountSats,
             ExpiresAtUnix = new DateTimeOffset(session.ExpiresAt).ToUnixTimeSeconds()
         });
-    }
-
-    private async Task<Developer> GetOrCreateDemoDeveloperAsync(CancellationToken ct)
-    {
-        var demoEmail = "demo@liveauth.app";
-        
-        var dev = await _db.Developers
-            .FirstOrDefaultAsync(d => d.Email == demoEmail, ct);
-
-        if (dev == null)
-        {
-            dev = new Developer
-            {
-                Email = demoEmail,
-                GitHubUsername = "demo",
-                IsAdmin = true
-            };
-            _db.Developers.Add(dev);
-            await _db.SaveChangesAsync(ct);
-        }
-
-        return dev;
     }
 
 
@@ -330,10 +288,7 @@ public class DevAuthController : ControllerBase
     public ActionResult<GitHubLoginStatusResponse> GetGitHubStatus()
     {
         var clientId = _config["GitHub:ClientId"];
-        
-        // DEBUG MODE: Report GitHub as enabled on localhost so login button appears
-        var isDebug = Request.Host.Host.Contains("localhost", StringComparison.OrdinalIgnoreCase);
-        var enabled = isDebug || !string.IsNullOrWhiteSpace(clientId);
+        var enabled = !string.IsNullOrWhiteSpace(clientId);
 
         return Ok(new GitHubLoginStatusResponse
         {
@@ -487,27 +442,9 @@ public class DevAuthController : ControllerBase
     /// Redirect to GitHub for OAuth
     /// </summary>
     [HttpGet("github/start")]
-    public async Task<IActionResult> StartGitHubLogin(
-        [FromQuery] string? returnUrl = null,
-        [FromQuery] bool debug = false,
-        CancellationToken ct = default)
+    public IActionResult StartGitHubLogin([FromQuery] string? returnUrl)
     {
         var clientId = _config["GitHub:ClientId"];
-        
-        // ─────────────────────────────────────────────
-        // DEBUG MODE: Skip GitHub OAuth, return demo token
-        // Triggered by: debug=true query param OR running locally on localhost
-        // ─────────────────────────────────────────────
-        if (debug || Request.Host.Host.Contains("localhost", StringComparison.OrdinalIgnoreCase))
-        {
-            var demoDev = await GetOrCreateDemoDeveloperAsync(ct);
-            var token = _ln.GenerateJwtToken(demoDev.Id.ToString(), "Developer");
-            
-            // Redirect back to the developer portal with token
-            var redirectUrl = returnUrl ?? "https://liveauth.app/dev/projects";
-            return Redirect($"{redirectUrl}?token={token}");
-        }
-
         if (string.IsNullOrWhiteSpace(clientId))
         {
             return BadRequest("GitHub OAuth not configured.");

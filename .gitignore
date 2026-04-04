@@ -2,23 +2,6 @@
 nuget/
 bin/
 obj/
-
 # SSH Private Keys
 LiveAuthCore/Services/liveAuth_key
 LiveAuthCore/Services/liveAuth_key.pub
-
-# Local backup sync artifacts (NOT production backups — those live on the server at /opt/liveauth/backups/)
-backups/
-backups_old/
-*.db
-*.db.gz
-*.db-shm
-*.db-wal
-
-# Local dev SQLite
-liveauth.db
-
-# IDE / OS
-.DS_Store
-.vscode/
-.idea/

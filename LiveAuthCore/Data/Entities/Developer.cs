@@ -10,6 +10,5 @@ public class Developer
     public string? LightningAuthKey { get; set; }
     public string? GitHubId { get; set; }      // GitHub OAuth user ID
     public string? GitHubUsername { get; set; }  // GitHub username
-    public bool IsAdmin { get; set; } = false;
     public List<Project> Projects { get; set; } = new();
 }

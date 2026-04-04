@@ -298,7 +298,7 @@ console.log('onTimeRangeChange', range);
       next: (res) => {
         this.githubEnabled = res.enabled;
       },
-      error: (error: any) => {
+      error: () => {
         this.githubEnabled = false;
       }
     });
@@ -727,7 +727,7 @@ console.log('onTimeRangeChange', range);
     this.error = undefined;
 
     // Only include macaroon if it was changed (not masked)
-    const includeMacaroon = this.projectForm.lndMacaroon &&
+    const includeMacaroon = this.projectForm.lndMacaroon && 
                            !this.projectForm.lndMacaroon.startsWith('••');
 
     const payload: any = {
@@ -802,7 +802,7 @@ console.log('onTimeRangeChange', range);
 
   testLndConnection(): void {
     if (!this.selectedProject || !this.projectForm.lndBaseUrl) return;
-
+    
     this.testingLnd = true;
     this.lndTestResult = null;
     this.error = undefined;
@@ -1002,7 +1002,7 @@ console.log('onTimeRangeChange', range);
         this.loading = false;
         const errorMsg = this.extractErrorMessage(err) || 'Failed to update project environment.';
         this.error = errorMsg;
-
+        
         // 🐛 FIX: Surface error to user immediately
         alert(errorMsg);
       }

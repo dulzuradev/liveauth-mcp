@@ -21,9 +21,9 @@ public class PublicKeyAuthMiddleware
     public async Task InvokeAsync(
         HttpContext context,
         ApiKeyService apiKeyService,
-        BillingService billingService)
+        BillingService billingService,
+        LiveAuthDbContext db)
     {
-        var db = context.RequestServices.GetRequiredService<LiveAuthDbContext>();
         // Skip entirely in test environment
         var env = context.RequestServices.GetService<IWebHostEnvironment>();
         if (env?.IsEnvironment("Testing") == true)
