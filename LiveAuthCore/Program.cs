@@ -99,7 +99,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular", policy =>
     {
-        policy.WithOrigins("https://liveauth.app", "https://admin.liveauth.app")
+        policy.WithOrigins("https://liveauth.app", "https://admin.liveauth.app", "http://localhost:4200")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

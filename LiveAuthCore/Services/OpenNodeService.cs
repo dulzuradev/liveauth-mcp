@@ -1,4 +1,4 @@
-﻿namespace LiveAuthCore.Services
+namespace LiveAuthCore.Services
 {
     using System.Net.Http;
     using System.Net.Http.Headers;
@@ -9,14 +9,15 @@
         private readonly HttpClient _httpClient;
         public OpenNodeService(IConfiguration configuration)
         {
+            var baseUrl = configuration["OpenNode:BaseUrl"] ?? throw new InvalidOperationException("OpenNode:BaseUrl not configured");
             _httpClient = new HttpClient
             {
-                BaseAddress = new Uri(configuration["OpenNode:BaseUrl"])
+                BaseAddress = new Uri(baseUrl)
             };
             _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", configuration["OpenNode:ApiKey"]);
         }
-        public async Task<string> CreateChargeAsync(decimal amount, string currency, string callbackUrl)
+        public async Task<string?> CreateChargeAsync(decimal amount, string currency, string callbackUrl)
         {
             var payload = new
             {
