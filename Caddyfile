@@ -1,3 +1,11 @@
+# IMPORTANT: Mount layout for docker-compose volumes
+# Mount: ./LiveAuthWeb/dist → /srv (flat, no subdirs)
+# Expected structure:
+#   /srv/index.html           → liveauth.app
+#   /srv/docs/*              → docs.liveauth.app
+#   /srv/liveauth-admin/*    → admin.liveauth.app
+# DO NOT use /srv/browser/* — that's the old structure
+
 {
   email admin@liveauth.app
 }

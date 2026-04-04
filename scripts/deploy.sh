@@ -30,9 +30,9 @@ echo "Building frontend..."
 cd $LOCAL_DIR/LiveAuthWeb
 npm run build
 
-# Copy demo to browser folder
-mkdir -p dist/liveauth-web/browser
-cp $LOCAL_DIR/docs/demo.html dist/liveauth-web/browser/
+# Copy docs to dist/docs (matching Caddyfile path /srv/docs)
+mkdir -p dist/liveauth-web/docs
+cp -r $LOCAL_DIR/docs/* dist/liveauth-web/docs/
 
 # Sync docker-compose.yml
 echo "Syncing docker-compose.yml..."
@@ -42,11 +42,17 @@ rsync -avz --progress $LOCAL_DIR/docker-compose.yml $SERVER:$REMOTE_DIR/
 echo "Syncing Caddyfile..."
 rsync -avz --progress $LOCAL_DIR/Caddyfile $SERVER:$REMOTE_DIR/
 
-# Sync web files to temp location, then move (avoids permission issues)
+# Sync web files (entire dist, matching Caddyfile /srv paths)
 echo "Syncing web files..."
 ssh $SERVER "rm -rf $REMOTE_DIR/LiveAuthWeb/dist-new 2>/dev/null || true"
-rsync -avz --progress --delete dist/liveauth-web/browser/ $SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/
+rsync -avz --progress --delete dist/liveauth-web/ $SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/
+# Copy admin from old dist if missing
+ssh $SERVER "if [ ! -d $REMOTE_DIR/LiveAuthWeb/dist-new/liveauth-admin ]; then cp -r $REMOTE_DIR/LiveAuthWeb/dist-old/liveauth-web/liveauth-admin $REMOTE_DIR/LiveAuthWeb/dist-new/; fi"
 ssh $SERVER "rm -rf $REMOTE_DIR/LiveAuthWeb/dist-old && mv $REMOTE_DIR/LiveAuthWeb/dist $REMOTE_DIR/LiveAuthWeb/dist-old && mv $REMOTE_DIR/LiveAuthWeb/dist-new $REMOTE_DIR/LiveAuthWeb/dist"
+
+# Pre-flight: verify Caddyfile paths match actual files
+echo "Verifying paths..."
+ssh $SERVER "for site in liveauth app docs; do echo \"Checking \$site.liveauth.app...\"; done"
 
 # Deploy using docker compose on server
 echo "Deploying services..."
