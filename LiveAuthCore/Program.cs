@@ -8,7 +8,7 @@ using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
+
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using AspNet.Security.OAuth.GitHub;
@@ -19,26 +19,28 @@ using AspNet.Security.OAuth.GitHub;
 var builder = WebApplication.CreateBuilder(args);
 
 // Validate required configs
-var requiredConfigs = new (string Name, string? Value)[]
+var requiredConfigs = new (string Name, string? Value, bool Required)[]
 {
-    ("DB_PROVIDER", builder.Configuration["DB_PROVIDER"]),
-    ("ConnectionStrings:Default", builder.Configuration["ConnectionStrings:Default"]),
-    ("LiveAuth:PowHmacSecret", builder.Configuration["LiveAuth:PowHmacSecret"]),
-    ("LiveAuth:DemoProjectId", builder.Configuration["LiveAuth:DemoProjectId"]),
-    ("Jwt:SigningKey", builder.Configuration["Jwt:SigningKey"] ?? builder.Configuration["Jwt:Key"]),
+    ("DB_PROVIDER", builder.Configuration["DB_PROVIDER"], false), // Optional - defaults to sqlite
+    ("ConnectionStrings:LiveAuth", builder.Configuration["ConnectionStrings:LiveAuth"], false), // Optional if DB_PROVIDER set
+    ("LiveAuth:PowHmacSecret", builder.Configuration["LiveAuth:PowHmacSecret"], false), // Optional for dev
+    ("LiveAuth:DemoProjectId", builder.Configuration["LiveAuth:DemoProjectId"], false), // Optional for dev
+    ("Jwt:SigningKey", builder.Configuration["Jwt:SigningKey"] ?? builder.Configuration["Jwt:Key"], true),
 };
 
-var missingConfigs = requiredConfigs.Where(c => string.IsNullOrWhiteSpace(c.Value)).Select(c => c.Name).ToList();
+var missingRequired = requiredConfigs.Where(c => c.Required && string.IsNullOrWhiteSpace(c.Value)).Select(c => c.Name).ToList();
 
-if (missingConfigs.Any())
+if (missingRequired.Any())
 {
-    var error = $"[FATAL] Missing required configuration: {string.Join(", ", missingConfigs)}. Set via environment variables.";
+    var error = $"[FATAL] Missing required configuration: {string.Join(", ", missingRequired)}. Set via environment variables.";
     Console.Error.WriteLine(error);
-    // Fail fast in dev, or if critical configs missing
-    if (builder.Environment.IsDevelopment() || missingConfigs.Any(c => c is "LiveAuth:DemoProjectId" or "LiveAuth:PowHmacSecret"))
-    {
-        throw new InvalidOperationException(error);
-    }
+    throw new InvalidOperationException(error);
+}
+
+var missingOptional = requiredConfigs.Where(c => !c.Required && string.IsNullOrWhiteSpace(c.Value)).Select(c => c.Name).ToList();
+if (missingOptional.Any())
+{
+    Console.WriteLine($"[INFO] Using defaults for: {string.Join(", ", missingOptional)}");
 }
 
 // Validate Lightning config
@@ -55,38 +57,31 @@ if (!lndUseMock)
     }
 }
 
-Console.WriteLine($"[CONFIG] DB Provider: {builder.Configuration["DB_PROVIDER"] ?? "sqlite"}");
+Console.WriteLine($"[CONFIG] Database: SQLite");
 Console.WriteLine($"[CONFIG] Demo Project ID: {builder.Configuration["LiveAuth:DemoProjectId"] ?? "(not set)"}");
 Console.WriteLine($"[CONFIG] LND UseMock: {lndUseMock}");
 Console.WriteLine($"[CONFIG] JWT Issuer: {builder.Configuration["Jwt:Issuer"] ?? "(not set, using default)"}");
 
 // --------------------------------------------------
-// DbContext (PostgreSQL or SQLite via env)
+// DbContext (SQLite)
 // --------------------------------------------------
-var pg = builder.Configuration.GetConnectionString("LiveAuth");
-var sqlite = builder.Configuration.GetConnectionString("Default");
-var provider = (builder.Configuration["DB_PROVIDER"] ?? (pg != null ? "postgres" : "sqlite")).ToLowerInvariant();
+var liveAuthConn = builder.Configuration.GetConnectionString("LiveAuth");
+var defaultConn = builder.Configuration.GetConnectionString("Default");
+var sqliteConn = liveAuthConn ?? defaultConn ?? "Data Source=liveauth.db";
 
-if (provider == "postgres")
+// Validate connection string is SQLite-compatible
+if (sqliteConn.Contains("host=") || sqliteConn.Contains("Host="))
 {
-    if (string.IsNullOrWhiteSpace(pg))
-        throw new InvalidOperationException("Missing LiveAuth (Postgres) connection string");
+    throw new InvalidOperationException($"Invalid SQLite connection string. Found PostgreSQL format. Use 'Data Source=filename.db' instead of 'Host=...'. Connection string: {sqliteConn}");
+}
 
-    builder.Services.AddDbContextFactory<LiveAuthDbContext>(
-        opts => opts.UseNpgsql(pg),
-        ServiceLifetime.Scoped);
-    builder.Services.AddDbContext<LiveAuthDbContext>(
-        opts => opts.UseNpgsql(pg));
-}
-else
-{
-    var sqliteConn = !string.IsNullOrWhiteSpace(sqlite) ? sqlite : "Data Source=liveauth.db";
-    builder.Services.AddDbContextFactory<LiveAuthDbContext>(
-        opts => opts.UseSqlite(sqliteConn),
-        ServiceLifetime.Scoped);
-    builder.Services.AddDbContext<LiveAuthDbContext>(
-        opts => opts.UseSqlite(sqliteConn));
-}
+Console.WriteLine($"[CONFIG] Database: {sqliteConn}");
+
+builder.Services.AddDbContextFactory<LiveAuthDbContext>(
+    opts => opts.UseSqlite(sqliteConn),
+    ServiceLifetime.Scoped);
+builder.Services.AddDbContext<LiveAuthDbContext>(
+    opts => opts.UseSqlite(sqliteConn));
 
 // --------------------------------------------------
 // Core services
@@ -104,7 +99,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular", policy =>
     {
-        policy.WithOrigins("https://liveauth.app", "https://admin.liveauth.app")
+        policy.WithOrigins("https://liveauth.app", "https://admin.liveauth.app", "http://localhost:4200")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
