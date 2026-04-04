@@ -3,7 +3,7 @@
 }
 
 liveauth.app {
-    root * /srv/browser
+    root * /srv
     try_files {path} /index.html
     file_server
 }
@@ -31,7 +31,7 @@ admin.liveauth.app {
 }
 
 docs.liveauth.app {
-    root * /srv/browser/docs
+    root * /srv/docs
     try_files {path} /index.html
     file_server
 }
