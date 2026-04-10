@@ -111,7 +111,6 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSingleton<StripeService>();
-builder.Services.AddSingleton<OpenNodeService>();
 builder.Services.AddSingleton<PowAttemptLogger>();
 builder.Services.AddSingleton<PowChallengeSigner>();
 builder.Services.AddSingleton<PowRateLimitService>();
