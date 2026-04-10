@@ -15,13 +15,13 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Validates required configuration and returns missing config names.
+    /// Only truly critical configs that must be set: PowHmacSecret, DemoProjectId, Jwt:SigningKey.
+    /// DB_PROVIDER and ConnectionStrings:Default have sensible defaults (SQLite).
     /// </summary>
     public static List<string> GetMissingConfigs(this WebApplicationBuilder builder)
     {
         var requiredConfigs = new (string Name, string? Value)[]
         {
-            ("DB_PROVIDER", builder.Configuration["DB_PROVIDER"]),
-            ("ConnectionStrings:Default", builder.Configuration["ConnectionStrings:Default"]),
             ("LiveAuth:PowHmacSecret", builder.Configuration["LiveAuth:PowHmacSecret"]),
             ("LiveAuth:DemoProjectId", builder.Configuration["LiveAuth:DemoProjectId"]),
             ("Jwt:SigningKey", builder.Configuration["Jwt:SigningKey"] ?? builder.Configuration["Jwt:Key"]),
