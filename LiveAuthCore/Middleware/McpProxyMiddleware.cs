@@ -17,25 +17,22 @@ namespace LiveAuthCore.Middleware;
 public class McpProxyMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly LiveAuthDbContext _db;
-    private readonly L402Service _l402;
-    private readonly ILogger<McpProxyMiddleware> _logger;
     private static readonly HttpClient _httpClient = new();
+    private LiveAuthDbContext _db = null!;
+    private L402Service _l402 = null!;
+    private ILogger<McpProxyMiddleware> _logger = null!;
 
-    public McpProxyMiddleware(
-        RequestDelegate next,
-        LiveAuthDbContext db,
-        L402Service l402,
-        ILogger<McpProxyMiddleware> logger)
+    public McpProxyMiddleware(RequestDelegate next)
     {
         _next = next;
-        _db = db;
-        _l402 = l402;
-        _logger = logger;
     }
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // Resolve scoped services from request scope
+        _db = context.RequestServices.GetRequiredService<LiveAuthDbContext>();
+        _l402 = context.RequestServices.GetRequiredService<L402Service>();
+        _logger = context.RequestServices.GetRequiredService<ILogger<McpProxyMiddleware>>();
         var path = context.Request.Path.Value ?? "";
         
         // Only handle /mcp/* paths
