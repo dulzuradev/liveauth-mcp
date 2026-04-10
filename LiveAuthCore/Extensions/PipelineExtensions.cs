@@ -11,7 +11,7 @@ public static class PipelineExtensions
 {
     /// <summary>
     /// Initializes the database and applies any pending migrations.
-    /// For SQLite, also creates custom tables if they don't exist.
+    /// Creates custom tables if they don't exist (SQLite only).
     /// </summary>
     public static async Task InitializeDatabaseAsync(this WebApplication app)
     {
@@ -20,16 +20,13 @@ public static class PipelineExtensions
         
         await db.Database.EnsureCreatedAsync();
 
-        // Create MCP/custom tables for existing SQLite databases
-        if (db.Database.IsSqlite())
-        {
-            var connection = db.Database.GetDbConnection();
-            await connection.OpenAsync();
-            
-            using var cmd = connection.CreateCommand();
-            cmd.CommandText = GetSqliteMigrations();
-            await cmd.ExecuteNonQueryAsync();
-        }
+        // Create MCP/custom tables for existing databases
+        var connection = db.Database.GetDbConnection();
+        await connection.OpenAsync();
+        
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = GetSqliteMigrations();
+        await cmd.ExecuteNonQueryAsync();
     }
 
     /// <summary>

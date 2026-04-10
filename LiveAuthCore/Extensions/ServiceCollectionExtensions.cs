@@ -5,7 +5,6 @@ using LiveAuthCore.Data;
 using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
@@ -13,26 +12,6 @@ namespace LiveAuthCore.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    /// <summary>
-    /// Infers database provider from connection string content.
-    /// Returns "postgres" if the LiveAuth connection string looks like PostgreSQL,
-    /// otherwise "sqlite".
-    /// </summary>
-    private static string InferProvider(string? pgConn, string? sqliteConn)
-    {
-        // If LiveAuth connection string looks like PostgreSQL, use postgres
-        if (!string.IsNullOrWhiteSpace(pgConn))
-        {
-            var lower = pgConn.ToLowerInvariant();
-            if (lower.Contains("host=") || lower.Contains("server=") || 
-                lower.Contains("port=") || lower.Contains("database="))
-            {
-                return "postgres";
-            }
-        }
-        return "sqlite";
-    }
-
     /// <summary>
     /// Validates required configuration and returns missing config names.
     /// Only truly critical configs that must be set: PowHmacSecret, DemoProjectId, Jwt:SigningKey.
@@ -60,7 +39,7 @@ public static class ServiceCollectionExtensions
     {
         var lndUseMock = builder.Configuration["Lnd:UseMock"]?.ToLowerInvariant() == "true";
         
-        Console.WriteLine($"[CONFIG] DB Provider: {builder.Configuration["DB_PROVIDER"] ?? "sqlite"}");
+        Console.WriteLine($"[CONFIG] DB Provider: sqlite");
         Console.WriteLine($"[CONFIG] Demo Project ID: {builder.Configuration["LiveAuth:DemoProjectId"] ?? "(not set)"}");
         Console.WriteLine($"[CONFIG] LND UseMock: {lndUseMock}");
         Console.WriteLine($"[CONFIG] JWT Issuer: {builder.Configuration["Jwt:Issuer"] ?? "(not set, using default)"}");
@@ -86,37 +65,18 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Adds LiveAuth database context (PostgreSQL or SQLite based on config).
-    /// Detects provider from DB_PROVIDER env var, or infers from connection string content.
+    /// Adds LiveAuth database context (SQLite only).
     /// </summary>
     public static WebApplicationBuilder AddLiveAuthDb(this WebApplicationBuilder builder)
     {
-        var pgConn = builder.Configuration.GetConnectionString("LiveAuth");
         var sqliteConn = builder.Configuration.GetConnectionString("Default");
+        var dbPath = !string.IsNullOrWhiteSpace(sqliteConn) ? sqliteConn : "Data Source=liveauth.db";
         
-        // Detect provider: explicit env var takes precedence
-        var provider = (builder.Configuration["DB_PROVIDER"] ?? InferProvider(pgConn, sqliteConn)).ToLowerInvariant();
-
-        if (provider == "postgres")
-        {
-            if (string.IsNullOrWhiteSpace(pgConn))
-                throw new InvalidOperationException("Missing LiveAuth (Postgres) connection string");
-
-            builder.Services.AddDbContextFactory<LiveAuthDbContext>(
-                opts => opts.UseNpgsql(pgConn),
-                ServiceLifetime.Scoped);
-            builder.Services.AddDbContext<LiveAuthDbContext>(
-                opts => opts.UseNpgsql(pgConn));
-        }
-        else
-        {
-            var dbPath = !string.IsNullOrWhiteSpace(sqliteConn) ? sqliteConn : "Data Source=liveauth.db";
-            builder.Services.AddDbContextFactory<LiveAuthDbContext>(
-                opts => opts.UseSqlite(dbPath),
-                ServiceLifetime.Scoped);
-            builder.Services.AddDbContext<LiveAuthDbContext>(
-                opts => opts.UseSqlite(dbPath));
-        }
+        builder.Services.AddDbContextFactory<LiveAuthDbContext>(
+            opts => opts.UseSqlite(dbPath),
+            ServiceLifetime.Scoped);
+        builder.Services.AddDbContext<LiveAuthDbContext>(
+            opts => opts.UseSqlite(dbPath));
 
         return builder;
     }
