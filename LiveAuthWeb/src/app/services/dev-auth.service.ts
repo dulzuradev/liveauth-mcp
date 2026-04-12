@@ -65,9 +65,25 @@ export class DevAuthService {
     );
   }
 
-  // GET /api/dev/auth/github/start - redirects to GitHub
-  startGitHubLogin(): void {
-    window.location.href = `${this.baseUrl}/api/dev/auth/github/start`;
+  // GET /api/dev/auth/github/start - redirects to GitHub, or returns { redirectUrl } in dev mode
+  startGitHubLogin(devBypass = false): void {
+    const url = `${this.baseUrl}/api/dev/auth/github/start${devBypass ? '?dev=true' : ''}`;
+    
+    // For dev bypass, we get JSON back instead of a redirect
+    if (devBypass) {
+      this.http.get<{ redirectUrl: string }>(url).subscribe({
+        next: (res) => {
+          window.location.href = res.redirectUrl;
+        },
+        error: (err) => {
+          console.error('Dev login failed:', err);
+          // Fall back to regular GitHub flow
+          window.location.href = url;
+        }
+      });
+    } else {
+      window.location.href = url;
+    }
   }
 
   saveToken(token: string) {
@@ -89,5 +105,9 @@ export class DevAuthService {
         Authorization: token ? `Bearer ${token}` : ''
       })
     };
+  }
+
+  getApiUrl(): string {
+    return this.baseUrl;
   }
 }
