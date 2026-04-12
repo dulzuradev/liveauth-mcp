@@ -1,0 +1,19 @@
+{
+  "name": "liveauth-langchain-example",
+  "version": "1.0.0",
+  "description": "Working LangChain agent with LiveAuth MCP authentication",
+  "type": "module",
+  "scripts": {
+    "start": "node agent.mjs",
+    "start:demo": "LIVEAUTH_DEMO=true node agent.mjs"
+  },
+  "dependencies": {
+    "langchain": "^0.3.0",
+    "@langchain/core": "^0.3.0",
+    "@langchain/openai": "^0.3.0",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
