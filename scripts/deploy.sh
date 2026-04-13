@@ -38,18 +38,15 @@ cp -r dist/liveauth-admin/* $LOCAL_DIR/LiveAuthWeb/dist/liveauth-admin/
 # Caddy serves from /srv/ (flat), so we must flatten: copy browser/ contents up to root.
 # This fixes the "missing chunk -> falls back to index.html" loop that broke JS.
 flatten_dir() {
-    local dir="$1"
-    local browser="$dir/browser"
+    local browser="$1/browser"
+    local dest="$1"
     if [[ -d "$browser" ]]; then
-        echo "Flattening $dir/browser/ -> $dir/..."
-        cp "$browser"/*.js "$dir/" 2>/dev/null || true
-        cp "$browser"/*.css "$dir/" 2>/dev/null || true
-        cp "$browser"/*.ico "$dir/" 2>/dev/null || true
-        cp "$browser"/index.html "$dir/" 2>/dev/null || true
-        cp "$browser"/3rdpartylicenses.txt "$dir/" 2>/dev/null || true
-        cp "$browser"/prerendered-routes.json "$dir/" 2>/dev/null || true
-        cp -r "$browser"/assets "$dir/" 2>/dev/null || true
-        cp -r "$browser"/media "$dir/" 2>/dev/null || true
+        echo "Flattening $browser -> $dest..."
+        # Copy all files (skip if same name exists as subdir)
+        for f in "$browser"/*; do
+            [[ -f "$f" ]] && cp -p "$f" "$dest/" 2>/dev/null || true
+            [[ -d "$f" && ! -e "$dest/$(basename "$f")" ]] && cp -r "$f" "$dest/" 2>/dev/null || true
+        done
     fi
 }
 
