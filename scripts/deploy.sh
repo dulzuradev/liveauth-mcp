@@ -61,29 +61,26 @@ flatten_dir "$LOCAL_DIR/LiveAuthWeb/dist/liveauth-admin"
 echo "Syncing web files to server..."
 ssh "$SERVER" "rm -rf $REMOTE_DIR/LiveAuthWeb/dist-new 2>/dev/null || true"
 rsync -avz --delete \
-    --exclude='liveauth-web' \
-    --exclude='browser' \
-    dist/liveauth-web/ "$SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/"
+    "$LOCAL_DIR/LiveAuthWeb/dist/liveauth-web/" "$SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/"
 
-# Copy admin panel (it lives in dist/liveauth-web/liveauth-admin/ in the new build)
-if [[ -d "dist/liveauth-web/liveauth-admin" ]]; then
+# Copy admin panel from its build output (flat, already flattened above)
+ADMIN_SRC="$LOCAL_DIR/LiveAuthWeb/dist/liveauth-admin"
+if [[ -d "$ADMIN_SRC" ]]; then
     echo "Syncing admin panel..."
     ssh "$SERVER" "mkdir -p $REMOTE_DIR/LiveAuthWeb/dist-new/liveauth-admin"
-    rsync -avz --delete \
-        dist/liveauth-web/liveauth-admin/ "$SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/liveauth-admin/"
+    rsync -avz --delete "$ADMIN_SRC/" "$SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/liveauth-admin/"
 fi
 
 # Copy docs (served at /srv/docs)
-if [[ -d "dist/liveauth-web/docs" ]]; then
+if [[ -d "$LOCAL_DIR/LiveAuthWeb/dist/liveauth-web/docs" ]]; then
     echo "Syncing docs..."
     ssh "$SERVER" "mkdir -p $REMOTE_DIR/LiveAuthWeb/dist-new/docs"
-    rsync -avz --delete \
-        dist/liveauth-web/docs/ "$SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/docs/"
+    rsync -avz --delete "$LOCAL_DIR/LiveAuthWeb/dist/liveauth-web/docs/" "$SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/docs/"
 fi
 
 # Also copy demo.html if present
-if [[ -f "dist/liveauth-web/demo.html" ]]; then
-    rsync -avz dist/liveauth-web/demo.html "$SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/"
+if [[ -f "$LOCAL_DIR/LiveAuthWeb/dist/liveauth-web/demo.html" ]]; then
+    rsync -avz "$LOCAL_DIR/LiveAuthWeb/dist/liveauth-web/demo.html" "$SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/"
 fi
 
 # Atomic swap: old -> dist-old, new -> dist
