@@ -1,0 +1,147 @@
+<!-- MCP Agents Landing Page -->
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <img [src]="heroImageUrl" alt="LiveAuth" class="nav-logo">
+    <span>LiveAuth</span>
+  </div>
+  <div class="nav-links">
+    <a href="https://liveauth.app/docs/mcp-liveauth-gate">Docs</a>
+    <a href="https://liveauth.app/blog">Blog</a>
+    <a href="https://liveauth.app/dev/projects">Dashboard</a>
+    <a href="https://liveauth.app/demo" class="btn-nav">Try Demo</a>
+  </div>
+</nav>
+
+<!-- Hero Section -->
+<section class="hero">
+  <div class="hero-badge">
+    <span class="badge-icon">⚡</span>
+    MCP Authentication — Built on Bitcoin Lightning
+  </div>
+  <h1 class="hero-title">Authenticate every<br>AI agent call</h1>
+  <p class="hero-subtitle">
+    Programmatic authentication for AI agents via the Model Context Protocol.
+    No API keys. No secrets. Just PoW + Lightning.
+  </p>
+  <div class="hero-actions">
+    <a href="https://liveauth.app/dev/projects" class="btn-primary">Get Started Free</a>
+    <a href="https://liveauth.app/docs/mcp-liveauth-gate" class="btn-secondary">Read the Docs</a>
+  </div>
+  <div class="hero-code">
+    <div class="code-label">// Integrate in minutes</div>
+    <pre><code>{{ sdkSnippet }}</code></pre>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section class="how-it-works">
+  <h2 class="section-title">How it works</h2>
+  <div class="steps-grid">
+    <div class="step" *ngFor="let step of steps">
+      <div class="step-number">{{ step.number }}</div>
+      <div class="step-content">
+        <h3>{{ step.title }}</h3>
+        <p>{{ step.description }}</p>
+        <div class="step-code">
+          <pre><code>{{ step.code }}</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MCP Server Demo -->
+<section class="demo-section">
+  <h2 class="section-title">Drop-in MCP server authentication</h2>
+  <p class="section-subtitle">
+    Our SDK handles the full auth flow — challenge, PoW solving, and Lightning settlement —
+    so you can focus on building your agent.
+  </p>
+  <div class="demo-terminal">
+    <div class="terminal-header">
+      <span class="terminal-dot red"></span>
+      <span class="terminal-dot yellow"></span>
+      <span class="terminal-dot green"></span>
+      <span class="terminal-title">MCP Server — @liveauth-labs/mcp-server</span>
+    </div>
+    <div class="terminal-body">
+      <pre><code>{{ mcpServerSnippet }}</code></pre>
+    </div>
+  </div>
+  <div class="demo-features">
+    <div class="demo-feature">
+      <span class="feature-icon">🔐</span>
+      <span>PoW challenge per call</span>
+    </div>
+    <div class="demo-feature">
+      <span class="feature-icon">⚡</span>
+      <span>Lightning settlement (10 sats/call)</span>
+    </div>
+    <div class="demo-feature">
+      <span class="feature-icon">🔧</span>
+      <span>Drop-in — no infrastructure changes</span>
+    </div>
+  </div>
+</section>
+
+<!-- Use Cases -->
+<section class="use-cases">
+  <h2 class="section-title">Built for autonomous agents</h2>
+  <div class="use-cases-grid">
+    <div class="use-case" *ngFor="let uc of useCases">
+      <mat-icon>{{ uc.icon }}</mat-icon>
+      <h3>{{ uc.title }}</h3>
+      <p>{{ uc.description }}</p>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section class="pricing" id="pricing">
+  <h2 class="section-title">Simple, pay-for-use pricing</h2>
+  <div class="pricing-grid">
+    <div class="pricing-card" *ngFor="let tier of tiers" [class.highlight]="tier.highlight">
+      <div class="pricing-badge" *ngIf="tier.highlight">Most Popular</div>
+      <h3>{{ tier.name }}</h3>
+      <div class="pricing-price">
+        <span class="price-amount">{{ tier.price }}</span>
+        <span class="price-period">{{ tier.period }}</span>
+      </div>
+      <p class="pricing-description">{{ tier.description }}</p>
+      <ul class="pricing-features">
+        <li *ngFor="let feature of tier.features">
+          <mat-icon>check_circle</mat-icon>
+          {{ feature }}
+        </li>
+      </ul>
+      <a href="https://liveauth.app/dev/projects" class="btn-pricing" [class.primary]="tier.highlight">
+        {{ tier.cta }}
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Footer CTA -->
+<section class="footer-cta">
+  <h2>Ready to auth your agents?</h2>
+  <p>Get your API keys in 30 seconds. No KYC required.</p>
+  <a href="https://liveauth.app/dev/projects" class="btn-primary">Start Building Free</a>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-brand">
+    <img [src]="heroImageUrl" alt="LiveAuth" class="footer-logo">
+    <span>LiveAuth</span>
+  </div>
+  <div class="footer-links">
+    <a href="https://liveauth.app/docs/mcp-liveauth-gate">Documentation</a>
+    <a href="https://liveauth.app/blog">Blog</a>
+    <a href="https://liveauth.app/legal">Privacy</a>
+  </div>
+  <div class="footer-copy">
+    Built on Bitcoin & Lightning ⚡
+  </div>
+</footer>
