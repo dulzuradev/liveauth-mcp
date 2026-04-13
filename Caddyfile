@@ -1,10 +1,10 @@
 # IMPORTANT: Mount layout for docker-compose volumes
-# Mount: ./LiveAuthWeb/dist → /srv (flat, no subdirs)
-# Expected structure:
-#   /srv/index.html           → liveauth.app
-#   /srv/docs/*              → docs.liveauth.app
-#   /srv/liveauth-admin/*    → admin.liveauth.app
-# DO NOT use /srv/browser/* — that's the old structure
+# Mount: ./LiveAuthWeb/dist → /srv (flat, Angular 19 browser/ subdir flattened at deploy time)
+# Expected structure (after deploy.sh flatten step):
+#   /srv/index.html            → liveauth.app
+#   /srv/main-*.js            → app chunks (flattened from browser/)
+#   /srv/docs/*               → docs.liveauth.app
+#   /srv/liveauth-admin/*     → admin.liveauth.app (index.html + chunks flattened from browser/)
 
 {
   email admin@liveauth.app
