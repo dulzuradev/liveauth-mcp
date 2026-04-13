@@ -433,7 +433,9 @@ console.log('onTimeRangeChange', range);
   // GitHub OAuth login
   startGitHubLogin(): void {
     console.log('Starting GitHub login...');
-    this.devAuth.startGitHubLogin();
+    // Auto-detect dev environment: use bypass if API is localhost
+    const isLocalApi = this.devAuth.getApiUrl().includes('localhost');
+    this.devAuth.startGitHubLogin(isLocalApi);
   }
 
   logout() {

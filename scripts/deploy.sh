@@ -16,54 +16,75 @@ if [[ ! -d "$LOCAL_DIR/LiveAuthCore" ]]; then
     exit 1
 fi
 
-# Build API image locally
-echo "Building API image..."
-cd $LOCAL_DIR/LiveAuthCore
-docker build -t liveauth-api:latest .
-
-# Push image to server
-echo "Pushing image to server..."
-docker save liveauth-api:latest | ssh $SERVER "docker load"
-
-# Build frontend
+# Build frontend FIRST (doesn't need Docker on this machine)
 echo "Building frontend..."
 cd $LOCAL_DIR/LiveAuthWeb
 npm run build
 
-# Copy docs to dist/docs (matching Caddyfile path /srv/docs)
+# Copy docs into the Angular dist output (Caddy serves /srv/docs)
 mkdir -p dist/liveauth-web/docs
 cp -r $LOCAL_DIR/docs/* dist/liveauth-web/docs/
 
-# Sync docker-compose.yml
-echo "Syncing docker-compose.yml..."
-rsync -avz --progress $LOCAL_DIR/docker-compose.yml $SERVER:$REMOTE_DIR/
+# Angular 19 build outputs: index.html + JS/CSS chunks in browser/ subdirectory.
+# Caddy serves from /srv/ (flat), so we must flatten: copy browser/ contents up to root.
+# This fixes the "missing chunk -> falls back to index.html" loop that broke JS.
+flatten_dir() {
+    local dir="$1"
+    local browser="$dir/browser"
+    if [[ -d "$browser" ]]; then
+        echo "Flattening $dir/browser/ -> $dir/..."
+        cp "$browser"/*.js "$dir/" 2>/dev/null || true
+        cp "$browser"/*.css "$dir/" 2>/dev/null || true
+        cp "$browser"/*.ico "$dir/" 2>/dev/null || true
+        cp "$browser"/index.html "$dir/" 2>/dev/null || true
+        cp "$browser"/3rdpartylicenses.txt "$dir/" 2>/dev/null || true
+        cp "$browser"/prerendered-routes.json "$dir/" 2>/dev/null || true
+        cp -r "$browser"/assets "$dir/" 2>/dev/null || true
+        cp -r "$browser"/media "$dir/" 2>/dev/null || true
+    fi
+}
 
-# Sync Caddyfile
+flatten_dir "dist/liveauth-web"
+flatten_dir "dist/liveauth-web/liveauth-admin"
+
+# Sync to server using atomic swap
+echo "Syncing web files to server..."
+ssh "$SERVER" "rm -rf $REMOTE_DIR/LiveAuthWeb/dist-new 2>/dev/null || true"
+rsync -avz --delete \
+    --exclude='liveauth-web' \
+    --exclude='browser' \
+    dist/liveauth-web/ "$SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/"
+
+# Copy admin panel (it lives in dist/liveauth-web/liveauth-admin/ in the new build)
+if [[ -d "dist/liveauth-web/liveauth-admin" ]]; then
+    echo "Syncing admin panel..."
+    ssh "$SERVER" "mkdir -p $REMOTE_DIR/LiveAuthWeb/dist-new/liveauth-admin"
+    rsync -avz --delete \
+        dist/liveauth-web/liveauth-admin/ "$SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/liveauth-admin/"
+fi
+
+# Copy docs (served at /srv/docs)
+if [[ -d "dist/liveauth-web/docs" ]]; then
+    echo "Syncing docs..."
+    ssh "$SERVER" "mkdir -p $REMOTE_DIR/LiveAuthWeb/dist-new/docs"
+    rsync -avz --delete \
+        dist/liveauth-web/docs/ "$SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/docs/"
+fi
+
+# Also copy demo.html if present
+if [[ -f "dist/liveauth-web/demo.html" ]]; then
+    rsync -avz dist/liveauth-web/demo.html "$SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/"
+fi
+
+# Atomic swap: old -> dist-old, new -> dist
+ssh "$SERVER" "rm -rf $REMOTE_DIR/LiveAuthWeb/dist-old && mv $REMOTE_DIR/LiveAuthWeb/dist $REMOTE_DIR/LiveAuthWeb/dist-old && mv $REMOTE_DIR/LiveAuthWeb/dist-new $REMOTE_DIR/LiveAuthWeb/dist"
+
+# Sync Caddyfile (if changed)
 echo "Syncing Caddyfile..."
-rsync -avz --progress $LOCAL_DIR/Caddyfile $SERVER:$REMOTE_DIR/
+rsync -avz "$LOCAL_DIR/Caddyfile" "$SERVER:$REMOTE_DIR/"
 
-# Sync web files (entire dist, matching Caddyfile /srv paths)
-echo "Syncing web files..."
-ssh $SERVER "rm -rf $REMOTE_DIR/LiveAuthWeb/dist-new 2>/dev/null || true"
-rsync -avz --progress --delete dist/liveauth-web/ $SERVER:$REMOTE_DIR/LiveAuthWeb/dist-new/
-# Copy admin from old dist if missing
-ssh $SERVER "if [ ! -d $REMOTE_DIR/LiveAuthWeb/dist-new/liveauth-admin ]; then cp -r $REMOTE_DIR/LiveAuthWeb/dist-old/liveauth-web/liveauth-admin $REMOTE_DIR/LiveAuthWeb/dist-new/; fi"
-ssh $SERVER "rm -rf $REMOTE_DIR/LiveAuthWeb/dist-old && mv $REMOTE_DIR/LiveAuthWeb/dist $REMOTE_DIR/LiveAuthWeb/dist-old && mv $REMOTE_DIR/LiveAuthWeb/dist-new $REMOTE_DIR/LiveAuthWeb/dist"
-
-# Pre-flight: verify Caddyfile paths match actual files
-echo "Verifying paths..."
-ssh $SERVER "for site in liveauth app docs; do echo \"Checking \$site.liveauth.app...\"; done"
-
-# Deploy using docker compose on server
-echo "Deploying services..."
-ssh $SERVER "cd $REMOTE_DIR && docker compose down && docker compose up -d"
-
-# Wait for services to be ready
-echo "Waiting for services..."
-sleep 10
-
-# Verify
-echo "Verifying services..."
-ssh $SERVER "docker ps --format '{{.Names}}: {{.Status}}'"
+# Reload Caddy (no restart needed for Caddyfile changes)
+echo "Reloading Caddy..."
+ssh "$SERVER" "docker exec liveauth-caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || docker restart liveauth-caddy"
 
 echo "=== Done! ==="

@@ -14,9 +14,9 @@ namespace LiveAuthCore.Middleware;
 public class L402Middleware
 {
     private readonly RequestDelegate _next;
-    private readonly L402Service _l402;
-    private readonly LightningService _lightning;
-    private readonly ILogger<L402Middleware> _logger;
+    private L402Service _l402 = null!;
+    private LightningService _lightning = null!;
+    private ILogger<L402Middleware> _logger = null!;
     
     // Paths that require L402 payment
     private static readonly string[] GatedPaths = new[]
@@ -35,20 +35,18 @@ public class L402Middleware
         "/api/sats"
     };
 
-    public L402Middleware(
-        RequestDelegate next,
-        L402Service l402,
-        LightningService lightning,
-        ILogger<L402Middleware> logger)
+    public L402Middleware(RequestDelegate next)
     {
         _next = next;
-        _l402 = l402;
-        _lightning = lightning;
-        _logger = logger;
     }
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // Resolve scoped services from request scope
+        _l402 = context.RequestServices.GetRequiredService<L402Service>();
+        _lightning = context.RequestServices.GetRequiredService<LightningService>();
+        _logger = context.RequestServices.GetRequiredService<ILogger<L402Middleware>>();
+
         // Skip entirely in test environment
         var env = context.RequestServices.GetService<IWebHostEnvironment>();
         if (env?.IsEnvironment("Testing") == true)

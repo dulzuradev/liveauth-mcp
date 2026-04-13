@@ -439,15 +439,27 @@ public class DevAuthController : ControllerBase
     }
 
     /// <summary>
-    /// Redirect to GitHub for OAuth
+    /// Redirect to GitHub for OAuth, or bypass to dev account in local dev mode.
     /// </summary>
     [HttpGet("github/start")]
-    public IActionResult StartGitHubLogin([FromQuery] string? returnUrl)
+    public async Task<IActionResult> StartGitHubLogin(
+        [FromQuery] bool? dev,
+        CancellationToken ct)
     {
+        // Dev bypass: create/get local dev account without GitHub OAuth
+        // Use ?dev=true or when GitHub is not configured in development
+        var isDevBypass = dev == true;
         var clientId = _config["GitHub:ClientId"];
+        var isDevEnvironment = _config["ASPNETCORE_ENVIRONMENT"] == "Development";
+
+        if (isDevBypass || (isDevEnvironment && string.IsNullOrWhiteSpace(clientId)))
+        {
+            return await CreateDevBypassLogin(ct);
+        }
+
         if (string.IsNullOrWhiteSpace(clientId))
         {
-            return BadRequest("GitHub OAuth not configured.");
+            return BadRequest(new { error = "GitHub OAuth not configured." });
         }
 
         // Generate state for CSRF protection
@@ -471,6 +483,43 @@ public class DevAuthController : ControllerBase
         });
 
         return Redirect(authUrl);
+    }
+
+    /// <summary>
+    /// Create or get a local dev account for bypass login.
+    /// </summary>
+    private async Task<IActionResult> CreateDevBypassLogin(CancellationToken ct)
+    {
+        const string devEmail = "dev@liveauth.local";
+        const string devGitHubId = "dev-local-001";
+        const string devUsername = "dev-local";
+
+        // Find or create dev account
+        var dev = await _db.Developers
+            .FirstOrDefaultAsync(d => d.Email == devEmail, ct);
+
+        if (dev == null)
+        {
+            dev = new Developer
+            {
+                Id = Guid.NewGuid(),
+                Email = devEmail,
+                GitHubId = devGitHubId,
+                GitHubUsername = devUsername,
+                CreatedAt = DateTime.UtcNow
+            };
+            _db.Developers.Add(dev);
+            await _db.SaveChangesAsync(ct);
+        }
+
+        // Generate JWT
+        var token = GenerateJwtForDeveloper(dev);
+
+        // Build redirect URL
+        var frontendUrl = _config["App:FrontendUrl"] ?? "http://localhost:4200";
+        var redirectUrl = $"{frontendUrl}/dev/projects?token={token}";
+
+        return Ok(new { redirectUrl });
     }
 
 }

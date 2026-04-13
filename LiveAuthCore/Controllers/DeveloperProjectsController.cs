@@ -136,7 +136,8 @@ public class DeveloperProjectsController : ControllerBase
                     MonthlyUsed = p.MonthlyUsed,
                     SatsPerLogin = p.SatsPerLogin,
                     ProPaidUntil = p.ProPaidUntil,
-                    MonthlyAuthPeriodStart = p.MonthlyAuthPeriodStart
+                    MonthlyAuthPeriodStart = p.MonthlyAuthPeriodStart,
+                    L402BalanceSats = p.L402BalanceSats
                 })
                 .ToListAsync(ct);
 
@@ -713,7 +714,8 @@ public class DeveloperProjectsController : ControllerBase
             PeriodStart = periodStart,
             PeriodEnd = periodEnd,
             TotalSatsCharged = totalSatsCharged,
-            TotalVerifications = totalVerifications
+            TotalVerifications = totalVerifications,
+            L402BalanceSats = project.L402BalanceSats
         };
 
         return Ok(response);

@@ -437,4 +437,154 @@ public class PublicAuthController : ControllerBase
             expiresUtc: DateTime.UtcNow.AddHours(1)
         );
     }
+
+    // ========================================================
+    // Demo auth endpoints (consolidated from PublicDemoAuthController)
+    // POST /api/public/auth/demo/start
+    // POST /api/public/auth/demo/confirm
+    // ========================================================
+
+    /// <summary>
+    /// Demo auth start — always uses demo project with 3 sats Lightning invoice.
+    /// Route: POST /api/public/auth/demo/start
+    /// </summary>
+    [HttpPost("demo/start")]
+    public async Task<ActionResult<PublicStartAuthResponse>> StartDemo(
+        CancellationToken ct)
+    {
+        var project = await GetDemoProjectAsync(ct);
+        if (project == null)
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                "Demo project is not configured.");
+
+        if (!project.IsActive)
+            return Forbid("Project is inactive.");
+
+        const long demoSats = 3;
+        const int expiryMinutes = 15;
+
+        var invoice = await _lightning.CreateLoginInvoiceAsync(
+            "demo@liveauth.app",
+            demoSats,
+            expiryMinutes);
+
+        var session = new AuthSession
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Environment = "DEMO",
+            AmountSats = demoSats,
+            InvoiceRHash = invoice.InvoiceId,
+            InvoiceBolt11 = invoice.Bolt11,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes),
+            IsPaid = false,
+            ClientIp = GetClientIp(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.AuthSessions.Add(session);
+
+        _db.AuthEvents.Add(new AuthEvent
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            ApiKeyId = null,
+            EventType = AuthEventType.LoginRequested,
+            CreatedAt = DateTime.UtcNow,
+            ClientIp = session.ClientIp,
+            Success = false,
+            SatsPaid = null,
+            Reason = "DEMO_LIGHTNING_START"
+        });
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new PublicStartAuthResponse
+        {
+            SessionId = session.Id,
+            Invoice = invoice.Bolt11,
+            AmountSats = demoSats,
+            ExpiresAtUnix = invoice.ExpiresAtUnix,
+            Mode = "DEMO"
+        });
+    }
+
+    /// <summary>
+    /// Demo auth confirm — polls Lightning invoice and returns JWT.
+    /// Route: POST /api/public/auth/demo/confirm
+    /// </summary>
+    [HttpPost("demo/confirm")]
+    public async Task<ActionResult<PublicConfirmAuthResponse>> ConfirmDemo(
+        [FromBody] PublicConfirmAuthRequest request,
+        CancellationToken ct)
+    {
+        var project = await GetDemoProjectAsync(ct);
+        if (project == null)
+            return Unauthorized("Demo project not configured.");
+
+        var session = await _db.AuthSessions
+            .SingleOrDefaultAsync(s => s.Id == request.SessionId, ct);
+
+        if (session == null || session.ProjectId != project.Id)
+            return Ok(new PublicConfirmAuthResponse { Verified = false, Token = null });
+
+        if (DateTime.UtcNow > session.ExpiresAt)
+            return Ok(new PublicConfirmAuthResponse { Verified = false, Token = null });
+
+        if (session.IsPaid)
+            return Ok(new PublicConfirmAuthResponse
+            {
+                Verified = true,
+                Token = GenerateDemoJwt(session, project)
+            });
+
+        var status = await _lightning.GetInvoiceStatusAsync(session.InvoiceRHash!);
+        if (!status.IsPaid)
+            return Ok(new PublicConfirmAuthResponse { Verified = false, Token = null });
+
+        session.IsPaid = true;
+        session.PaidAt = DateTime.UtcNow;
+        session.PayerLightningAuthKey = status.PayerLightningAuthKey;
+
+        _db.AuthEvents.Add(new AuthEvent
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            ApiKeyId = null,
+            EventType = AuthEventType.LoginSucceeded,
+            CreatedAt = DateTime.UtcNow,
+            ClientIp = session.ClientIp,
+            Success = true,
+            SatsPaid = session.AmountSats,
+            Reason = "DEMO_LIGHTNING_PAID"
+        });
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new PublicConfirmAuthResponse
+        {
+            Verified = true,
+            Token = GenerateDemoJwt(session, project)
+        });
+    }
+
+    private string GenerateDemoJwt(AuthSession session, Project project)
+    {
+        var subjectUserId = $"lw-demo:{project.Id}:{session.Id}";
+
+        var claims = new[]
+        {
+            new Claim("projectId", project.Id.ToString()),
+            new Claim("authSessionId", session.Id.ToString()),
+            new Claim("lwEnv", "DEMO"),
+            new Claim("lwDemo", "true")
+        };
+
+        return _lightning.GenerateJwtToken(
+            userId: subjectUserId,
+            role: "DemoUser",
+            extraClaims: claims,
+            expiresUtc: DateTime.UtcNow.AddMinutes(30)
+        );
+    }
 }

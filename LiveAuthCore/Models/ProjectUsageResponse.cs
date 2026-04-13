@@ -16,4 +16,6 @@ public sealed class ProjectUsageResponse
     
     public long TotalSatsCharged { get; set; }
     public int TotalVerifications { get; set; }
+    
+    public long L402BalanceSats { get; set; }
 }
