@@ -24,6 +24,7 @@ public sealed class ProjectDto
     
     public DateTime MonthlyAuthPeriodStart { get; set; }
 
+    public long L402BalanceSats { get; set; }
     
 }
 

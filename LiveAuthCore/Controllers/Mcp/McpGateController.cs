@@ -516,6 +516,13 @@ public class McpGateController : ControllerBase
         if (gateToken == null) return Unauthorized("Unknown token");
         if (gateToken.ExpiresAt < DateTime.UtcNow) return Unauthorized("Token expired");
 
+        // Get project for L402 balance check
+        var project = await _db.Projects
+            .Where(p => p.Id == gateToken.ProjectId && p.IsActive)
+            .FirstOrDefaultAsync(ct);
+
+        if (project == null) return Forbid("Project not active");
+
         // Reset day window if needed
         if (gateToken.DayWindowStart.Date != DateTime.UtcNow.Date)
         {
@@ -524,7 +531,17 @@ public class McpGateController : ControllerBase
             gateToken.CallsUsed = 0;
         }
 
-        // Enforce daily budget
+        // Check L402 balance first - charge from balance if available
+        if (project.L402BalanceSats >= req.CallCostSats)
+        {
+            project.L402BalanceSats -= req.CallCostSats;
+            gateToken.CallsUsed += 1;
+            gateToken.SatsUsed += req.CallCostSats;
+            await _db.SaveChangesAsync(ct);
+            return Ok(new McpChargeResponse("ok", gateToken.CallsUsed, gateToken.SatsUsed));
+        }
+
+        // Fall back to session budget
         if (gateToken.SatsUsed + req.CallCostSats > gateToken.MaxSatsPerDay)
         {
             return Ok(new McpChargeResponse("deny", gateToken.CallsUsed, gateToken.SatsUsed));

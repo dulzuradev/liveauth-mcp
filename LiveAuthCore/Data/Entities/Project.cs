@@ -50,6 +50,9 @@ public class Project
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; }
 
+    // L402 balance for MCP per-call metering
+    public long L402BalanceSats { get; set; } = 0;
+
     // ✅ FIX: nullable disables EF concurrency + RETURNING
     // Removed TypeName to allow EF Core to map correctly for each DB provider (bytea for Postgres, BLOB for SQLite)
     public byte[]? RowVersion { get; set; } = Guid.NewGuid().ToByteArray();
