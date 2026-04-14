@@ -46,6 +46,7 @@ public class LiveAuthDbContext : DbContext
     // MCP LiveAuth Gate
     public DbSet<McpGateSession> McpGateSessions => Set<McpGateSession>();
     public DbSet<McpGateToken> McpGateTokens => Set<McpGateToken>();
+    public DbSet<L402Purchase> L402Purchases => Set<L402Purchase>();
 
     // Nostr Agent Auth
     public DbSet<NostrAgentSession> NostrAgentSessions => Set<NostrAgentSession>();
