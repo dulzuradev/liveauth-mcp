@@ -10,5 +10,15 @@ public class Developer
     public string? LightningAuthKey { get; set; }
     public string? GitHubId { get; set; }      // GitHub OAuth user ID
     public string? GitHubUsername { get; set; }  // GitHub username
+    
+    // Email/password auth
+    public string? PasswordHash { get; set; }
+    public string? PasswordSalt { get; set; }
+    
+    // Email verification
+    public bool EmailVerified { get; set; } = false;
+    public string? VerificationToken { get; set; }
+    public DateTime? VerificationExpiresAt { get; set; }
+    
     public List<Project> Projects { get; set; } = new();
 }

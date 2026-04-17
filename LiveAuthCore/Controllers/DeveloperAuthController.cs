@@ -2,6 +2,7 @@ namespace LiveAuthCore.Controllers;
 
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
@@ -15,6 +16,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text.Json;
+using Microsoft.AspNetCore.RateLimiting;
 
 [ApiController]
 [Route("api/dev/auth")]
@@ -485,6 +487,169 @@ public class DevAuthController : ControllerBase
         return Redirect(authUrl);
     }
 
+    // ============================================================
+    // Email/Password Auth
+    // ============================================================
+
+    /// <summary>
+    /// Register a new developer account with email + password.
+    /// POST /api/dev/auth/register
+    /// </summary>
+    [HttpPost("register")]
+    [EnableRateLimiting("auth:x10")]
+    public async Task<ActionResult<RegisterResponse>> Register(
+        [FromBody] RegisterRequest request,
+        CancellationToken ct)
+    {
+        var email = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
+        var password = request.Password ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(email) || !IsValidEmail(email))
+            return BadRequest(new { error = "Valid email is required." });
+
+        if (password.Length < 12)
+            return BadRequest(new { error = "Password must be at least 12 characters." });
+
+        // Check if email already exists (any provider)
+        var existing = await _db.Developers
+            .FirstOrDefaultAsync(d => d.Email == email, ct);
+
+        if (existing != null)
+        {
+            // If existing account has no password set, they may have used GitHub/LN auth
+            // We won't overwrite — tell them to use existing method
+            if (string.IsNullOrWhiteSpace(existing.PasswordHash))
+            {
+                return Conflict(new { error = "An account exists with this email but uses a different login method." });
+            }
+
+            return Conflict(new { error = "An account with this email already exists." });
+        }
+
+        var (hash, salt) = HashPasswordWithSalt(password);
+        var verificationToken = Guid.NewGuid().ToString("N");
+
+        var dev = new Developer
+        {
+            Id = Guid.NewGuid(),
+            Email = email,
+            PasswordHash = hash,
+            PasswordSalt = salt,
+            VerificationToken = verificationToken,
+            VerificationExpiresAt = DateTime.UtcNow.AddHours(24),
+            EmailVerified = false
+        };
+
+        _db.Developers.Add(dev);
+
+        // TODO: Send verification email via configured email provider
+        // For now, return the token (dev mode) — in prod, send via email
+        await _db.SaveChangesAsync(ct);
+
+        _authEvents.Log(dev.Id, "register_email", true, reason: "EMAIL_AUTH_REGISTER");
+
+        return Ok(new RegisterResponse
+        {
+            DeveloperId = dev.Id,
+            VerificationToken = verificationToken, // TODO: remove in prod, send email instead
+            Message = "Registration successful. Please check your email to verify your address.",
+            EmailVerificationRequired = true
+        });
+    }
+
+    /// <summary>
+    /// Verify email address using token from registration email.
+    /// POST /api/dev/auth/verify-email
+    /// </summary>
+    [HttpPost("verify-email")]
+    [AllowAnonymous]
+    public async Task<ActionResult<VerifyEmailResponse>> VerifyEmail(
+        [FromBody] VerifyEmailRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Token))
+            return BadRequest(new { error = "Token is required." });
+
+        var dev = await _db.Developers
+            .FirstOrDefaultAsync(d => d.VerificationToken == request.Token, ct);
+
+        if (dev == null)
+            return NotFound(new { error = "Invalid or expired verification token." });
+
+        if (dev.VerificationExpiresAt.HasValue && dev.VerificationExpiresAt.Value < DateTime.UtcNow)
+            return BadRequest(new { error = "Verification token has expired. Please request a new one." });
+
+        dev.EmailVerified = true;
+        dev.VerificationToken = null;
+        dev.VerificationExpiresAt = null;
+        await _db.SaveChangesAsync(ct);
+
+        var token = GenerateJwtForDeveloper(dev);
+
+        _authEvents.Log(dev.Id, "verify_email", true, reason: "EMAIL_VERIFIED");
+
+        return Ok(new VerifyEmailResponse
+        {
+            Success = true,
+            Token = token,
+            Message = "Email verified successfully."
+        });
+    }
+
+    /// <summary>
+    /// Login with email + password.
+    /// POST /api/dev/auth/login
+    /// </summary>
+    [HttpPost("login")]
+    [EnableRateLimiting("auth:x10")]
+    public async Task<ActionResult<LoginResponse>> Login(
+        [FromBody] LoginRequest request,
+        CancellationToken ct)
+    {
+        var email = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
+        var password = request.Password ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+            return Unauthorized(new { error = "Email and password are required." });
+
+        var dev = await _db.Developers
+            .FirstOrDefaultAsync(d => d.Email == email, ct);
+
+        if (dev == null)
+        {
+            _authEvents.Log(null, "login_email", false, reason: "USER_NOT_FOUND");
+            return Unauthorized(new { error = "Invalid credentials." });
+        }
+
+        if (string.IsNullOrWhiteSpace(dev.PasswordHash) || string.IsNullOrWhiteSpace(dev.PasswordSalt))
+            return Unauthorized(new { error = "This account uses a different login method." });
+
+        var hash = HashPassword(password, dev.PasswordSalt!);
+        if (hash != dev.PasswordHash)
+        {
+            _authEvents.Log(dev.Id, "login_email", false, reason: "BAD_PASSWORD");
+            return Unauthorized(new { error = "Invalid credentials." });
+        }
+
+        if (!dev.EmailVerified)
+            return Unauthorized(new { error = "Please verify your email address before logging in." });
+
+        var token = GenerateJwtForDeveloper(dev);
+
+        _authEvents.Log(dev.Id, "login_email", true, reason: "EMAIL_AUTH_LOGIN");
+
+        return Ok(new LoginResponse
+        {
+            Verified = true,
+            Token = token,
+            Message = "Login successful."
+        });
+    }
+
+    // ============================================================
+    // Dev bypass login (local dev only)
+    // ============================================================
+
     /// <summary>
     /// Create or get a local dev account for bypass login.
     /// </summary>
@@ -520,6 +685,41 @@ public class DevAuthController : ControllerBase
         var redirectUrl = $"{frontendUrl}/dev/projects?token={token}";
 
         return Ok(new { redirectUrl });
+    }
+
+    // ============================================================
+    // Password Hashing Utilities
+    // ============================================================
+
+    private static bool IsValidEmail(string email)
+    {
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static (string Hash, string Salt) HashPasswordWithSalt(string password)
+    {
+        var saltBytes = new byte[32];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(saltBytes);
+        var salt = Convert.ToBase64String(saltBytes);
+
+        var hash = HashPassword(password, salt);
+        return (hash, salt);
+    }
+
+    private static string HashPassword(string password, string salt)
+    {
+        var saltBytes = Convert.FromBase64String(salt);
+        using var pbkdf2 = new Rfc2898DeriveBytes(password, saltBytes, 100_000, HashAlgorithmName.SHA256);
+        return Convert.ToBase64String(pbkdf2.GetBytes(32));
     }
 
 }

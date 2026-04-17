@@ -1,9 +1,11 @@
 using System.Text;
 using System.Security.Claims;
+using System.Threading.RateLimiting;
 using LiveAuthCore.Auth;
 using LiveAuthCore.Data;
 using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -120,6 +122,29 @@ public static class ServiceCollectionExtensions
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddMemoryCache();
         builder.Services.AddDistributedMemoryCache();
+
+        // Rate limiting for auth endpoints
+        builder.Services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+            options.OnRejected = async (context, cancellation) =>
+            {
+                context.HttpContext.Response.StatusCode = 429;
+                await Task.CompletedTask;
+            };
+
+            options.AddPolicy("auth:x10", context =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    }));
+        });
 
         // Webhook delivery worker
         builder.Services.AddWebhookDeliveryWorker();

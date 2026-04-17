@@ -48,4 +48,40 @@ public class AuthEventService
         _db.AuthEvents.Add(evt);
         await _db.SaveChangesAsync(ct);
     }
+
+    /// <summary>
+    /// Developer-scoped event log (no project context). Uses a placeholder project ID.
+    /// </summary>
+    public async Task LogAsync(
+        Guid? developerId,
+        string eventType,
+        bool success,
+        string? reason = null,
+        long? satsPaid = null,
+        CancellationToken ct = default)
+    {
+        // Use a fixed placeholder for dev-scoped events (not project-linked)
+        var projectId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
+        var evt = new AuthEvent
+        {
+            Id        = Guid.NewGuid(),
+            ProjectId = projectId,
+            ApiKeyId  = null,
+            EventType = Enum.TryParse<AuthEventType>(eventType, true, out var t)
+                ? t
+                : AuthEventType.LoginRequested,
+            CreatedAt = DateTime.UtcNow,
+            ClientIp  = GetClientIp(),
+            Success   = success,
+            SatsPaid  = satsPaid,
+            Reason    = reason
+        };
+
+        _db.AuthEvents.Add(evt);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public void Log(Guid? developerId, string eventType, bool success, string? reason = null)
+        => LogAsync(developerId, eventType, success, reason).GetAwaiter().GetResult();
 }
