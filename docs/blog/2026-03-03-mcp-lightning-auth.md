@@ -109,4 +109,3 @@ npx @liveauth-labs/mcp-server
 ```
 
 Docs: [liveauth.app](https://liveauth.app)
-GitHub: [github.com/dulzuradev/liveauth-mcp](https://github.com/dulzuradev/liveauth-mcp)
