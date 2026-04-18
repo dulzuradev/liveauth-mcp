@@ -200,12 +200,7 @@ public static class PipelineExtensions
         
         -- Add L402BalanceSats column to existing Projects table if not present
         -- (WebhookDeliveryWorker queries this column; it was missing from the SQLite schema)
-        -- We use PRAGMA to check column existence first since SQLite doesn't support IF NOT EXISTS for ALTER ADD
-        -- Check: does L402BalanceSats exist in Projects?
-        SELECT CASE WHEN EXISTS (
-            SELECT 1 FROM pragma_table_info('Projects') WHERE name = 'L402BalanceSats'
-        ) THEN 1 ELSE 0;
-        
+        -- Column migration is handled in RunColumnMigrationsAsync (uses pragma_table_info)
         -- NOTE: L402Bundles and L402Macaroons table creations are handled
         -- in RunTableMigrationsAsync for better idempotency control
     ";
