@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LiveAuth - Proof-of-Work Authentication</title>
+  <title>LiveAuth Docs</title>
   <link rel="icon" type="image/png" href="favicon.png">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
@@ -13,19 +13,24 @@
       --btc-orange: #F2A900;
       --wall-deep: #0a0f1e;
       --wall-surface: #11182d;
+      --wall-elevated: #1a2438;
       --text-primary: #e3e7ee;
       --text-secondary: #8b95a5;
+      --border: rgba(0, 194, 255, 0.12);
+      --sidebar-width: 260px;
     }
-    
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    
+
     body {
       font-family: 'Roboto', sans-serif;
       background: var(--wall-deep);
       color: var(--text-primary);
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
-    
+
     /* Toolbar */
     .toolbar {
       position: sticky;
@@ -38,9 +43,10 @@
       min-height: 64px;
       backdrop-filter: blur(8px);
       background: rgba(10, 15, 30, 0.95);
-      border-bottom: 1px solid rgba(0, 194, 255, 0.15);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
     }
-    
+
     .logo {
       display: flex;
       align-items: center;
@@ -48,423 +54,303 @@
       font-size: 20px;
       font-weight: 700;
       color: var(--electric-blue);
+      text-decoration: none;
     }
-    
-    .logo-icon {
-      color: var(--electric-blue);
-    }
-    
-    nav {
+
+    nav.toolbar-nav {
       display: flex;
-      gap: 24px;
+      gap: 20px;
+      margin-left: auto;
     }
-    
-    nav a {
+
+    nav.toolbar-nav a {
       color: var(--text-secondary);
       text-decoration: none;
       font-weight: 500;
       transition: color 0.2s;
+      font-size: 14px;
     }
-    
-    nav a:hover, nav a.active {
-      color: var(--electric-blue);
-    }
-    
-    /* Hero */
-    .hero {
-      padding: 80px 24px;
-      text-align: center;
-      background: radial-gradient(ellipse at top, rgba(0,194,255,0.1), transparent 50%),
-                  radial-gradient(ellipse at bottom right, rgba(242,169,0,0.08), transparent 40%),
-                  var(--wall-deep);
-    }
-    
-    .hero h1 {
-      font-size: 48px;
-      margin-bottom: 16px;
-    }
-    
-    .hero h1 span {
-      display: block;
-      font-size: 20px;
-      font-weight: 300;
-      color: var(--electric-blue);
-      margin-top: 8px;
-    }
-    
-    .hero p {
-      font-size: 18px;
-      color: var(--text-secondary);
-      max-width: 600px;
-      margin: 0 auto 32px;
-    }
-    
-    /* Sections */
-    .section {
-      padding: 64px 24px;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    
-    .section h2 {
-      font-size: 32px;
-      margin-bottom: 16px;
-      text-align: center;
-    }
-    
-    .section p.subtitle {
-      text-align: center;
-      color: var(--text-secondary);
-      margin-bottom: 48px;
-      font-size: 16px;
-    }
-    
-    /* Cards */
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 24px;
-    }
-    
-    .card {
-      background: rgba(17, 24, 45, 0.6);
-      border: 1px solid rgba(0, 194, 255, 0.15);
-      border-radius: 12px;
-      padding: 24px;
-      transition: all 0.2s;
-    }
-    
-    .card:hover {
-      border-color: var(--electric-blue);
-      transform: translateY(-2px);
-    }
-    
-    .card-icon {
-      width: 48px;
-      height: 48px;
-      background: rgba(0, 194, 255, 0.1);
-      border-radius: 12px;
+
+    nav.toolbar-nav a:hover { color: var(--electric-blue); }
+
+    /* Layout */
+    .layout {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 16px;
+      flex: 1;
+      min-height: 0;
     }
-    
-    .card-icon .material-icons {
-      color: var(--electric-blue);
-      font-size: 24px;
+
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-width);
+      flex-shrink: 0;
+      background: var(--wall-surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 16px 0;
+      position: sticky;
+      top: 64px;
+      height: calc(100vh - 64px);
     }
-    
-    .card h3 {
-      font-size: 18px;
+
+    .sidebar-section {
+      padding: 0 12px;
       margin-bottom: 8px;
     }
-    
-    .card p {
+
+    .sidebar-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
       color: var(--text-secondary);
+      padding: 8px 12px 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      color: var(--text-secondary);
+      text-decoration: none;
       font-size: 14px;
-      line-height: 1.5;
-      margin-bottom: 16px;
+      transition: all 0.15s;
+      cursor: pointer;
     }
-    
-    .card ul {
+
+    .nav-item:hover {
+      background: rgba(0, 194, 255, 0.06);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background: rgba(0, 194, 255, 0.1);
+      color: var(--electric-blue);
+    }
+
+    .nav-icon {
+      font-size: 18px !important;
+      opacity: 0.7;
+    }
+
+    .nav-item.active .nav-icon { opacity: 1; }
+
+    /* Main content */
+    .main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .doc-header {
+      padding: 24px 40px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--wall-surface);
+    }
+
+    .doc-breadcrumb {
+      font-size: 12px;
       color: var(--text-secondary);
-      font-size: 13px;
-      padding-left: 20px;
-      margin-bottom: 16px;
-    }
-    
-    .card li {
       margin-bottom: 4px;
     }
-    
-    .card a {
-      color: var(--electric-blue);
-      text-decoration: none;
-      font-weight: 500;
+
+    #doc-title {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--text-primary);
     }
-    
-    .card a:hover {
-      text-decoration: underline;
+
+    #doc-content {
+      flex: 1;
+      padding: 40px;
+      max-width: 860px;
     }
-    
-    /* Code blocks */
-    .code-block {
+
+    /* Markdown styles */
+    .markdown-body {
+      color: var(--text-primary);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .markdown-body h1 { font-size: 32px; margin-bottom: 24px; margin-top: 40px; }
+    .markdown-body h1:first-child { margin-top: 0; }
+    .markdown-body h2 { font-size: 22px; margin-bottom: 16px; margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .markdown-body h2:first-child { margin-top: 0; border-top: none; padding-top: 0; }
+    .markdown-body h3 { font-size: 17px; margin-bottom: 12px; margin-top: 28px; color: var(--electric-blue); }
+    .markdown-body h4 { font-size: 15px; margin-bottom: 8px; margin-top: 20px; }
+
+    .markdown-body p { margin-bottom: 16px; color: var(--text-secondary); }
+    .markdown-body p:last-child { margin-bottom: 0; }
+
+    .markdown-body a { color: var(--electric-blue); text-decoration: none; }
+    .markdown-body a:hover { text-decoration: underline; }
+
+    .markdown-body ul, .markdown-body ol {
+      padding-left: 24px;
+      margin-bottom: 16px;
+      color: var(--text-secondary);
+    }
+
+    .markdown-body li { margin-bottom: 6px; }
+
+    .markdown-body strong { color: var(--text-primary); font-weight: 600; }
+
+    .markdown-body code {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 13px;
+      background: var(--wall-elevated);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      color: #e3b87a;
+    }
+
+    .markdown-body pre {
       background: #0d1322;
-      border: 1px solid rgba(0, 194, 255, 0.15);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 16px;
       overflow-x: auto;
-      margin-top: 16px;
+      margin-bottom: 20px;
     }
-    
-    .code-block pre {
-      margin: 0;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+
+    .markdown-body pre code {
+      background: none;
+      border: none;
+      padding: 0;
       font-size: 13px;
       color: #b0b8c8;
     }
-    
-    /* Footer */
-    footer {
-      padding: 32px 24px;
-      text-align: center;
-      color: var(--text-secondary);
+
+    .markdown-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
       font-size: 14px;
-      border-top: 1px solid rgba(0, 194, 255, 0.1);
     }
-    
-    footer a {
+
+    .markdown-body th {
+      text-align: left;
+      padding: 10px 14px;
+      background: var(--wall-elevated);
+      border: 1px solid var(--border);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .markdown-body td {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+
+    .markdown-body tr:hover td { background: rgba(0, 194, 255, 0.03); }
+
+    .markdown-body blockquote {
+      border-left: 3px solid var(--electric-blue);
+      padding-left: 16px;
+      margin: 0 0 16px;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    .markdown-body hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 28px 0;
+    }
+
+    /* Code block with copy button */
+    .code-wrapper {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 194, 255, 0.1);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 6px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      transition: all 0.15s;
+    }
+
+    .copy-btn:hover {
+      background: rgba(0, 194, 255, 0.2);
       color: var(--electric-blue);
-      text-decoration: none;
+    }
+
+    .copy-btn .material-icons { font-size: 16px !important; }
+
+    /* Error state */
+    .error-state {
+      text-align: center;
+      padding: 80px 40px;
+    }
+
+    .error-state h3 { margin: 16px 0 8px; font-size: 20px; }
+    .error-state p { color: var(--text-secondary); }
+    .error-state a {
+      display: inline-block;
+      margin-top: 16px;
+      color: var(--electric-blue);
+    }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      #doc-content { padding: 24px 20px; }
+      nav.toolbar-nav { display: none; }
     }
   </style>
 </head>
 <body>
-<div style="background:#00d4aa;color:#000;padding:8px;text-align:center;font-weight:600;font-size:14px;">
-🔐 <a href="https://liveauth.app" style="color:#000;">Go to liveauth.app</a> for the product • <a href="https://docs.liveauth.app/demo.html" style="color:#000;">Try the Demo</a>
-</div>
   <!-- Toolbar -->
   <div class="toolbar">
-    <div class="logo">
-      <span class="logo-icon">⚡</span>
+    <a href="/" class="logo">
+      <span class="material-icons" style="font-size:22px;">⚡</span>
       <span>LiveAuth</span>
-    </div>
-    <nav>
-      <a href="#core">Core Auth</a>
-      <a href="#mcp">MCP Server</a>
-      <a href="#l402">L402</a>
-      <a href="#api">API Reference</a>
-      <a href="https://liveauth.app" target="_blank">← Back to App</a>
+    </a>
+    <span style="color:var(--text-secondary);font-size:14px;margin-left:8px;">/ Docs</span>
+    <nav class="toolbar-nav">
+      <a href="https://liveauth.app">App</a>
+      <a href="https://docs.liveauth.app/demo.html">Demo</a>
     </nav>
   </div>
 
-  <!-- Hero -->
-  <section class="hero">
-    <h1>Documentation<span>Build agent-powered products with LiveAuth</span></h1>
-    <p>Everything you need to integrate LiveAuth into your application. From proof-of-work verification to Lightning payments.</p>
-    <div style="margin-top: 1.5rem;">
-      <a href="https://docs.liveauth.app/demo.html" style="display: inline-block; background: #00d4aa; color: #000; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-right: 1rem;">🚀 Try the Demo</a>
-      <a href="#quick-start" style="color: #00d4aa; text-decoration: none;">Get Started →</a>
-    </div>
-  </section>
-
-  <!-- Core Auth -->
-  <section id="core" class="section">
-    <h2>Core Auth</h2>
-    <p class="subtitle">Proof-of-work verification that humans pass instantly, bots can't afford.</p>
-    
-    <div class="cards">
-      <div class="card">
-        <div class="card-icon"><span class="material-icons">verified_user</span></div>
-        <h3>How It Works</h3>
-        <p>LiveAuth generates a cryptographic challenge that browsers solve in 200-800ms. Real devices pass instantly; bots pay the CPU cost.</p>
-        <ul>
-          <li>No cookies or fingerprinting</li>
-          <li>21 sat Lightning fallback option</li>
-          <li>JWT tokens returned on success</li>
-        </ul>
-        <a href="https://github.com/dulzuradev/liveauth-js/blob/main/README.md" target="_blank">View on GitHub →</a>
-        
-        <div class="code-block">
-          <pre>npm install @liveauth-labs/sdk
-
-import { LiveAuth } from '@liveauth-labs/sdk';
-
-const liveauth = new LiveAuth({
-  publicKey: 'la_pk_xxx',  // Public key from dashboard
-  apiKey: 'la_sk_xxx'      // Secret key from dashboard
-});
-
-const result = await liveauth.verify();
-// result: { method: 'pow' | 'lightning', token: 'jwt...' }</pre>
-        </div>
+  <div class="layout">
+    <!-- Sidebar nav (built by doc-viewer.js) -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Getting Started</div>
       </div>
-    </div>
-  </section>
-
-  <!-- MCP Server -->
-  <section id="mcp" class="section">
-    <h2>MCP Server</h2>
-    <p class="subtitle">Authenticate AI agents with the Model Context Protocol.</p>
-    
-    <!-- Quick Start -->
-    <div class="card" style="margin-bottom: 2rem; background: linear-gradient(135deg, #1a2535, #0d1525);">
-      <h3 style="color: #00C2FF;">⚡ Quick Start (5 Minutes)</h3>
-      <p><strong>Demo Mode (no config needed):</strong></p>
-      <div class="code-block">
-        <pre>npx @liveauth-labs/mcp-server</pre>
+      <div id="doc-nav" class="sidebar-section" style="padding: 0 12px;">
+        <!-- populated by doc-viewer.js -->
       </div>
-      <p><strong>Production (with API key):</strong></p>
-      <div class="code-block">
-        <pre># Get keys at https://liveauth.app
-# Add to Claude Desktop:
-{
-  "mcpServers": {
-    "liveauth": {
-      "command": "npx",
-      "args": ["-y", "@liveauth-labs/mcp-server"],
-      "env": {
-        "LIVEAUTH_API_KEY": "la_pk_xxx"
-      }
-    }
-  }
-}</pre>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <div class="doc-header">
+        <div class="doc-breadcrumb">docs.liveauth.app / <span id="doc-breadcrumb">Loading...</span></div>
+        <h1 id="doc-title">Loading...</h1>
       </div>
-    </div>
-    
-    <div class="cards">
-      <div class="card">
-        <div class="card-icon"><span class="material-icons">smart_toy</span></div>
-        <h3>AI Agent Authentication</h3>
-        <p>Drop-in MCP server for Claude Desktop, GPT, AutoGPT, and any MCP client. Agents get authenticated automatically.</p>
-        <ul>
-          <li>Works with Claude, GPT, AutoGPT</li>
-          <li>Automatic JWT token generation</li>
-          <li>Metered API access with sats per call</li>
-        </ul>
-        <a href="https://github.com/dulzuradev/liveauth-mcp" target="_blank">View on GitHub →</a>
-        
-        <div class="code-block">
-          <pre># Claude Desktop config
-npx @liveauth-labs/mcp-server
-
-# Add to claude_desktop_config.json:
-{
-  "mcpServers": {
-    "liveauth": {
-      "command": "npx",
-      "args": ["-y", "@liveauth-labs/mcp-server"],
-      "env": {
-        "LIVEAUTH_API_BASE": "https://api.liveauth.app",
-        "LIVEAUTH_API_KEY": "your-key"
-      }
-    }
-  }
-}</pre>
-        </div>
+      <div id="doc-content">
+        <p style="color:var(--text-secondary);">Loading document...</p>
       </div>
+    </main>
+  </div>
 
-      <!-- Agent Auth API -->
-      <div class="card">
-        <div class="card-icon"><span class="material-icons">api</span></div>
-        <h3>Agent Auth API</h3>
-        <p>Low-level API for building custom agent authentication. Perfect for OpenClaw and autonomous agents.</p>
-        <ul>
-          <li>PoW-based verification</li>
-          <li>Token-based session management</li>
-          <li>Works with any AI framework</li>
-        </ul>
-        <a href="https://github.com/dulzuradev/LiveAuth" target="_blank">View on GitHub →</a>
-        
-        <div class="code-block">
-          <pre># Start auth - get PoW challenge
-curl -X POST https://api.liveauth.app/api/agent/auth/start \
-  -H "Content-Type: application/json" \
-  -H "X-LW-Public: your-public-key" \
-  -d '{"agentId":"my-agent","publicKey":"your-secret-key"}'
-
-# Verify solution - get auth token
-curl -X POST https://api.liveauth.app/api/agent/auth/verify \
-  -H "Content-Type: application/json" \
-  -H "X-LW-Public: your-public-key" \
-  -d '{"sessionId":"uuid","solution":"challenge:nonce"}'
-
-# Validate token
-curl -X POST https://api.liveauth.app/api/agent/auth/validate \
-  -H "Content-Type: application/json" \
-  -H "X-LW-Public: your-public-key" \
-  -d '{"token":"jwt-token-here"}'</pre>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- L402 -->
-  <section id="l402" class="section">
-    <h2>L402 + x402 Payments</h2>
-    <p class="subtitle">Monetize your API with per-request Lightning payments.</p>
-    
-    <div class="cards">
-      <div class="card">
-        <div class="card-icon"><span class="material-icons">payments</span></div>
-        <h3>Pay-Per-Use API Access</h3>
-        <p>Gate endpoints with Lightning payments. Agents pay as they go. No subscriptions required.</p>
-        <ul>
-          <li>1-10 sats per API call</li>
-          <li>Automatic payment flow (402 → invoice → token)</li>
-          <li>Token valid for 1 hour</li>
-          <li>Compatible with x402 (Cloudflare/Coinbase standard)</li>
-        </ul>
-        
-        <div class="code-block">
-          <pre># 1. Get invoice
-curl -X POST https://api.liveauth.app/api/public/l402/invoice
-# → { "bolt11": "lnbc1...", "paymentHash": "..." }
-
-# 2. Client pays invoice, then validates
-curl -X POST "https://api.liveauth.app/api/public/l402/validate?paymentHash=..."
-# → { "token": "l402_xxx" }
-
-# 3. Access gated endpoint (L402 format)
-curl -H "Authorization: L402 l402_xxx" https://api.liveauth.app/api/mcp/start
-
-# OR use x402 format (Cloudflare/Coinbase compatible)
-curl -H "Authorization: x402 preimage_xxx" https://api.liveauth.app/api/mcp/start</pre>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- API Reference -->
-  <section id="api" class="section">
-    <h2>API Reference</h2>
-    <p class="subtitle">Quick reference for main API endpoints.</p>
-    
-    <div class="cards">
-      <div class="card">
-        <div class="card-icon"><span class="material-icons">api</span></div>
-        <h3>Authentication</h3>
-        <div class="code-block">
-          <pre># Get PoW challenge
-GET /api/public/pow/challenge
-Header: X-LW-Public: la_pk_xxx
-
-# Verify PoW solution  
-POST /api/public/pow/verify
-Header: X-LW-Public: la_pk_xxx
-Body: { challengeHex, nonce, hashHex, difficultyBits, sig }
-
-# Start Lightning auth
-POST /api/public/auth/start
-Header: X-LW-Public: la_pk_xxx
-
-# Confirm Lightning payment
-POST /api/public/auth/confirm
-Body: { sessionId }</pre>
-        </div>
-      </div>
-      
-      <div class="card">
-        <div class="card-icon"><span class="material-icons">account_balance_wallet</span></div>
-        <h3>L402 Payments</h3>
-        <div class="code-block">
-          <pre># Create invoice
-POST /api/public/l402/invoice
-
-# Validate payment, get token  
-POST /api/public/l402/validate?paymentHash=xxx
-
-# Verify token
-GET /api/public/l402/verify?token=xxx</pre>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer>
-    <p>© 2026 LiveAuth — <a href="https://github.com/dulzuradev" target="_blank">GitHub</a> — <a href="https://liveauth.app" target="_blank">liveauth.app</a></p>
-  </footer>
+  <script src="doc-viewer.js"></script>
 </body>
 </html>
