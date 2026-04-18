@@ -25,6 +25,7 @@ public class McpGateController : ControllerBase
     private readonly ApiKeyService _apiKeyService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<McpGateController> _logger;
+    private readonly L402Service _l402;
 
     public McpGateController(
         LiveAuthDbContext db,
@@ -34,7 +35,8 @@ public class McpGateController : ControllerBase
         PowDifficultyService difficulty,
         ApiKeyService apiKeyService,
         IConfiguration configuration,
-        ILogger<McpGateController> logger)
+        ILogger<McpGateController> logger,
+        L402Service l402)
     {
         _db = db;
         _lightning = lightning;
@@ -44,6 +46,7 @@ public class McpGateController : ControllerBase
         _apiKeyService = apiKeyService;
         _configuration = configuration;
         _logger = logger;
+        _l402 = l402;
     }
 
     private Project? GetProject()
@@ -124,8 +127,32 @@ public class McpGateController : ControllerBase
         // v1 config: reuse existing per-project sats/login as sats/call until we add explicit fields.
         var satsPerCall = Math.Clamp(project.SatsPerLogin, 1, 50);
 
-        // Default to PoW unless ForceLightning
         var forceLightning = req.ForceLightning == true;
+        var forceL402 = req.ForceL402 == true;
+
+        // L402 bundle mode — no invoice, client must present valid macaroon on confirm
+        if (forceL402)
+        {
+            var l402Session = new McpGateSession
+            {
+                ProjectId = project.Id,
+                SatsPerCallAtStart = satsPerCall,
+                Status = "pending",
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(10)
+            };
+
+            _db.McpGateSessions.Add(l402Session);
+            await _db.SaveChangesAsync(ct);
+
+            return Ok(new McpStartResponse(
+                QuoteId: l402Session.Id.ToString(),
+                PowChallenge: null,
+                Invoice: null,
+                // Hint to client: present macaroon on confirm
+                AuthHint: "l402_bundle"
+            ));
+        }
 
         McpGateSession session;
         object? powChallenge = null;
@@ -201,7 +228,8 @@ public class McpGateController : ControllerBase
         return Ok(new McpStartResponse(
             QuoteId: session.Id.ToString(),
             PowChallenge: powChallenge,
-            Invoice: invoice
+            Invoice: invoice,
+            AuthHint: null
         ));
     }
 
@@ -366,6 +394,71 @@ public class McpGateController : ControllerBase
                 ExpiresIn: (int)TimeSpan.FromMinutes(10).TotalSeconds,
                 RemainingBudgetSats: gateToken.MaxSatsPerDay,
                 PaymentStatus: "paid",
+                RefreshToken: gateToken.RefreshToken
+            ));
+        }
+
+        // L402 macaroon confirm — validate bundle macaroon
+        if (!string.IsNullOrWhiteSpace(req.Macaroon))
+        {
+            var (isValid, bundleId, remainingCalls, error) = 
+                await _l402.ValidateMacaroonAsync(req.Macaroon, _db);
+
+            if (!isValid)
+            {
+                return StatusCode(402, new
+                {
+                    error = "Payment required",
+                    message = error ?? "Invalid or depleted macaroon"
+                });
+            }
+
+            // Macaroon valid — mint JWT for the session
+            session.Status = "confirmed";
+
+            var jti = Guid.NewGuid().ToString("N");
+            var expiresUtc = DateTime.UtcNow.AddMinutes(10);
+
+            var extraClaims = new[]
+            {
+                new Claim("projectId", project.Id.ToString()),
+                new Claim("authType", "mcp_l402"),
+                new Claim("mcpQuoteId", session.Id.ToString()),
+                new Claim("jti", jti),
+                new Claim("bundleId", bundleId ?? "")
+            };
+
+            var tokenJwt = _jwt.GenerateJwtToken(
+                userId: $"mcp:{project.Id}:{session.Id}",
+                role: "McpClient",
+                extraClaims: extraClaims,
+                expiresUtc: expiresUtc
+            );
+
+            var gateToken = new McpGateToken
+            {
+                ProjectId = project.Id,
+                SessionId = session.Id,
+                JwtId = jti,
+                RefreshToken = Guid.NewGuid().ToString("N"),
+                IssuedAt = DateTime.UtcNow,
+                ExpiresAt = expiresUtc,
+                CallsUsed = 0,
+                SatsUsed = 0,
+                MaxCallsPerMinute = 60,
+                MaxSatsPerDay = remainingCalls * 1, // 1 sat per call budget
+                DayWindowStart = DateTime.UtcNow.Date,
+                Status = "active"
+            };
+
+            _db.McpGateTokens.Add(gateToken);
+            await _db.SaveChangesAsync(ct);
+
+            return Ok(new McpConfirmResponse(
+                Jwt: tokenJwt,
+                ExpiresIn: (int)TimeSpan.FromMinutes(10).TotalSeconds,
+                RemainingBudgetSats: remainingCalls,
+                PaymentStatus: "l402_paid",
                 RefreshToken: gateToken.RefreshToken
             ));
         }

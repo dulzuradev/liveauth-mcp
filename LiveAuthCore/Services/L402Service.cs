@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace LiveAuthCore.Services;
@@ -228,6 +230,97 @@ public class L402Service
             return McpSatsPerRequest;
         
         return _config.GetValue<int?>("L402:DefaultSats") ?? DefaultSatsPerRequest;
+    }
+
+    /// <summary>
+    /// Validate an L402 macaroon from a bundle purchase.
+    /// Returns (isValid, bundleId, remainingCalls, errorMessage).
+    /// Also decrements the bundle's RemainingCalls on success.
+    /// </summary>
+    public async Task<(bool IsValid, string? BundleId, int RemainingCalls, string? Error)> 
+        ValidateMacaroonAsync(string macaroon, LiveAuthDbContext db)
+    {
+        if (string.IsNullOrWhiteSpace(macaroon))
+            return (false, null, 0, "Macaroon required");
+
+        var parts = macaroon.Split('.');
+        if (parts.Length != 2)
+            return (false, null, 0, "Invalid macaroon format");
+
+        var claimsB64 = parts[0];
+        var sigB64 = parts[1];
+
+        // Verify HMAC signature
+        var signingKey = GetMacaroonSigningKey();
+        using var hmac = new System.Security.Cryptography.HMACSHA256(signingKey);
+        var expectedSig = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(claimsB64)));
+        if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(sigB64),
+                Encoding.UTF8.GetBytes(expectedSig)))
+            return (false, null, 0, "Invalid macaroon signature");
+
+        // Decode claims
+        string claimsJson;
+        try
+        {
+            claimsJson = Encoding.UTF8.GetString(Convert.FromBase64String(claimsB64));
+        }
+        catch
+        {
+            return (false, null, 0, "Invalid macaroon encoding");
+        }
+
+        using var doc = System.Text.Json.JsonDocument.Parse(claimsJson);
+        var root = doc.RootElement;
+
+        var jti = root.GetProperty("jti").GetString() ?? "";
+        var bid = root.GetProperty("bid").GetString() ?? "";
+        var exp = root.GetProperty("exp").GetInt64();
+        var rate = root.GetProperty("rate").GetInt32();
+
+        // Check expiry
+        if (exp > 0 && DateTimeOffset.UtcNow.ToUnixTimeSeconds() > exp)
+            return (false, null, 0, "Macaroon expired");
+
+        // Check remaining calls
+        if (rate <= 0)
+            return (false, null, 0, "Bundle depleted");
+
+        // Decrement bundle calls
+        var bundle = await db.L402Bundles
+            .FirstOrDefaultAsync(b => b.BundleId == bid);
+
+        if (bundle == null)
+            return (false, null, 0, "Bundle not found");
+
+        if (bundle.Status != "active")
+            return (false, null, 0, $"Bundle not active (status: {bundle.Status})");
+
+        if (bundle.RemainingCalls <= 0)
+            return (false, null, 0, "Bundle depleted");
+
+        // Atomic decrement
+        bundle.RemainingCalls -= 1;
+        if (bundle.RemainingCalls <= 0)
+            bundle.Status = "depleted";
+
+        // Record macaroon usage
+        var macRecord = new L402Macaroon
+        {
+            Id = Guid.NewGuid(),
+            Jti = jti,
+            BundleId = bundle.Id,
+            ProjectId = bundle.ProjectId,
+            AgentId = bundle.AgentId,
+            ScopesJson = "[\"mcp.verify\",\"auth.start\"]",
+            ExpiresAtUnix = exp,
+            SignatureB64 = sigB64
+        };
+        db.L402Macaroons.Add(macRecord);
+
+        await db.SaveChangesAsync();
+
+        return (true, bid, bundle.RemainingCalls, null);
     }
 }
 

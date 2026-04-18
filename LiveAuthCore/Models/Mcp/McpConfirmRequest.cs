@@ -10,5 +10,7 @@ public record McpConfirmRequest(
     long? ExpiresAtUnix = null,
     string? Sig = null,
     // For Lightning flow
-    string? PaymentHash = null
+    string? PaymentHash = null,
+    // For L402 bundle flow
+    string? Macaroon = null
 );
