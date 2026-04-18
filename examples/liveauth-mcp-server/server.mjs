@@ -43,6 +43,25 @@ const LOCAL_MODE = process.argv.includes('--local');
 
 const TOOLS = [
   {
+    name: 'echo',
+    description: 'Echo back the input text. Useful for testing L402 authentication flow.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          description: 'Text to echo back'
+        },
+        delay: {
+          type: 'number',
+          description: 'Optional delay in ms (0-5000) to simulate processing'
+        }
+      },
+      required: ['message']
+    },
+    costSats: 1
+  },
+  {
     name: 'calculator',
     description: 'Perform basic math calculations. Input should be a mathematical expression like "2 + 2" or "10 * 5".',
     inputSchema: {
@@ -240,6 +259,19 @@ class LiveAuthMcpServer {
         let result;
 
         switch (name) {
+          case 'echo':
+            // Simulate processing delay if requested
+            if (args.delay && args.delay > 0) {
+              await new Promise(resolve => setTimeout(resolve, Math.min(args.delay, 5000)));
+            }
+            result = {
+              echo: args.message,
+              timestamp: new Date().toISOString(),
+              authenticated: true,
+              message: 'L402 auth successful! Your call was debited from your bundle.'
+            };
+            break;
+
           case 'calculator':
             result = evaluateCalculator(args.expression);
             break;
