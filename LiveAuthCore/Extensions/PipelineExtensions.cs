@@ -27,6 +27,79 @@ public static class PipelineExtensions
         using var cmd = connection.CreateCommand();
         cmd.CommandText = GetSqliteMigrations();
         await cmd.ExecuteNonQueryAsync();
+
+        // Run column migrations separately (ALTER TABLE is not idempotent in SQLite)
+        await RunColumnMigrationsAsync(connection);
+    }
+
+    private static async Task RunColumnMigrationsAsync(System.Data.Common.DbConnection connection)
+    {
+        // Add L402BalanceSats to Projects if missing
+        using var checkCmd = connection.CreateCommand();
+        checkCmd.CommandText = "SELECT 1 FROM pragma_table_info('Projects') WHERE name='L402BalanceSats' LIMIT 1";
+        var exists = await checkCmd.ExecuteScalarAsync();
+        if (exists == null)
+        {
+            using var alterCmd = connection.CreateCommand();
+            alterCmd.CommandText = "ALTER TABLE Projects ADD COLUMN L402BalanceSats INTEGER NOT NULL DEFAULT 0";
+            await alterCmd.ExecuteNonQueryAsync();
+        }
+
+        // Add remaining table creations from GetSqliteMigrations that need separate handling
+        // (CREATE TABLE IF NOT EXISTS is already in the SQL; these just need table-check guard)
+        await RunTableMigrationsAsync(connection);
+    }
+
+    private static async Task RunTableMigrationsAsync(System.Data.Common.DbConnection connection)
+    {
+        // L402Bundles — check via pragma
+        await EnsureTableAsync(connection, "L402Bundles", @"
+            CREATE TABLE L402Bundles (
+                Id TEXT NOT NULL PRIMARY KEY,
+                BundleId TEXT NOT NULL UNIQUE,
+                ProjectId TEXT NOT NULL,
+                DeveloperId TEXT NOT NULL,
+                Tier TEXT NOT NULL,
+                TotalCalls INTEGER NOT NULL,
+                RemainingCalls INTEGER NOT NULL,
+                ExpiresAtUnix INTEGER NOT NULL,
+                CreatedAt TEXT NOT NULL,
+                PaymentHash TEXT,
+                Bolt11 TEXT,
+                AmountSats INTEGER NOT NULL,
+                Status TEXT NOT NULL,
+                AgentId TEXT
+            )"
+        );
+
+        // L402Macaroons
+        await EnsureTableAsync(connection, "L402Macaroons", @"
+            CREATE TABLE L402Macaroons (
+                Id TEXT NOT NULL PRIMARY KEY,
+                Jti TEXT NOT NULL UNIQUE,
+                BundleId TEXT NOT NULL,
+                ProjectId TEXT NOT NULL,
+                AgentId TEXT,
+                ScopesJson TEXT NOT NULL,
+                ExpiresAtUnix INTEGER NOT NULL,
+                IssuedAt TEXT NOT NULL,
+                IsRevoked INTEGER NOT NULL DEFAULT 0,
+                SignatureB64 TEXT NOT NULL
+            )"
+        );
+    }
+
+    private static async Task EnsureTableAsync(System.Data.Common.DbConnection connection, string tableName, string createSql)
+    {
+        using var check = connection.CreateCommand();
+        check.CommandText = $"SELECT name FROM sqlite_master WHERE type='table' AND name='{tableName}'";
+        var result = await check.ExecuteScalarAsync();
+        if (result == null)
+        {
+            using var create = connection.CreateCommand();
+            create.CommandText = createSql;
+            await create.ExecuteNonQueryAsync();
+        }
     }
 
     /// <summary>
@@ -125,14 +198,16 @@ public static class PipelineExtensions
             CreatedAt TEXT NOT NULL
         );
         
-        CREATE TABLE IF NOT EXISTS EcashProofs (
-            Id TEXT PRIMARY KEY,
-            MintUrl TEXT NOT NULL,
-            Amount INTEGER NOT NULL,
-            Secret TEXT NOT NULL,
-            C TEXT NOT NULL,
-            CreatedAt TEXT NOT NULL
-        );
+        -- Add L402BalanceSats column to existing Projects table if not present
+        -- (WebhookDeliveryWorker queries this column; it was missing from the SQLite schema)
+        -- We use PRAGMA to check column existence first since SQLite doesn't support IF NOT EXISTS for ALTER ADD
+        -- Check: does L402BalanceSats exist in Projects?
+        SELECT CASE WHEN EXISTS (
+            SELECT 1 FROM pragma_table_info('Projects') WHERE name = 'L402BalanceSats'
+        ) THEN 1 ELSE 0;
+        
+        -- NOTE: L402Bundles and L402Macaroons table creations are handled
+        -- in RunTableMigrationsAsync for better idempotency control
     ";
 
     /// <summary>
