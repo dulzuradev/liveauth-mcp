@@ -22,22 +22,17 @@ That's it. The script handles:
 |------|-----|
 | Main App | https://liveauth.app |
 | Demo | https://liveauth.app/demo |
-| Admin | https://admin.liveauth.app |
 | API | https://api.liveauth.app |
 | Docs | https://docs.liveauth.app |
 
 ## Verify Deployment
 
 ```bash
-# Check all sites
+# Check all public sites
 curl -s -o /dev/null -w "%{http_code}" https://liveauth.app/
 curl -s -o /dev/null -w "%{http_code}" https://liveauth.app/demo
-curl -s -o /dev/null -w "%{http_code}" https://admin.liveauth.app/
 curl -s -o /dev/null -w "%{http_code}" https://docs.liveauth.app/
 curl -s -o /dev/null -w "%{http_code}" https://api.liveauth.app/api/health
-
-# Check GitHub OAuth
-curl -s https://api.liveauth.app/api/dev/auth/github/status
 ```
 
 ## Manual Deploy (If Script Fails)
