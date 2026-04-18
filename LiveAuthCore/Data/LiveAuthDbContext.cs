@@ -47,6 +47,8 @@ public class LiveAuthDbContext : DbContext
     public DbSet<McpGateSession> McpGateSessions => Set<McpGateSession>();
     public DbSet<McpGateToken> McpGateTokens => Set<McpGateToken>();
     public DbSet<L402Purchase> L402Purchases => Set<L402Purchase>();
+    public DbSet<L402Bundle> L402Bundles => Set<L402Bundle>();
+    public DbSet<L402Macaroon> L402Macaroons => Set<L402Macaroon>();
 
     // Nostr Agent Auth
     public DbSet<NostrAgentSession> NostrAgentSessions => Set<NostrAgentSession>();
@@ -185,5 +187,22 @@ public class LiveAuthDbContext : DbContext
         modelBuilder.Entity<EcashProof>()
             .HasIndex(p => p.Secret)
             .IsUnique();
+
+        modelBuilder.Entity<L402Bundle>()
+            .HasIndex(b => b.BundleId)
+            .IsUnique();
+
+        modelBuilder.Entity<L402Bundle>()
+            .HasIndex(b => b.PaymentHash);
+
+        modelBuilder.Entity<L402Bundle>()
+            .HasIndex(b => b.ProjectId);
+
+        modelBuilder.Entity<L402Macaroon>()
+            .HasIndex(m => m.Jti)
+            .IsUnique();
+
+        modelBuilder.Entity<L402Macaroon>()
+            .HasIndex(m => new { m.BundleId, m.IsRevoked });
     }
 }

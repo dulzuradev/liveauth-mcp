@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using LiveAuthCore.Data.Entities;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace LiveAuthCore.Services;
@@ -157,6 +158,50 @@ public class L402Service
         var bytes = Encoding.UTF8.GetBytes(preimage);
         var hash = SHA256.HashData(bytes);
         return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Issue a macaroon credential for a bundle.
+    /// Returns (macaroon_base64, signature_base64).
+    /// </summary>
+    public (string Macaroon, string Signature) IssueMacaroonForBundle(L402Bundle bundle)
+    {
+        var jti = $"tok_{Guid.NewGuid().ToString("N")[..12]}";
+        var scopes = new[] { "mcp.verify", "auth.start" };
+        var scopesJson = System.Text.Json.JsonSerializer.Serialize(scopes);
+
+        var claims = new Dictionary<string, object>
+        {
+            ["kid"] = bundle.ProjectId.ToString(),
+            ["aid"] = bundle.AgentId ?? "default",
+            ["scopes"] = scopes,
+            ["bid"] = bundle.BundleId,
+            ["rate"] = bundle.RemainingCalls,
+            ["exp"] = bundle.ExpiresAtUnix,
+            ["iat"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            ["jti"] = jti
+        };
+
+        // Encode claims as CBOR-like JSON (simplified for v1)
+        var claimsJson = System.Text.Json.JsonSerializer.Serialize(claims);
+        var claimsB64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(claimsJson));
+
+        // Sign with HMAC-SHA256
+        var signingKey = GetMacaroonSigningKey();
+        using var hmac = new System.Security.Cryptography.HMACSHA256(signingKey);
+        var sigBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(claimsB64));
+        var sigB64 = Convert.ToBase64String(sigBytes);
+
+        var macaroon = $"{claimsB64}.{sigB64}";
+        return (macaroon, sigB64);
+    }
+
+    private static byte[] GetMacaroonSigningKey()
+    {
+        // In production, this should come from config (per-project or global)
+        var secret = "liveauth-macaroon-secret-v1";
+        using var sha = System.Security.Cryptography.SHA256.Create();
+        return sha.ComputeHash(Encoding.UTF8.GetBytes(secret));
     }
 
     private static string GenerateMockPreimage(string paymentHash)
