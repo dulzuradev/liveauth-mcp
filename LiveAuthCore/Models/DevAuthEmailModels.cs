@@ -11,9 +11,9 @@ public class RegisterRequest
 public class RegisterResponse
 {
     public Guid DeveloperId { get; set; }
-    public string? VerificationToken { get; set; }
     public string Message { get; set; } = string.Empty;
     public bool EmailVerificationRequired { get; set; }
+    public bool EmailSent { get; set; }
 }
 
 // ─── Verify Email ─────────────────────────────────────────────

@@ -26,12 +26,14 @@ public class DevAuthController : ControllerBase
     private readonly LightningService _ln;
     private readonly IConfiguration _config;
     private readonly AuthEventService _authEvents;
+    private readonly EmailService _email;
 
     public DevAuthController(
         LiveAuthDbContext db,
         LightningService ln,
         IConfiguration config,
-        AuthEventService authEvents)
+        AuthEventService authEvents,
+        EmailService email)
     {
         _db = db;
         _ln = ln;
@@ -541,19 +543,21 @@ public class DevAuthController : ControllerBase
         };
 
         _db.Developers.Add(dev);
-
-        // TODO: Send verification email via configured email provider
-        // For now, return the token (dev mode) — in prod, send via email
         await _db.SaveChangesAsync(ct);
 
         _authEvents.Log(dev.Id, "register_email", true, reason: "EMAIL_AUTH_REGISTER");
 
+        // Send verification email
+        var emailSent = await _email.SendVerificationEmailAsync(email, verificationToken);
+
         return Ok(new RegisterResponse
         {
             DeveloperId = dev.Id,
-            VerificationToken = verificationToken, // TODO: remove in prod, send email instead
-            Message = "Registration successful. Please check your email to verify your address.",
-            EmailVerificationRequired = true
+            Message = emailSent
+                ? "Registration successful. Check your email to verify your address."
+                : "Registration successful. Note: email delivery may be unavailable.",
+            EmailVerificationRequired = true,
+            EmailSent = emailSent
         });
     }
 

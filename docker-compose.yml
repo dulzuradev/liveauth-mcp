@@ -44,6 +44,9 @@ services:
       Jwt__Audience: "LiveAuthUsers"
       LiveAuth__PowHmacSecret: "swm3lIZ+arLWaU4Uz9zaUpzUbdV87O7p72Foo6RLtGstLmyeA3bNedhZenBn3H4t8n1IzsToxOVyaL1ILcFOtA=="
       LiveAuth__DemoProjectId: "00000000-0000-0000-0000-000000000002"
+      Resend__ApiKey: "re_P4qnqHQM_M5tNYHX3Ar4TfjJLGBc7uxez"
+      Resend__FromEmail: "noreply@liveauth.app"
+      Resend__FromName: "LiveAuth"
       Lnd__BaseUrl: "https://172.17.0.1:8080"
       Lnd__Macaroon: "0201036c6e64024e030a106945c51d9c6384f95a6e806f29e808691201301a0f0a07616464726573731204726561641a0c0a04696e666f1204726561641a170a08696e766f696365731204726561641205777269746500000620c3811fa1751d53c71a722feae9517d0afc568532415d9fb39bec09dfbe8d1297"
     volumes:

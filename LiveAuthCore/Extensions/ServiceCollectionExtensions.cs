@@ -108,6 +108,7 @@ public static class ServiceCollectionExtensions
         builder.Services.AddScoped<WebhookService>();
         builder.Services.AddScoped<SatsPrinterService>();
         builder.Services.AddScoped<AgentSatsService>();
+        builder.Services.AddHttpClient<EmailService>();
 
         // Hosted services
         builder.Services.AddHostedService<DevLoginSessionCleanupService>();
