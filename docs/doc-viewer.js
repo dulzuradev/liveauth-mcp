@@ -3,7 +3,7 @@
 
 (async function() {
   const MARKDOWN_FILES = [
-    { path: 'DEPLOY.md',                   title: 'Deploy Guide',           icon: 'rocket_launch' },
+    { path: 'GETTING-STARTED.md',           title: 'Getting Started',        icon: 'rocket_launch' },
     { path: 'L402-MACAROON-SPEC.md',       title: 'L402 Macaroon Spec',     icon: 'vpn_key' },
     { path: 'add-l402-to-any-mcp-tool.md', title: 'Add L402 to MCP (5 min)', icon: 'bolt' },
     { path: 'mcp-liveauth-gate.md',        title: 'MCP Gate Design',        icon: 'hub' },
@@ -12,9 +12,9 @@
 
   function getCurrentDoc() {
     const hash = window.location.hash;
-    if (!hash || hash === '#' || hash === '#/') return 'DEPLOY.md';
+    if (!hash || hash === '#' || hash === '#/') return 'GETTING-STARTED.md';
     const match = hash.match(/^#doc\/(.+)$/);
-    return match ? decodeURIComponent(match[1]) : 'DEPLOY.md';
+    return match ? decodeURIComponent(match[1]) : 'GETTING-STARTED.md';
   }
 
   async function loadDoc(docPath) {
@@ -22,7 +22,7 @@
     const titleEl  = document.getElementById('doc-title');
     const crumbEl  = document.getElementById('doc-breadcrumb');
 
-    let normalized = (docPath === 'index.html' || docPath === 'index.md') ? 'DEPLOY.md' : docPath;
+    let normalized = (docPath === 'index.html' || docPath === 'index.md') ? 'GETTING-STARTED.md' : docPath;
 
     const doc = MARKDOWN_FILES.find(d => d.path === normalized);
     const title = doc ? doc.title : normalized.replace(/\.md$/, '').replace(/-/g, ' ');
@@ -43,7 +43,7 @@
     try {
       const res = await fetch(normalized);
       if (!res.ok) {
-        if (contentEl) contentEl.innerHTML = '<div class="error-state"><span class="material-icons" style="font-size:48px;color:var(--btc-orange);">error_outline</span><h3>Document not found</h3><p>' + normalized + ' not found.</p><a href="#doc/DEPLOY.md">Go to Deploy Guide →</a></div>';
+        if (contentEl) contentEl.innerHTML = '<div class="error-state"><span class="material-icons" style="font-size:48px;color:var(--btc-orange);">error_outline</span><h3>Document not found</h3><p>' + normalized + ' not found.</p><a href="#doc/GETTING-STARTED.md">Go to Getting Started →</a></div>';
         return;
       }
       const md  = await res.text();

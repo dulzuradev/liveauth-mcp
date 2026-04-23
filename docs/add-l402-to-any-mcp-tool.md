@@ -77,7 +77,7 @@ curl -X POST https://api.liveauth.app/api/mcp/start \
 **Response:**
 ```json
 {
-  "quoteId": "session-uuid-here",
+  "sessionId": "uuid",
   "authHint": "l402_bundle"
 }
 ```
@@ -89,7 +89,7 @@ curl -X POST https://api.liveauth.app/api/mcp/confirm \
   -H "Content-Type: application/json" \
   -H "X-LW-Public: la_pk_your_public_key" \
   -d '{
-    "quoteId": "session-uuid-here",
+    "sessionId": "uuid",
     "macaroon": "eyJraWQiOiJsYSIsImFpZCI6ImFnZW50Ii..."
   }'
 ```
@@ -99,9 +99,8 @@ curl -X POST https://api.liveauth.app/api/mcp/confirm \
 {
   "jwt": "eyJhbG...",
   "expiresIn": 600,
-  "remainingBudgetSats": 99,
-  "paymentStatus": "l402_paid",
-  "refreshToken": "ref_xxx"
+  "remainingCalls": 99,
+  "paymentStatus": "l402_paid"
 }
 ```
 
