@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 
 // PrimeNG
 import { InputTextModule } from 'primeng/inputtext';
@@ -274,7 +275,8 @@ console.log('onTimeRangeChange', range);
 
   constructor(
     private devAuth: DevAuthService,
-    private devService: DeveloperProjectsService
+    private devService: DeveloperProjectsService,
+    private http: HttpClient
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -439,12 +441,27 @@ console.log('onTimeRangeChange', range);
   }
 
   logout() {
-    this.devAuth.clearToken();
-    this.loggedIn = false;
-    this.projects = [];
-    this.loginSession = undefined;
-    this.stopPolling();
-    this.stopCountdown();
+    // Call the backend to clear the GitHub OAuth state cookie
+    this.http.post(`${this.devAuth.getApiUrl()}/api/dev/auth/logout`, {}).subscribe({
+      next: () => {
+        // Clear local token and reset state
+        this.devAuth.clearToken();
+        this.loggedIn = false;
+        this.projects = [];
+        this.loginSession = undefined;
+        this.stopPolling();
+        this.stopCountdown();
+      },
+      error: () => {
+        // Still clear local state even if the API call fails
+        this.devAuth.clearToken();
+        this.loggedIn = false;
+        this.projects = [];
+        this.loginSession = undefined;
+        this.stopPolling();
+        this.stopCountdown();
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------

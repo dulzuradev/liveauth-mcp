@@ -715,6 +715,18 @@ public class DevAuthController : ControllerBase
         return (hash, salt);
     }
 
+    /// <summary>
+    /// Developer logout - clears the GitHub OAuth state cookie to prevent
+    /// "invalid state parameter" errors on next login after logout.
+    /// </summary>
+    [HttpPost("logout")]
+    public ActionResult Logout()
+    {
+        // Clear the GitHub OAuth state cookie
+        Response.Cookies.Delete("github_oauth_state");
+        return Ok(new { success = true });
+    }
+
     private static string HashPassword(string password, string salt)
     {
         var saltBytes = Convert.FromBase64String(salt);
