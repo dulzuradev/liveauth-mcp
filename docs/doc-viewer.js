@@ -32,6 +32,14 @@
 
     await loadScript('https://cdn.jsdelivr.net/npm/marked/marked.min.js');
 
+    // Handle standalone HTML pages (e.g. demo.html) via iframe
+    if (normalized === 'demo.html') {
+      if (contentEl) {
+        contentEl.innerHTML = '<div class="doc-body" style="padding:0;height:calc(100vh - 160px);"><iframe src="demo.html" style="width:100%;height:100%;border:none;border-radius:8px;" loading="lazy"></iframe></div>';
+      }
+      return;
+    }
+
     try {
       const res = await fetch(normalized);
       if (!res.ok) {
