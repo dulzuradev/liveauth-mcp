@@ -33,7 +33,7 @@ function getAuthHeaders(): Record<string, string> {
     'Content-Type': 'application/json',
   };
   if (LIVEAUTH_API_KEY && !LIVEAUTH_DEMO) {
-    headers['X-LW-Public'] = LIVEAUTH_API_KEY;
+    headers['X-LW-PublicKey'] = LIVEAUTH_API_KEY;
   }
   return headers;
 }
