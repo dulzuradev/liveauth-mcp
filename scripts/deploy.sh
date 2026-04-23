@@ -16,6 +16,14 @@ if [[ ! -d "$LOCAL_DIR/LiveAuthCore" ]]; then
     exit 1
 fi
 
+# Run pre-deploy checklist (catch config issues before building)
+echo "Running deploy checklist..."
+if ! bash "$LOCAL_DIR/scripts/deploy-checklist.sh"; then
+    echo ""
+    echo "ERROR: Deploy checklist failed. Fix issues before deploying."
+    exit 1
+fi
+
 # Build frontend (doesn't need Docker)
 echo "Building frontend..."
 cd $LOCAL_DIR/LiveAuthWeb
@@ -94,5 +102,11 @@ rsync -avz "$LOCAL_DIR/Caddyfile" "$SERVER:$REMOTE_DIR/"
 # Reload Caddy (no restart needed for Caddyfile changes)
 echo "Reloading Caddy..."
 ssh "$SERVER" "docker exec liveauth-caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || docker restart liveauth-caddy"
+
+# Run post-deploy verification
+echo "Running post-deploy checks..."
+if ! bash "$LOCAL_DIR/scripts/post-deploy-check.sh"; then
+    echo "WARNING: Post-deploy checks failed. Verify the site manually."
+fi
 
 echo "=== Done! ==="
