@@ -38,19 +38,21 @@ const result = await liveauth.verify();
 // { authenticated: true, sessionToken: '...' }`;
 
   // MCP server snippet
-  mcpServerSnippet = `import { McpServer } from '@liveauth-labs/mcp-server';
+  mcpServerSnippet = `# Add to claude_desktop_config.json
+{
+  "mcpServers": {
+    "liveauth": {
+      "command": "npx",
+      "args": ["-y", "@liveauth-labs/mcp-server"],
+      "env": {
+        "LIVEAUTH_API_KEY": "la_sk_your_key"
+      }
+    }
+  }
+}
 
-const server = new McpServer({
-  publicKey: 'la_pk_your_key',
-  satsPerCall: 10
-});
-
-server.addTool('browser_use', async (params) => {
-  // Tool logic here
-});
-
-// Authenticate every call — pay per request
-server.listen(3000);`;
+# Or run standalone
+npx @liveauth-labs/mcp-server`;
 
   // Pricing tiers
   tiers = [

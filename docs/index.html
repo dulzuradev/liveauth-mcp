@@ -73,6 +73,17 @@
 
     nav.toolbar-nav a:hover { color: var(--electric-blue); }
 
+    .sidebar-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-primary);
+      cursor: pointer;
+      padding: 8px;
+      margin-right: 8px;
+    }
+    .sidebar-toggle .material-icons { font-size: 24px; }
+
     /* Layout */
     .layout {
       display: flex;
@@ -308,15 +319,38 @@
 
     /* Mobile */
     @media (max-width: 768px) {
-      .sidebar { display: none; }
+      .sidebar { 
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        z-index: 200;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        box-shadow: 3px 0 12px rgba(0,0,0,0.4);
+      }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 150;
+      }
+      .sidebar-overlay.open { display: block; }
       #doc-content { padding: 24px 20px; }
       nav.toolbar-nav { display: none; }
+      .sidebar-toggle { display: flex; align-items: center; }
     }
   </style>
 </head>
 <body>
   <!-- Toolbar -->
   <div class="toolbar">
+    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle navigation">
+      <span class="material-icons">menu</span>
+    </button>
     <a href="/" class="logo">
       <span class="material-icons" style="font-size:22px;">⚡</span>
       <span>LiveAuth</span>
@@ -330,7 +364,7 @@
 
   <div class="layout">
     <!-- Sidebar nav (built by doc-viewer.js) -->
-    <aside class="sidebar">
+    <aside id="sidebar" class="sidebar">
       <div class="sidebar-section">
         <div class="sidebar-section-title">Getting Started</div>
       </div>
@@ -338,6 +372,7 @@
         <!-- populated by doc-viewer.js -->
       </div>
     </aside>
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
     <!-- Main -->
     <main class="main">
@@ -352,5 +387,22 @@
   </div>
 
   <script src="doc-viewer.js"></script>
+  <script>
+    // Mobile sidebar toggle
+    document.addEventListener('DOMContentLoaded', function() {
+      var toggle = document.getElementById('sidebarToggle');
+      var sidebar = document.getElementById('sidebar');
+      var overlay = document.getElementById('sidebarOverlay');
+      if (!toggle || !sidebar) return;
+      toggle.addEventListener('click', function() {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('open');
+      });
+      overlay.addEventListener('click', function() {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('open');
+      });
+    });
+  </script>
 </body>
 </html>

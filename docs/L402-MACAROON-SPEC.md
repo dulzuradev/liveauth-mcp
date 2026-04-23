@@ -166,16 +166,6 @@ New bundle gets a new macaroon. Old macaroon stays valid until expiry.
 
 ## Notes
 
-- Use **chacha20-poly1305** or **HMAC-SHA256** for macaroon signature
+- Use **HMAC-SHA256** for macaroon signature
 - Macaroon itself is opaque to client — just a bearer token
-- Store `jti` revocation list in Redis (TTL = macaroon exp) for fast lookup
-- Consider adding `scope` granularity later (e.g. `["mcp.verify"]` only = cheaper bundle)
-
----
-
-## Questions for Scott
-
-1. **Lightning node** — using existing LND? What's the pubkey/routing policy?
-2. **Macaroon secret** — rotate per `kid`, or single global secret?
-3. **Revocation** — how critical? Redis-backed jti blocklist is fine for v1?
-4. **Invoice expiry** — 10 minutes standard, or longer for enterprise?
+- `scope` granularity can be added later (e.g. `["mcp.verify"]` only = cheaper bundle)

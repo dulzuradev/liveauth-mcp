@@ -164,14 +164,9 @@ Debit one tool call (idempotent) and return allow/deny.
 - Budget checks must be atomic.
 - Tie charges to a project + optionally agent identity.
 
-## Reference MCP integration (Phase 2)
-- Provide a tiny wrapper that:
-  1) calls `/mcp/start`
-  2) solves PoW or pays invoice
-  3) calls `/mcp/confirm` to obtain JWT
-  4) wraps each tool call with `/mcp/charge`
-
-## Open questions (for Scott)
-1) Do we want **per-call payment** (default) or **session payment** (pay once, N calls included)?
-2) Default `SatsPerCall` and free tier?
-3) Should PoW always be available, or allow projects to require LN?
+## Reference MCP integration
+Provide a tiny wrapper that:
+1. calls `/mcp/start`
+2. solves PoW or pays invoice
+3. calls `/mcp/confirm` to obtain JWT
+4. wraps each tool call with `/mcp/charge`
