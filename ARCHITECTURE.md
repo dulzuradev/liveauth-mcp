@@ -70,11 +70,16 @@ Browser / AI Agent
 ## Key Entities
 
 ### Developer
-Portal owner. Signs up via email/password or GitHub OAuth.
+Portal owner. Signs up via email/password, GitHub OAuth, or Lightning invoice.
 ```
 Id, Email, PasswordHash?, PasswordSalt?, LightningAuthKey?,
-GitHubId?, GitHubUsername?, EmailVerified, VerificationToken?
+GitHubId?, GitHubUsername?, EmailVerified, VerificationToken?, VerificationExpiresAt?
 ```
+
+**Developer Login Flows:**
+1. **Email/Password** — register → verify email → login. Verification link: `https://liveauth.app/dev/verify-email?token=...`
+2. **GitHub OAuth** — redirect to GitHub → callback with JWT
+3. **Lightning** — generate invoice → pay → JWT issued on payment confirm
 
 ### Project
 An API key pair owned by a Developer. Each project has its own PoW difficulty and sats config.
@@ -175,8 +180,16 @@ The MCP server exposes 5 tools: `liveauth_mcp_start`, `liveauth_mcp_confirm`, `l
 ### Developer Auth
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/dev/auth/start` | — | Developer login start |
-| POST | `/api/dev/auth/confirm` | — | Confirm developer login |
+| POST | `/api/dev/auth/start` | — | Developer Lightning login start |
+| POST | `/api/dev/auth/confirm` | — | Confirm Lightning developer login |
+| POST | `/api/dev/auth/register` | — | Register new developer account |
+| POST | `/api/dev/auth/verify-email` | — | Verify email via token (from link) |
+| POST | `/api/dev/auth/login` | — | Email/password login |
+| POST | `/api/dev/auth/forgot-password` | — | Request password reset email |
+| POST | `/api/dev/auth/logout` | — | Logout (clears OAuth state cookie) |
+| GET | `/api/dev/auth/github/status` | — | Check GitHub OAuth availability |
+| GET | `/api/dev/auth/github/start` | — | Initiate GitHub OAuth flow |
+| GET | `/api/dev/auth/github/callback` | — | GitHub OAuth callback |
 
 ### MCP Gate (`/api/mcp`)
 | Method | Path | Auth | Description |
@@ -250,7 +263,7 @@ Bundle pricing: $29 = 50,000 sats ≈ 1 sat/call for MCP.
 `docker cp` does NOT work with named volumes. Use `docker run --rm -v liveauth_sqlite_data:/data alpine` to write to them.
 
 ### Deploy Flatten Step
-Angular builds into `dist/browser/` subdirectory. Caddy serves from `/srv/` (flat). **Always** run `flatten_dir` (copies `browser/*` → root) before deploying, or use `deploy.sh` which handles it.
+Angular builds into `dist/browser/` subdirectory. Caddy serves from `/srv/` (flat). **Always** run `flatten_dir` (copies `browser/*` → root) before deploying, or use `deploy.sh` which handles it. The `flatten_dir` also copies `browser/media/` → `media/`, `browser/docs/` → `docs/`, and `browser/liveauth-admin/` → `liveauth-admin/`.
 
 ### SDK Header Mismatch
 `PublicKeyAuthMiddleware` reads `X-LW-Public`, NOT `X-LW-PublicKey`. The MCP server (`dulzuradev/liveauth-mcp`) was incorrectly sending `X-LW-PublicKey` — fixed in `8e427cb`.
@@ -263,6 +276,9 @@ MCP gate JWTs are short-lived (10 min) and scoped to `projectId + sessionId`. Th
 
 ### L402 vs Lightning
 L402 is for **prepaid** bulk access (AI agents buying bundles). Lightning is for **per-session** payment (one-off logins). L402 macaroons survive beyond the MCP session lifecycle; Lightning invoices are single-use.
+
+### Email / Resend
+Transaction emails (verification, password reset) sent via **Resend API** (HTTP, not SMTP). Configured via `Resend__ApiKey`, `Resend__FromEmail`, `Resend__FromName` in docker-compose.yml. Verification tokens expire after 24 hours.
 
 ---
 
