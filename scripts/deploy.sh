@@ -50,10 +50,11 @@ flatten_dir() {
     local dest="$1"
     if [[ -d "$browser" ]]; then
         echo "Flattening $browser -> $dest..."
-        # Copy all files (skip if same name exists as subdir)
+        # Copy all files
         for f in "$browser"/*; do
             [[ -f "$f" ]] && cp -p "$f" "$dest/" 2>/dev/null || true
-            [[ -d "$f" && ! -e "$dest/$(basename "$f")" ]] && cp -r "$f" "$dest/" 2>/dev/null || true
+            # Copy subdirectories (media/, assets/, etc.) — overwrite if exists
+            [[ -d "$f" ]] && cp -r "$f" "$dest/" 2>/dev/null || true
         done
     fi
 }

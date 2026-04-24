@@ -65,10 +65,22 @@
           <!-- Lightning Tab -->
           <p-tabpanel value="lightning">
             <div class="p-fluid">
-              <p class="mb-3">Pay a tiny Lightning invoice to verify your account.</p>
+              <p class="mb-3">Pay a tiny Lightning invoice to verify your developer account.</p>
+
+              <div class="field">
+                <input
+                  pInputText
+                  type="email"
+                  [(ngModel)]="developerEmail"
+                  placeholder="Developer email address"
+                  class="w-full"
+                  (keyup.enter)="startLogin()"
+                  [disabled]="!!loginSession"/>
+              </div>
+
               <button
                 (click)="startLogin()"
-                [disabled]="!!loginSession"
+                [disabled]="!developerEmail || !!loginSession"
                 [loading]="loginInProgress"
                 icon="pi pi-bolt"
                 label="Generate Invoice"
@@ -156,7 +168,7 @@
                   <h4 class="mb-0">{{ emailMode === 'login' ? 'Sign in' : 'Create account' }}</h4>
                   <button
                     (click)="toggleEmailMode()"
-                    [label]="emailMode === 'login' ? 'Need an account?' : 'Have an account?'"
+                    [label]="emailTabToggleLabel"
                     class="p-button-link p-button-sm"
                     pButton>
                   </button>
@@ -195,7 +207,7 @@
                 <button
                   (click)="emailMode === 'login' ? emailLogin() : emailRegister()"
                   [loading]="emailLoading"
-                  [label]="emailMode === 'login' ? 'Sign In' : 'Create Account'"
+                  [label]="emailSubmitLabel"
                   class="w-full p-button-primary"
                   pButton>
                 </button>
