@@ -28,6 +28,10 @@ if (missingConfigs.Any())
 
 // Validate Lightning config
 builder.ValidateLightningConfig();
+
+// Validate no dangerous debug flags in production
+builder.ValidateProductionSafety();
+
 builder.LogConfigState();
 
 // --------------------------------------------------

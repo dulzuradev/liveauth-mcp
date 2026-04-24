@@ -1,0 +1,37 @@
+{
+    email admin@liveauth.app
+}
+
+liveauth.app {
+    root * /srv/browser
+    try_files {path} /index.html
+    file_server
+}
+
+api.liveauth.app {
+    @options method OPTIONS
+    handle @options {
+        header {
+            Access-Control-Allow-Origin "*"
+            Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, PATCH, DELETE"
+            Access-Control-Allow-Headers "Content-Type, Authorization, X-LW-Public, X-LW-Secret, X-LW-Api-Key, X-LW-Sdk-Version"
+            Access-Control-Max-Age "86400"
+        }
+        respond "" 204
+    }
+    reverse_proxy 127.0.0.1:8081 {
+        header_down Access-Control-Allow-Origin "*"
+    }
+}
+
+admin.liveauth.app {
+    root * /srv/liveauth-admin
+    try_files {path} /index.html
+    file_server
+}
+
+docs.liveauth.app {
+    root * /srv/browser/docs
+    try_files {path} /index.html
+    file_server
+}

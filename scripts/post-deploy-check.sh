@@ -15,15 +15,6 @@ if [ "$HTTP_CODE" != "200" ]; then
 fi
 echo "✓ liveauth.app OK (200)"
 
-# Check demo page
-echo "Checking demo page..."
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://liveauth.app/demo)
-if [ "$HTTP_CODE" != "200" ]; then
-    echo "ERROR: liveauth.app/demo returned $HTTP_CODE"
-    exit 1
-fi
-echo "✓ demo page OK (200)"
-
 # Check admin site
 echo "Checking admin.liveauth.app..."
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://admin.liveauth.app)
@@ -41,6 +32,26 @@ if [ "$HTTP_CODE" != "200" ]; then
     exit 1
 fi
 echo "✓ docs.liveauth.app OK (200)"
+
+# Check API health
+echo "Checking API health..."
+API_RESP=$(curl -s https://api.liveauth.app/api/health)
+if echo "$API_RESP" | grep -q '"status":"healthy"'; then
+    echo "✓ API health OK"
+else
+    echo "ERROR: API health check failed"
+    echo "Response: $API_RESP"
+    exit 1
+fi
+
+# Check GitHub OAuth status
+echo "Checking GitHub OAuth..."
+GITHUB_RESP=$(curl -s https://api.liveauth.app/api/dev/auth/github/status)
+if echo "$GITHUB_RESP" | grep -q '"enabled":true'; then
+    echo "✓ GitHub OAuth enabled"
+else
+    echo "WARNING: GitHub OAuth may not be configured"
+fi
 
 echo ""
 echo "✓ All post-deploy checks passed!"

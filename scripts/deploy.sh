@@ -134,7 +134,7 @@ fi
 
 # Sync Caddyfile (if changed)
 echo "Syncing Caddyfile..."
-rsync -avz "$LOCAL_DIR/Caddyfile" "$SERVER:$REMOTE_DIR/"
+rsync -avz "$LOCAL_DIR/caddy/Caddyfile" "$SERVER:$REMOTE_DIR/caddy_config/Caddyfile"
 
 # Reload Caddy (no restart needed for Caddyfile changes)
 echo "Reloading Caddy..."

@@ -67,6 +67,71 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Validates that dangerous debug flags (SkipPayment, UseMock) are not enabled in production.
+    /// Throws on first dangerous flag found to prevent accidental production misconfigurations.
+    /// </summary>
+    public static void ValidateProductionSafety(this WebApplicationBuilder builder)
+    {
+        if (builder.Environment.IsProduction())
+        {
+            var dangerousFlags = new List<(string Name, string? Value, string Message)>();
+
+            // Check Admin__SkipPayment
+            var skipPayment = builder.Configuration["Admin:SkipPayment"] ?? 
+                             builder.Configuration["Admin__SkipPayment"];
+            if (skipPayment?.ToLowerInvariant() == "true")
+            {
+                dangerousFlags.Add(("Admin:SkipPayment", skipPayment, 
+                    "Payment verification is BYPASSED - users can upgrade without paying!"));
+            }
+
+            // Check Lnd__UseMock
+            var useMock = builder.Configuration["Lnd:UseMock"] ?? 
+                         builder.Configuration["Lnd__UseMock"];
+            if (useMock?.ToLowerInvariant() == "true")
+            {
+                dangerousFlags.Add(("Lnd:UseMock", useMock, 
+                    "Lightning is in MOCK mode - no real payments accepted!"));
+            }
+
+            // Check Lnd__UseSimulated
+            var useSimulated = builder.Configuration["Lnd:UseSimulated"] ?? 
+                              builder.Configuration["Lnd__UseSimulated"];
+            if (useSimulated?.ToLowerInvariant() == "true")
+            {
+                dangerousFlags.Add(("Lnd:UseSimulated", useSimulated, 
+                    "Lightning is in SIMULATED mode - payments are fake!"));
+            }
+
+            if (dangerousFlags.Any())
+            {
+                var errorLines = new[]
+                {
+                    "",
+                    "[FATAL] DANGEROUS CONFIGURATION IN PRODUCTION!",
+                    "=========================================="
+                };
+                foreach (var flag in dangerousFlags)
+                {
+                    errorLines = errorLines.Append($"[FATAL] {flag.Name}={flag.Value} - {flag.Message}").ToArray();
+                }
+                errorLines = errorLines.Append("==========================================").ToArray();
+                errorLines = errorLines.Append("Remove the flag or set it to 'false' to proceed.").ToArray();
+                errorLines = errorLines.Append("").ToArray();
+
+                foreach (var line in errorLines)
+                {
+                    Console.Error.WriteLine(line);
+                }
+
+                throw new InvalidOperationException(
+                    $"Dangerous configuration flags detected: {string.Join(", ", dangerousFlags.Select(f => f.Name))}. " +
+                    "Fix before deploying to production.");
+            }
+        }
+    }
+
+    /// <summary>
     /// Adds LiveAuth database context (SQLite only).
     /// </summary>
     public static WebApplicationBuilder AddLiveAuthDb(this WebApplicationBuilder builder)
