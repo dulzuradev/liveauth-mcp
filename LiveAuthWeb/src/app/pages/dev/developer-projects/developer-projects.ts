@@ -119,6 +119,15 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   // Login tab selection ('github' | 'lightning' | 'email')
   selectedLoginTab = 'github';
 
+  // Convenience getters for template bindings with whitespace
+  get emailTabToggleLabel(): string {
+    return this.emailMode === 'login' ? 'Need an account?' : 'Have an account?';
+  }
+
+  get emailSubmitLabel(): string {
+    return this.emailMode === 'login' ? 'Sign In' : 'Create Account';
+  }
+
   get lightningQrValue(): string {
     if (!this.loginSession?.invoice) return '';
     return `LIGHTNING:${this.loginSession?.invoice.trim()}`;
