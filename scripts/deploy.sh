@@ -65,9 +65,7 @@ flatten_dir() {
     fi
 }
 
-flatten_dir "dist/liveauth-web"
-# The admin was copied above, flatten its browser/ output too
-flatten_dir "$LOCAL_DIR/LiveAuthWeb/dist/liveauth-admin"
+
 
 # Sync to server using atomic swap
 echo "Syncing web files to server..."
@@ -101,6 +99,38 @@ ssh "$SERVER" "
 mv $REMOTE_DIR/LiveAuthWeb/dist $REMOTE_DIR/LiveAuthWeb/dist-old 2>/dev/null || true
 mv $REMOTE_DIR/LiveAuthWeb/dist-new $REMOTE_DIR/LiveAuthWeb/dist
 " 2>/dev/null || ssh "$SERVER" "mv $REMOTE_DIR/LiveAuthWeb/dist-new $REMOTE_DIR/LiveAuthWeb/dist"
+
+# Flatten Angular build outputs on SERVER (after rsync --delete, so subdirs survive)
+# Copies browser/* → root, and browser/docs → docs, browser/assets → assets
+echo "Flattening build outputs on server..."
+ssh "$SERVER" "
+flatten_server_dir() {
+    local d=\$1
+    if [[ -d \$d/browser ]]; then
+        echo 'Flattening \$d/browser/* -> \$d/...'
+        for f in \$d/browser/*; do
+            [[ -f \$f ]] && cp -p \$f \$d/ 2>/dev/null || true
+            [[ -d \$f ]] && cp -r \$f \$d/ 2>/dev/null || true
+        done
+    fi
+    # docs from browser/docs -> docs
+    if [[ -d \$d/browser/docs ]]; then
+        echo 'Flattening \$d/browser/docs -> \$d/docs...'
+        mkdir -p \$d/docs
+        cp -r \$d/browser/docs/* \$d/docs/ 2>/dev/null || true
+    fi
+}
+
+# Flatten main web app
+echo 'Flattening main web app...'
+flatten_server_dir $REMOTE_DIR/LiveAuthWeb/dist
+
+# Flatten admin panel
+if [[ -d $REMOTE_DIR/LiveAuthWeb/dist/liveauth-admin/browser ]]; then
+    echo 'Flattening admin panel...'
+    flatten_server_dir $REMOTE_DIR/LiveAuthWeb/dist/liveauth-admin
+fi
+"
 
 # Sync Caddyfile (if changed)
 echo "Syncing Caddyfile..."
