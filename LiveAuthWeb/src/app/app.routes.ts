@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { LoginComponent } from './pages/demo/login-component/login-component';
 import { MockLoginComponent } from './pages/demo/mock-login/mock-login.component';
 import {DeveloperProjectsComponent} from './pages/dev/developer-projects/developer-projects';
+import {VerifyEmailComponent} from './pages/dev/verify-email/verify-email.component';
 import {LandingPageComponent} from './pages/landing-page/landing-page';
 import {McpAgentsComponent} from './pages/mcp-agents/mcp-agents';
 import {AdminComponent} from './pages/dev/admin-component/admin-component';
@@ -27,6 +28,9 @@ export const routes: Routes = [
 
   // Developer console
   { path: 'dev/projects', component: DeveloperProjectsComponent },
+
+  // Email verification
+  { path: 'dev/verify-email', component: VerifyEmailComponent },
 
   // Admin (optional internal)
   { path: 'admin', component: AdminComponent },
