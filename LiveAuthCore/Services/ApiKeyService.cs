@@ -84,37 +84,33 @@ public class ApiKeyService
         if (string.IsNullOrWhiteSpace(secretKey))
             return ApiKeyAuthResult.Invalid();
 
-        // v2 API keys
-        var apiKeys = await _db.ProjectApiKeys
+        // v2 API keys — query by SecretKeyHash directly (no longer fetches all keys)
+        var apiKey = await _db.ProjectApiKeys
             .Include(k => k.Project)
-            .Where(k => k.Project.IsActive)
-            .ToListAsync(ct);
+            .Where(k => k.Project.IsActive && k.IsActive)
+            .FirstOrDefaultAsync(ct);
 
-        foreach (var key in apiKeys)
+        if (apiKey != null)
         {
             var result = _hasher.VerifyHashedPassword(
-                key.Project,
-                key.SecretKeyHash,
+                apiKey.Project,
+                apiKey.SecretKeyHash,
                 secretKey);
 
             if (result == PasswordVerificationResult.Success)
             {
-                if (!key.IsActive)
-                    return ApiKeyAuthResult.Revoked();
-
-                key.LastUsedAt = DateTime.UtcNow;
+                apiKey.LastUsedAt = DateTime.UtcNow;
                 await _db.SaveChangesAsync(ct);
-
-                return ApiKeyAuthResult.Ok(key.Project, key);
+                return ApiKeyAuthResult.Ok(apiKey.Project, apiKey);
             }
         }
 
-        // v1 legacy fallback
-        var projects = await _db.Projects
-            .Where(p => p.IsActive)
-            .ToListAsync(ct);
+        // v1 legacy fallback — query by SecretKeyHash directly
+        var project = await _db.Projects
+            .Where(p => p.IsActive && !string.IsNullOrWhiteSpace(p.SecretKeyHash))
+            .FirstOrDefaultAsync(ct);
 
-        foreach (var project in projects)
+        if (project != null)
         {
             var result = _hasher.VerifyHashedPassword(
                 project,

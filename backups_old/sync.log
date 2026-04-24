@@ -1,0 +1,53 @@
+Transfer starting: 2 files
+./
+
+sent 22 bytes  received 142 bytes  1640000 bytes/sec
+total size is 8727  speedup is 53.21
+Transfer starting: 5 files
+./
+backup.log
+liveauth_2026-02-23_030001.db.gz
+
+sent 72 bytes  received 16799 bytes  168710000 bytes/sec
+total size is 63820  speedup is 3.78
+Transfer starting: 6 files
+./
+backup.log
+liveauth_2026-02-22_030001.db.gz
+liveauth_2026-02-23_030001.db.gz
+liveauth_2026-02-24_030001.db.gz
+
+sent 596 bytes  received 17366 bytes  179620000 bytes/sec
+total size is 81254  speedup is 4.52
+Transfer starting: 7 files
+./
+backup.log
+liveauth_2026-02-25_030001.db.gz
+
+sent 72 bytes  received 23081 bytes  231530000 bytes/sec
+total size is 104466  speedup is 4.51
+Transfer starting: 2 files
+./
+liveauth_2026-03-21_231823.db.gz
+
+sent 44 bytes  received 23742 bytes  237860000 bytes/sec
+total size is 24060  speedup is 1.01
+Transfer starting: 2 files
+
+sent 16 bytes  received 136 bytes  1520000 bytes/sec
+total size is 24060  speedup is 158.29
+Transfer starting: 2 files
+
+sent 16 bytes  received 136 bytes  1520000 bytes/sec
+total size is 24060  speedup is 158.29
+Transfer starting: 3 files
+./
+liveauth_2026-03-24_224029.db.gz
+
+sent 44 bytes  received 324 bytes  3680000 bytes/sec
+total size is 24179  speedup is 65.70
+Transfer starting: 3 files
+liveauth_2026-03-24_224029.db.gz
+
+sent 44 bytes  received 205 bytes  2490000 bytes/sec
+total size is 24179  speedup is 97.10
