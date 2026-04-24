@@ -112,10 +112,28 @@ public class DeveloperVerificationService
     public bool VerifyLiveAuthToken(string token, out IDictionary<string, string> claims)
     {
         claims = new Dictionary<string, string>();
+        if (string.IsNullOrWhiteSpace(token))
+            return false;
+
+        // Validate signature AND expiry (prevents accepting arbitrary JWT-shaped strings)
         try
         {
             var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-            var jwt = handler.ReadJwtToken(token);
+            var key = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
+                System.Text.Encoding.UTF8.GetBytes(_cfg["Jwt:SigningKey"] ?? _cfg["Jwt:Key"] ?? throw new InvalidOperationException("JWT key not configured")));
+            var parameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+            {
+                IssuerSigningKey = key,
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = _cfg["Jwt:Issuer"],
+                ValidAudience = _cfg["Jwt:Audience"]
+            };
+
+            handler.ValidateToken(token, parameters, out var validatedToken);
+            var jwt = (System.IdentityModel.Tokens.Jwt.JwtSecurityToken)validatedToken;
 
             foreach (var c in jwt.Claims)
                 claims[c.Type] = c.Value;
@@ -131,7 +149,7 @@ public class DeveloperVerificationService
     private string GenerateLiveAuthToken(string projectId, string userRef, string method, string sessionId)
     {
         var key = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
-            System.Text.Encoding.UTF8.GetBytes(_cfg["Jwt:Key"]));
+            System.Text.Encoding.UTF8.GetBytes(_cfg["Jwt:SigningKey"] ?? _cfg["Jwt:Key"] ?? throw new InvalidOperationException("JWT key not configured")));
         var creds = new Microsoft.IdentityModel.Tokens.SigningCredentials(
             key, Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256);
 
