@@ -105,6 +105,20 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   copiedLoginInvoice = false;
   githubEnabled = false;
 
+  // Email / Password Auth State
+  emailMode: 'login' | 'register' = 'login';
+  emailForm = { email: '', password: '', confirmPassword: '' };
+  emailLoading = false;
+  emailSuccess = '';
+  emailError = '';
+  showForgotPassword = false;
+  forgotPasswordEmail = '';
+  forgotPasswordLoading = false;
+  forgotPasswordSuccess = false;
+
+  // Login tab selection ('github' | 'lightning' | 'email')
+  selectedLoginTab = 'github';
+
   get lightningQrValue(): string {
     if (!this.loginSession?.invoice) return '';
     return `LIGHTNING:${this.loginSession?.invoice.trim()}`;
@@ -460,6 +474,112 @@ console.log('onTimeRangeChange', range);
         this.loginSession = undefined;
         this.stopPolling();
         this.stopCountdown();
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // EMAIL / PASSWORD AUTH
+  // ---------------------------------------------------------------------------
+
+  toggleEmailMode() {
+    this.emailMode = this.emailMode === 'login' ? 'register' : 'login';
+    this.emailError = '';
+    this.emailSuccess = '';
+  }
+
+  resetEmailForm() {
+    this.emailForm = { email: '', password: '', confirmPassword: '' };
+    this.emailError = '';
+    this.emailSuccess = '';
+    this.emailLoading = false;
+  }
+
+  emailLogin() {
+    this.emailError = '';
+    const { email, password } = this.emailForm;
+
+    if (!email || !password) {
+      this.emailError = 'Email and password are required.';
+      return;
+    }
+
+    this.emailLoading = true;
+
+    this.devAuth.emailLogin({ email, password }).subscribe({
+      next: (res) => {
+        this.emailLoading = false;
+        if (res.verified && res.token) {
+          this.devAuth.saveToken(res.token);
+          this.loggedIn = true;
+          this.loginDialogVisible = false;
+          this.resetEmailForm();
+          this.loadProjects();
+        } else {
+          this.emailError = res.message || 'Login failed.';
+        }
+      },
+      error: (err) => {
+        this.emailLoading = false;
+        this.emailError = this.extractErrorMessage(err) || 'Login failed.';
+      }
+    });
+  }
+
+  emailRegister() {
+    this.emailError = '';
+    const { email, password, confirmPassword } = this.emailForm;
+
+    if (!email || !password) {
+      this.emailError = 'Email and password are required.';
+      return;
+    }
+
+    if (password.length < 12) {
+      this.emailError = 'Password must be at least 12 characters.';
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      this.emailError = 'Passwords do not match.';
+      return;
+    }
+
+    this.emailLoading = true;
+
+    this.devAuth.register({ email, password }).subscribe({
+      next: (res) => {
+        this.emailLoading = false;
+        if (res.emailSent) {
+          this.emailSuccess = 'Check your email to verify your address.';
+          this.emailForm = { email, password: '', confirmPassword: '' };
+        } else {
+          this.emailError = res.message || 'Registration failed.';
+        }
+      },
+      error: (err) => {
+        this.emailLoading = false;
+        this.emailError = this.extractErrorMessage(err) || 'Registration failed.';
+      }
+    });
+  }
+
+  sendForgotPassword() {
+    if (!this.forgotPasswordEmail) {
+      return;
+    }
+
+    this.forgotPasswordLoading = true;
+
+    this.devAuth.forgotPassword({ email: this.forgotPasswordEmail }).subscribe({
+      next: (res) => {
+        this.forgotPasswordLoading = false;
+        this.forgotPasswordSuccess = true;
+      },
+      error: (err) => {
+        this.forgotPasswordLoading = false;
+        // Still show success to prevent email enumeration
+        this.forgotPasswordSuccess = true;
       }
     });
   }

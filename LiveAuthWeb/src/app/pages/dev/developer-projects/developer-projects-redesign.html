@@ -35,22 +35,188 @@
   <div class="login-card-wrapper" *ngIf="!loggedIn">
     <div class="login-card">
       <div class="login-card-icon">
-        <i class="pi pi-github"></i>
+        <i class="pi pi-shield"></i>
       </div>
       <h2 class="gradient-text">Connect Your Account</h2>
-      <p>Sign in with GitHub to access your developer dashboard</p>
+      <p>Sign in to access your developer dashboard</p>
 
-      <div class="login-form">
-        <button
-          (click)="startGitHubLogin()"
-          icon="pi pi-github"
-          label="Sign In with GitHub"
-          class="w-full p-button-lg"
-          pButton>
-        </button>
-      </div>
+      <p-tabs [(value)]="selectedLoginTab">
+        <p-tablist>
+          <p-tab value="github">GitHub</p-tab>
+          <p-tab value="lightning">Lightning</p-tab>
+          <p-tab value="email">Email</p-tab>
+        </p-tablist>
+        <p-tabpanels>
 
-      <p-message *ngIf="error" [text]="error" severity="warn" class="mt-3"></p-message>
+          <!-- GitHub Tab -->
+          <p-tabpanel value="github">
+            <div class="p-fluid">
+              <p class="mb-3">Sign in with your GitHub account — the fastest way to get started.</p>
+              <button
+                (click)="startGitHubLogin()"
+                icon="pi pi-github"
+                label="Sign In with GitHub"
+                class="w-full p-button-lg"
+                pButton>
+              </button>
+            </div>
+          </p-tabpanel>
+
+          <!-- Lightning Tab -->
+          <p-tabpanel value="lightning">
+            <div class="p-fluid">
+              <p class="mb-3">Pay a tiny Lightning invoice to verify your account.</p>
+              <button
+                (click)="startLogin()"
+                [disabled]="!!loginSession"
+                [loading]="loginInProgress"
+                icon="pi pi-bolt"
+                label="Generate Invoice"
+                class="w-full p-button-lg"
+                pButton>
+              </button>
+
+              <!-- Invoice shown once created -->
+              <div *ngIf="loginSession" class="mt-4">
+                <div class="flex justify-content-between align-items-center mb-2">
+                  <span><b>Amount:</b> {{ loginSession.amountSats }} sats</span>
+                  <span><b>Expires:</b> {{ remainingTimeLabel }}</span>
+                </div>
+                <div class="flex justify-content-center mb-3">
+                  <div class="ln-qr-svg-box">
+                    <qrcode class="ln-qr-svg" [value]="lightningQrValue" [size]="280" [errorLevel]="'M'" [mode]="'svg'"></qrcode>
+                  </div>
+                </div>
+                <a class="block text-sm text-primary text-center mb-2" [href]="'LIGHTNING:' + lightningQrValue">
+                  Open in Lightning wallet
+                </a>
+                <div class="invoice-row flex gap-2 align-items-center">
+                  <input
+                    #loginInvoiceInput
+                    (click)="loginInvoiceInput.select()"
+                    [value]="loginSession.invoice"
+                    class="invoice-input"
+                    readonly
+                    style="flex:1; padding:8px; border-radius:6px; background:#222; color:#fff; border:1px solid #444; font-family:monospace; font-size:0.8rem;"/>
+                  <button (click)="copyLoginInvoice()" class="p-button-rounded p-button-secondary" icon="pi pi-copy" pButton></button>
+                </div>
+                <p *ngIf="copiedLoginInvoice" class="mt-2" style="color:#64ff8f;">Copied!</p>
+                <p *ngIf="polling" class="mt-2 text-primary">Waiting for payment confirmation…</p>
+                <p *ngIf="remainingSeconds <= 0" class="mt-2 text-red-500">Invoice expired. Close and try again.</p>
+              </div>
+            </div>
+          </p-tabpanel>
+
+          <!-- Email / Password Tab -->
+          <p-tabpanel value="email">
+            <div class="p-fluid">
+
+              <!-- Success: verification email sent -->
+              <div *ngIf="emailSuccess && !emailLoading" class="p-message p-message-success mb-3">
+                {{ emailSuccess }}
+              </div>
+
+              <!-- Error -->
+              <p-message *ngIf="emailError" [text]="emailError" severity="warn" class="mb-3"></p-message>
+
+              <!-- Forgot Password form -->
+              <div *ngIf="showForgotPassword">
+                <h4 class="mb-3">Reset your password</h4>
+                <div class="field">
+                  <input
+                    pInputText
+                    type="email"
+                    [(ngModel)]="forgotPasswordEmail"
+                    placeholder="Your email address"
+                    class="w-full"/>
+                </div>
+                <div class="flex gap-2 mt-2">
+                  <button
+                    (click)="sendForgotPassword()"
+                    [loading]="forgotPasswordLoading"
+                    label="Send Reset Link"
+                    class="p-button-primary"
+                    pButton>
+                  </button>
+                  <button
+                    (click)="showForgotPassword = false; forgotPasswordSuccess = false;"
+                    label="Cancel"
+                    class="p-button-secondary"
+                    pButton>
+                  </button>
+                </div>
+                <p *ngIf="forgotPasswordSuccess" class="mt-2" style="color:#64ff8f;">
+                  If that email is registered, we've sent a reset link.
+                </p>
+              </div>
+
+              <!-- Login / Register form -->
+              <div *ngIf="!showForgotPassword && !emailSuccess">
+                <div class="flex justify-content-between align-items-center mb-3">
+                  <h4 class="mb-0">{{ emailMode === 'login' ? 'Sign in' : 'Create account' }}</h4>
+                  <button
+                    (click)="toggleEmailMode()"
+                    [label]="emailMode === 'login' ? 'Need an account?' : 'Have an account?'"
+                    class="p-button-link p-button-sm"
+                    pButton>
+                  </button>
+                </div>
+
+                <div class="field">
+                  <input
+                    pInputText
+                    type="email"
+                    [(ngModel)]="emailForm.email"
+                    placeholder="Email address"
+                    class="w-full"
+                    (keyup.enter)="emailMode === 'login' ? emailLogin() : emailRegister()"/>
+                </div>
+
+                <div class="field">
+                  <input
+                    pInputText
+                    type="password"
+                    [(ngModel)]="emailForm.password"
+                    placeholder="Password"
+                    class="w-full"
+                    (keyup.enter)="emailMode === 'login' ? emailLogin() : emailRegister()"/>
+                </div>
+
+                <div class="field" *ngIf="emailMode === 'register'">
+                  <input
+                    pInputText
+                    type="password"
+                    [(ngModel)]="emailForm.confirmPassword"
+                    placeholder="Confirm password"
+                    class="w-full"
+                    (keyup.enter)="emailRegister()"/>
+                </div>
+
+                <button
+                  (click)="emailMode === 'login' ? emailLogin() : emailRegister()"
+                  [loading]="emailLoading"
+                  [label]="emailMode === 'login' ? 'Sign In' : 'Create Account'"
+                  class="w-full p-button-primary"
+                  pButton>
+                </button>
+
+                <div class="mt-2 text-right" *ngIf="emailMode === 'login'">
+                  <button
+                    (click)="showForgotPassword = true; forgotPasswordSuccess = false; forgotPasswordEmail = emailForm.email;"
+                    label="Forgot password?"
+                    class="p-button-link p-button-sm"
+                    pButton>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </p-tabpanel>
+
+        </p-tabpanels>
+      </p-tabs>
+
+      <p-message *ngIf="error && loggedIn === false" [text]="error" severity="warn" class="mt-3"></p-message>
     </div>
   </div>
 

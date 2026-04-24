@@ -36,6 +36,48 @@ export interface GitHubLoginResponse {
   };
 }
 
+export interface RegisterRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterResponse {
+  developerId: string;
+  message: string;
+  emailVerificationRequired: boolean;
+  emailSent: boolean;
+}
+
+export interface VerifyEmailRequest {
+  token: string;
+}
+
+export interface VerifyEmailResponse {
+  success: boolean;
+  token?: string | null;
+  message: string;
+}
+
+export interface EmailLoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface EmailLoginResponse {
+  verified: boolean;
+  token?: string | null;
+  message: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  emailSent: boolean;
+  message: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class DevAuthService {
   private baseUrl = BASE_API_URL;
@@ -109,5 +151,37 @@ export class DevAuthService {
 
   getApiUrl(): string {
     return this.baseUrl;
+  }
+
+  // POST /api/dev/auth/register
+  register(req: RegisterRequest): Observable<RegisterResponse> {
+    return this.http.post<RegisterResponse>(
+      `${this.baseUrl}/api/dev/auth/register`,
+      req
+    );
+  }
+
+  // POST /api/dev/auth/verify-email
+  verifyEmail(req: VerifyEmailRequest): Observable<VerifyEmailResponse> {
+    return this.http.post<VerifyEmailResponse>(
+      `${this.baseUrl}/api/dev/auth/verify-email`,
+      req
+    );
+  }
+
+  // POST /api/dev/auth/login (email/password)
+  emailLogin(req: EmailLoginRequest): Observable<EmailLoginResponse> {
+    return this.http.post<EmailLoginResponse>(
+      `${this.baseUrl}/api/dev/auth/login`,
+      req
+    );
+  }
+
+  // POST /api/dev/auth/forgot-password
+  forgotPassword(req: ForgotPasswordRequest): Observable<ForgotPasswordResponse> {
+    return this.http.post<ForgotPasswordResponse>(
+      `${this.baseUrl}/api/dev/auth/forgot-password`,
+      req
+    );
   }
 }
