@@ -39,6 +39,7 @@ public class DevAuthController : ControllerBase
         _ln = ln;
         _config = config;
         _authEvents = authEvents;
+        _email = email;
     }
 
     // POST /api/dev/auth/start
