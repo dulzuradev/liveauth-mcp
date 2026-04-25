@@ -84,7 +84,7 @@ public class ApiKeyService
         if (string.IsNullOrWhiteSpace(secretKey))
             return ApiKeyAuthResult.Invalid();
 
-        // v2 API keys — query by SecretKeyHash directly (no longer fetches all keys)
+        // v2 API keys — find candidate key then verify hash (PasswordHasher doesn't support direct lookup)
         var apiKey = await _db.ProjectApiKeys
             .Include(k => k.Project)
             .Where(k => k.Project.IsActive && k.IsActive)

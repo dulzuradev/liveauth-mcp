@@ -259,7 +259,7 @@ public async Task<IActionResult> Verify(
 
     if (string.IsNullOrWhiteSpace(req.ChallengeHex) ||
         string.IsNullOrWhiteSpace(req.HashHex) ||
-        string.IsNullOrWhiteSpace(req.Nonce.ToString()) ||
+        req.Nonce == 0 ||
         string.IsNullOrWhiteSpace(req.Sig))
     {
         _logger.LogWarning("PoW verify request: project {ProjectId} sent missing fields.", project.Id);

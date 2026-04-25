@@ -1,4 +1,5 @@
 using LiveAuthCore.Data;
+using Microsoft.Extensions.Logging;
 
 namespace LiveAuthCore.Middleware;
 
@@ -102,9 +103,11 @@ public class PublicKeyAuthMiddleware
                         await db.SaveChangesAsync(context.RequestAborted);
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // do NOT kill request for billing sync failure
+                    // Log but do NOT kill request for billing sync failure
+                    var logger = context.RequestServices.GetService<ILogger<PublicKeyAuthMiddleware>>();
+                    logger?.LogWarning(ex, "Billing sync failed for project {ProjectId}, allowing request", project.Id);
                 }
 
                 context.Items["LW_Project"] = project;
