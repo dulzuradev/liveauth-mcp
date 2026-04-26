@@ -77,7 +77,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private windowHours$ = new Subject<number>();
 
-  private btcToUsd = 100000;
+  private btcToUsd = 0; // filled from API response
 
   constructor(
     private analytics: AdminAnalyticsService,
@@ -116,30 +116,40 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   get usdEquivalent(): number {
     if (!this.data) return 0;
-    const btc = this.data.totalSatsPaid / 100_000_000;
-    return btc * this.btcToUsd;
+    return this.data.totalSatsEarnedUsd ?? (this.data.totalSatsPaid / 100_000_000 * this.btcToUsd);
   }
 
   // Map backend response to frontend model
   private mapResponse(res: any): AdminAnalyticsOverviewResponse {
+    this.btcToUsd = res.btcUsdRate ?? 100000;
+
     return {
       windowHours: res.windowHours || this.windowHours,
+      totalProjects: res.totalProjects || 0,
+      activeProjects: res.activeProjects || 0,
+      proProjects: res.proProjects || 0,
+      proExpired: res.proExpired || 0,
+      freeProjects: res.freeProjects || 0,
+      projectsInGracePeriod: res.projectsInGracePeriod || 0,
+      activeAuthSessions: res.activeAuthSessions || 0,
+      pendingInvoices: res.pendingInvoices || 0,
       totalAuths: res.authRequests || 0,
       successfulAuths: res.authSuccesses || 0,
       failedAuths: res.authFailures || 0,
       rateLimitHits: res.rateLimitHits || 0,
       totalSatsPaid: res.satsPaid || 0,
-      totalInvoicesSettled: res.paidAuths || 0,
-      totalProjects: res.totalProjects || 0,
-      proProjects: res.proProjects || 0,
-      freeProjects: res.freeProjects || 0,
+      paidAuths: res.paidAuths || 0,
       mcpSessionsTotal: res.mcpSessionsTotal || 0,
       mcpSessionsActive: res.mcpSessionsActive || 0,
       mcpTokensIssued: res.mcpTokensIssued || 0,
       mcpSatsEarned: res.mcpSatsEarned || 0,
+      mcpSatsEarnedUsd: res.mcpSatsEarnedUsd ?? null,
       l402InvoicesCreated: res.l402InvoicesCreated || 0,
       l402PaymentsReceived: res.l402PaymentsReceived || 0,
       l402SatsEarned: res.l402SatsEarned || 0,
+      l402SatsEarnedUsd: res.l402SatsEarnedUsd ?? null,
+      btcUsdRate: res.btcUsdRate ?? null,
+      totalSatsEarnedUsd: res.totalSatsEarnedUsd ?? null,
       funnel: res.funnel || {
         challengesIssued: 0,
         authsStarted: 0,

@@ -7,7 +7,9 @@ import {
   AdminProjectUsageDto,
   AdminSubscriptionDto,
   AdminTransactionsResponse,
-  TransactionDetailDto
+  TransactionDetailDto,
+  AdminUsersListResponse,
+  AdminUserDetailResponse
 } from '../admin-analytics.models';
 import { AdminAuthService } from './admin-auth';
 
@@ -32,76 +34,81 @@ export class AdminAnalyticsService {
         headers: this.getAuthHeaders()
       })
       .pipe(
-        map(raw => {
-          const res: AdminAnalyticsOverviewResponse = {
-            windowHours,
+        map(raw => ({
+          windowHours,
 
-            totalAuths: raw.authRequests ?? 0,
-            successfulAuths: raw.authSuccesses ?? 0,
-            failedAuths: raw.authFailures ?? 0,
+          // Projects
+          totalProjects: raw.totalProjects ?? 0,
+          activeProjects: raw.activeProjects ?? 0,
+          proProjects: raw.proProjects ?? 0,
+          proExpired: raw.proExpired ?? 0,
+          freeProjects: raw.freeProjects ?? 0,
+          projectsInGracePeriod: raw.projectsInGracePeriod ?? 0,
+          activeAuthSessions: raw.activeAuthSessions ?? 0,
+          pendingInvoices: raw.pendingInvoices ?? 0,
 
-            totalSatsPaid: raw.satsPaid ?? 0,
-            totalInvoicesSettled: raw.paidAuths ?? 0,
+          // Auth Metrics
+          totalAuths: raw.authRequests ?? 0,
+          successfulAuths: raw.authSuccesses ?? 0,
+          failedAuths: raw.authFailures ?? 0,
+          rateLimitHits: raw.rateLimitHits ?? 0,
 
-            totalProjects: raw.totalProjects ?? 0,
-            proProjects: raw.proProjects ?? 0,
-            freeProjects:
-              (raw.totalProjects ?? 0) - (raw.proProjects ?? 0),
+          // Revenue
+          totalSatsPaid: raw.satsPaid ?? 0,
+          paidAuths: raw.paidAuths ?? 0,
 
-            rateLimitHits: raw.rateLimitHits ?? 0,
+          // MCP
+          mcpSessionsTotal: raw.mcpSessionsTotal ?? 0,
+          mcpSessionsActive: raw.mcpSessionsActive ?? 0,
+          mcpTokensIssued: raw.mcpTokensIssued ?? 0,
+          mcpSatsEarned: raw.mcpSatsEarned ?? 0,
+          mcpSatsEarnedUsd: raw.mcpSatsEarnedUsd ?? null,
 
-            // MCP Metrics
-            mcpSessionsTotal: raw.mcpSessionsTotal ?? 0,
-            mcpSessionsActive: raw.mcpSessionsActive ?? 0,
-            mcpTokensIssued: raw.mcpTokensIssued ?? 0,
-            mcpSatsEarned: raw.mcpSatsEarned ?? 0,
+          // L402
+          l402InvoicesCreated: raw.l402InvoicesCreated ?? 0,
+          l402PaymentsReceived: raw.l402PaymentsReceived ?? 0,
+          l402SatsEarned: raw.l402SatsEarned ?? 0,
+          l402SatsEarnedUsd: raw.l402SatsEarnedUsd ?? null,
 
-            // L402 Metrics
-            l402InvoicesCreated: raw.l402InvoicesCreated ?? 0,
-            l402PaymentsReceived: raw.l402PaymentsReceived ?? 0,
-            l402SatsEarned: raw.l402SatsEarned ?? 0,
+          // Exchange Rate
+          btcUsdRate: raw.btcUsdRate ?? null,
+          totalSatsEarnedUsd: raw.totalSatsEarnedUsd ?? null,
 
-            // Funnel
-            funnel: raw.funnel ?? {
-              challengesIssued: 0,
-              authsStarted: 0,
-              authsPaid: 0,
-              authsVerified: 0,
-              tokensUsed: 0,
-              startToPaidRate: 0,
-              paidToVerifiedRate: 0,
-              verifiedToUsedRate: 0
-            },
+          // Funnel
+          funnel: raw.funnel ?? {
+            challengesIssued: 0,
+            authsStarted: 0,
+            authsPaid: 0,
+            authsVerified: 0,
+            tokensUsed: 0,
+            startToPaidRate: 0,
+            paidToVerifiedRate: 0,
+            verifiedToUsedRate: 0
+          },
 
-            generatedAtUtc: new Date().toISOString(),
+          generatedAtUtc: raw.windowEnd ? new Date(raw.windowEnd).toISOString() : new Date().toISOString(),
 
-            authsOverTime: Array.isArray(raw.authsOverTime)
-              ? raw.authsOverTime.map((x: any) => ({
-                timestampUtc: x.timestampUtc,
-                successful: x.successful ?? 0,
-                failed: x.failed ?? 0
-              }))
-              : [],
+          authsOverTime: Array.isArray(raw.authsOverTime)
+            ? raw.authsOverTime.map((x: any) => ({
+              timestampUtc: x.timestampUtc,
+              successful: x.successful ?? 0,
+              failed: x.failed ?? 0
+            }))
+            : [],
 
-            recentEvents: Array.isArray(raw.recentEvents)
-              ? raw.recentEvents.map((e: any) => ({
-                id: e.id ?? crypto.randomUUID(),
-
-                timestamp: e.timestamp,
-                projectId: e.projectId,
-                projectName: e.projectName ?? '(unknown)',
-
-                eventType: e.eventType,
-                success: !!e.success,
-
-                satsPaid: e.satsPaid ?? undefined,
-                clientIpMasked: e.clientIpMasked ?? undefined
-              }))
-              : []
-          };
-
-          return res;
-        })
+          recentEvents: Array.isArray(raw.recentEvents)
+            ? raw.recentEvents.map((e: any) => ({
+              id: e.id ?? crypto.randomUUID(),
+              timestamp: e.timestamp,
+              projectId: e.projectId,
+              projectName: e.projectName ?? '(unknown)',
+              eventType: e.eventType,
+              success: !!e.success,
+              satsPaid: e.satsPaid ?? undefined,
+              clientIpMasked: e.clientIpMasked ?? undefined
+            }))
+            : []
+        }))
       );
   }
 
@@ -119,13 +126,12 @@ export class AdminAnalyticsService {
     );
   }
 
-  getTransactions(search?: string, limit = 50, offset = 0): Observable<AdminTransactionsResponse> {
+  getTransactions(search?: string, limit = 50, offset = 0, projectId?: string): Observable<AdminTransactionsResponse> {
+    const params: any = { search: search || '', limit: limit.toString(), offset: offset.toString() };
+    if (projectId) params['projectId'] = projectId;
     return this.http.get<AdminTransactionsResponse>(
       `${this.baseUrl}/api/admin/analytics/transactions`,
-      { 
-        params: { search: search || '', limit: limit.toString(), offset: offset.toString() },
-        headers: this.getAuthHeaders() 
-      }
+      { params, headers: this.getAuthHeaders() }
     );
   }
 
@@ -135,5 +141,18 @@ export class AdminAnalyticsService {
       { headers: this.getAuthHeaders() }
     );
   }
-}
 
+  getUsers(search?: string, limit = 50, offset = 0): Observable<AdminUsersListResponse> {
+    return this.http.get<AdminUsersListResponse>(
+      `${this.baseUrl}/api/admin/users`,
+      { params: { search: search || '', limit: limit.toString(), offset: offset.toString() }, headers: this.getAuthHeaders() }
+    );
+  }
+
+  getUser(id: string): Observable<AdminUserDetailResponse> {
+    return this.http.get<AdminUserDetailResponse>(
+      `${this.baseUrl}/api/admin/users/${id}`,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+}

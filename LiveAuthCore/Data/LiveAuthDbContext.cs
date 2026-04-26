@@ -118,6 +118,18 @@ public class LiveAuthDbContext : DbContext
         modelBuilder.Entity<Project>()
             .Property(p => p.RowVersion)
             .IsRowVersion();
+
+        modelBuilder.Entity<Project>()
+            .Property(p => p.LndBaseUrl)
+            .HasColumnName("LndBaseUrl");
+
+        modelBuilder.Entity<Project>()
+            .Property(p => p.LndMacaroon)
+            .HasColumnName("LndMacaroon");
+
+        modelBuilder.Entity<Project>()
+            .Property(p => p.UseCustomNode)
+            .HasColumnName("UseCustomNode");
         
         // Unique constraint for replay protection (atomic check-and-insert)
         modelBuilder.Entity<PowUsedNonce>()

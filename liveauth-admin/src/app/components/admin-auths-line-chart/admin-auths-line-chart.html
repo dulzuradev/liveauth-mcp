@@ -1,1 +1,17 @@
-<p>admin-auths-line-chart works!</p>
+<div class="chart-wrap">
+  <div class="chart-header">
+    <h4 class="chart-title">Auths Over Time</h4>
+  </div>
+  <div class="chart-legend-row">
+    <span class="legend-dot success">Successful</span>
+    <span class="legend-dot failed">Failed</span>
+  </div>
+  <div class="canvas-wrap">
+    <canvas
+      baseChart
+      [data]="data"
+      [options]="options"
+      chartType="line">
+    </canvas>
+  </div>
+</div>

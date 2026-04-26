@@ -1,1 +1,25 @@
-<p>admin-projects-donut works!</p>
+<div class="chart-wrap">
+  <div class="chart-header">
+    <h4 class="chart-title">Projects Distribution</h4>
+  </div>
+  <div class="canvas-wrap">
+    <canvas
+      baseChart
+      [data]="data"
+      [options]="donutOptions"
+      type="doughnut">
+    </canvas>
+  </div>
+  <div class="stats-row">
+    <div class="stat-item">
+      <span class="stat-dot pro"></span>
+      <span class="stat-label">Pro</span>
+      <span class="stat-value">{{ proCount }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-dot free"></span>
+      <span class="stat-label">Free</span>
+      <span class="stat-value">{{ freeCount }}</span>
+    </div>
+  </div>
+</div>

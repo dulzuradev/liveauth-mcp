@@ -96,7 +96,13 @@ export class AdminLoginComponent implements OnDestroy {
       },
       error: (err) => {
         setTimeout(() => {
-          this.error = err?.error?.message || 'Failed to create payment';
+          // Check if backend says to use password login instead
+          if (err?.error?.code === 'USE_PASSWORD_LOGIN') {
+            this.state = 'login';
+            this.changeDetector.detectChanges();
+            return;
+          }
+          this.error = err?.error?.error || err?.error?.message || 'Failed to create payment';
           this.state = 'error';
           this.changeDetector.detectChanges();
         }, 0);

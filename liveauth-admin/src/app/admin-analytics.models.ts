@@ -1,7 +1,39 @@
+export interface AdminAuthEventDto {
+  id: string;
+  timestamp: string;
+  projectId: string;
+  projectName: string;
+  eventType: string;
+  success: boolean;
+  satsPaid?: number;
+  clientIpMasked?: string;
+}
+
+export interface FunnelMetrics {
+  challengesIssued: number;
+  authsStarted: number;
+  authsPaid: number;
+  authsVerified: number;
+  tokensUsed: number;
+  startToPaidRate: number;
+  paidToVerifiedRate: number;
+  verifiedToUsedRate: number;
+}
+
 export interface AdminAnalyticsOverviewResponse {
   windowHours: number;
 
-  // Basic Auth Metrics
+  // Projects
+  totalProjects: number;
+  activeProjects: number;
+  proProjects: number;
+  proExpired: number;
+  freeProjects: number;
+  projectsInGracePeriod: number;
+  activeAuthSessions: number;
+  pendingInvoices: number;
+
+  // Auth Metrics
   totalAuths: number;
   successfulAuths: number;
   failedAuths: number;
@@ -9,25 +41,26 @@ export interface AdminAnalyticsOverviewResponse {
 
   // Revenue
   totalSatsPaid: number;
-  totalInvoicesSettled: number;
-
-  // Projects
-  totalProjects: number;
-  proProjects: number;
-  freeProjects: number;
+  paidAuths: number;
 
   // MCP Gate Metrics
   mcpSessionsTotal: number;
   mcpSessionsActive: number;
   mcpTokensIssued: number;
   mcpSatsEarned: number;
+  mcpSatsEarnedUsd: number | null;
 
   // L402 Metrics
   l402InvoicesCreated: number;
   l402PaymentsReceived: number;
   l402SatsEarned: number;
+  l402SatsEarnedUsd: number | null;
 
-  // Funnel Metrics
+  // Exchange Rate
+  btcUsdRate: number | null;
+  totalSatsEarnedUsd: number | null;
+
+  // Funnel
   funnel: FunnelMetrics;
 
   generatedAtUtc: string;
@@ -39,18 +72,6 @@ export interface AdminAnalyticsOverviewResponse {
   }[];
 
   recentEvents: AdminAuthEventDto[];
-}
-
-export interface FunnelMetrics {
-  challengesIssued: number;
-  authsStarted: number;
-  authsPaid: number;
-  authsVerified: number;
-  tokensUsed: number;
-  
-  startToPaidRate: number;
-  paidToVerifiedRate: number;
-  verifiedToUsedRate: number;
 }
 
 // Project usage leaderboard
@@ -77,26 +98,12 @@ export interface AdminSubscriptionDto {
 
   isPaid: boolean;
 
-  createdAt: string;   // ISO
-  expiresAt: string;   // ISO
-}
-
-// Auth event log
-export interface AdminAuthEventDto {
-  id: string;
-
-  timestamp: string;   // ISO
-  projectId: string;
-  projectName: string;
-
-  eventType: string;   // AuthGranted, RateLimitHit, etc.
-  success: boolean;
-
-  satsPaid?: number;
-  clientIpMasked?: string;
+  createdAt: string;
+  expiresAt: string;
 }
 
 // Transaction models
+
 export interface TransactionDto {
   id: string;
   type: string;
@@ -124,4 +131,40 @@ export interface AdminTransactionsResponse {
   transactions: TransactionDto[];
   total: number;
   totalSats: number;
+}
+
+// ── Users / Developer models ──────────────────────────────
+
+export interface AdminUserDto {
+  id: string;
+  email: string;
+  githubUsername?: string;
+  createdAt: string;
+  emailVerified: boolean;
+  projectCount: number;
+  proProjectCount: number;
+  totalAuths: number;
+  hasLightningKey: boolean;
+}
+
+export interface AdminUserProjectDto {
+  id: string;
+  name: string;
+  publicKey: string;
+  plan: string;
+  createdAt: string;
+  isActive: boolean;
+  proPaidUntil?: string;
+  totalAuths: number;
+  totalSats: number;
+  lastAuthAt?: string;
+}
+
+export interface AdminUserDetailResponse extends AdminUserDto {
+  projects: AdminUserProjectDto[];
+}
+
+export interface AdminUsersListResponse {
+  users: AdminUserDto[];
+  total: number;
 }

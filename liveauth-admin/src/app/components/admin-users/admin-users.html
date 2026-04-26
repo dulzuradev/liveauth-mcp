@@ -1,0 +1,191 @@
+<div class="users-page">
+
+  <!-- ══ LIST VIEW ══════════════════════════════════════ -->
+  @if (!detail) {
+    <header class="page-header">
+      <div class="header-left">
+        <button class="btn-back" routerLink="/admin">
+          <i class="pi pi-arrow-left"></i> Dashboard
+        </button>
+        <h1>Developers</h1>
+        <span class="total-badge">{{ total | number }} total</span>
+      </div>
+      <div class="search-row">
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
+          (keyup.enter)="onSearch()"
+          placeholder="Search by email or GitHub username…"
+          class="search-input"
+        />
+        <button class="btn-primary" (click)="onSearch()">
+          <i class="pi pi-search"></i> Search
+        </button>
+      </div>
+    </header>
+
+    @if (loading) {
+      <div class="loading-state">
+        <p-progressSpinner></p-progressSpinner>
+      </div>
+    }
+
+    @if (!loading) {
+      <div class="users-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>GitHub</th>
+              <th>Projects</th>
+              <th>Pro</th>
+              <th>Total Auths</th>
+              <th>Lightning Key</th>
+              <th>Joined</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of users; track user.id) {
+              <tr class="clickable" (click)="viewUser(user)">
+                <td class="email-cell">
+                  <span class="email">{{ user.email }}</span>
+                  @if (user.emailVerified) {
+                    <i class="pi pi-check-circle verified-icon" title="Email verified"></i>
+                  }
+                </td>
+                <td>
+                  @if (user.githubUsername) {
+                    <span class="github-badge">
+                      <i class="pi pi-github"></i> {{ user.githubUsername }}
+                    </span>
+                  } @else {
+                    <span class="text-muted">—</span>
+                  }
+                </td>
+                <td class="num">{{ user.projectCount }}</td>
+                <td class="num">{{ user.proProjectCount }}</td>
+                <td class="num">{{ user.totalAuths | number }}</td>
+                <td>
+                  @if (user.hasLightningKey) {
+                    <i class="pi pi-bolt lightning-icon" title="Has Lightning key"></i>
+                  } @else {
+                    <span class="text-muted">—</span>
+                  }
+                </td>
+                <td class="date-cell">{{ user.createdAt | date:'mediumDate' }}</td>
+                <td>
+                  <button class="btn-small" (click)="viewUser(user); $event.stopPropagation()">
+                    View
+                  </button>
+                </td>
+              </tr>
+            }
+            @if (users.length === 0) {
+              <tr>
+                <td colspan="8" class="empty-row">No developers found</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+
+  <!-- ══ DETAIL VIEW ════════════════════════════════════ -->
+  @if (detail) {
+    <header class="page-header">
+      <div class="header-left">
+        <button class="btn-back" (click)="backToList()">
+          <i class="pi pi-arrow-left"></i> All Developers
+        </button>
+        <div class="user-identity">
+          <h1>{{ detail.email }}</h1>
+          <div class="user-meta">
+            @if (detail.githubUsername) {
+              <span class="github-badge"><i class="pi pi-github"></i> {{ detail.githubUsername }}</span>
+            }
+            @if (detail.emailVerified) {
+              <span class="badge verified">✓ Verified</span>
+            }
+            @if (detail.hasLightningKey) {
+              <span class="badge lightning"><i class="pi pi-bolt"></i> Lightning</span>
+            }
+          </div>
+        </div>
+      </div>
+    </header>
+
+    @if (detailLoading) {
+      <div class="loading-state">
+        <p-progressSpinner></p-progressSpinner>
+      </div>
+    }
+
+    @if (!detailLoading && detail) {
+      <!-- Summary cards -->
+      <div class="summary-row">
+        <div class="summary-card">
+          <div class="summary-value">{{ detail.projects.length }}</div>
+          <div class="summary-label">Projects</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value">{{ totalAuths | number }}</div>
+          <div class="summary-label">Total Auths</div>
+        </div>
+        <div class="summary-card highlight">
+          <div class="summary-value">{{ totalSats | number }}</div>
+          <div class="summary-label">Sats Collected</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value">{{ detail.proProjectCount }}</div>
+          <div class="summary-label">Pro Projects</div>
+        </div>
+      </div>
+
+      <!-- Projects list -->
+      <section class="projects-section">
+        <h2>Projects <span class="count">({{ detail.projects.length }})</span></h2>
+        <div class="projects-grid">
+          @for (project of detail.projects; track project.id) {
+            <div class="project-card" (click)="viewProject(project)">
+              <div class="project-header">
+                <span class="project-name">{{ project.name }}</span>
+                <p-tag [value]="project.plan" [severity]="project.plan === 'pro' ? 'success' : 'secondary'"></p-tag>
+              </div>
+              <div class="project-pk">{{ project.publicKey | slice:0:16 }}…</div>
+              <div class="project-stats">
+                <div class="stat">
+                  <span class="stat-val">{{ project.totalAuths | number }}</span>
+                  <span class="stat-lbl">Auths</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-val sats">{{ project.totalSats | number }}</span>
+                  <span class="stat-lbl">Sats</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-val">{{ project.totalAuths > 0 ? ((project.totalSats / project.totalAuths) | number:'1.0-0') : 0 }}</span>
+                  <span class="stat-lbl">Avg/Sess</span>
+                </div>
+              </div>
+              @if (project.lastAuthAt) {
+                <div class="project-footer">
+                  Last auth: {{ project.lastAuthAt | date:'medium' }}
+                </div>
+              }
+              @if (project.proPaidUntil) {
+                <div class="project-footer">
+                  Pro until: {{ project.proPaidUntil | date:'mediumDate' }}
+                </div>
+              }
+            </div>
+          }
+          @if (detail.projects.length === 0) {
+            <div class="empty-projects">No projects yet</div>
+          }
+        </div>
+      </section>
+    }
+  }
+
+</div>

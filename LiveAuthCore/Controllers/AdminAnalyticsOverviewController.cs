@@ -1,6 +1,7 @@
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Models;
+using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace LiveAuthCore.Controllers;
 public class AdminAnalyticsOverviewController : ControllerBase
 {
     private readonly LiveAuthDbContext _db;
+    private readonly BtcExchangeRateService _btcRate;
 
-    public AdminAnalyticsOverviewController(LiveAuthDbContext db)
+    public AdminAnalyticsOverviewController(LiveAuthDbContext db, BtcExchangeRateService btcRate)
     {
         _db = db;
+        _btcRate = btcRate;
     }
 
     [HttpGet("overview")]
@@ -57,10 +60,9 @@ public class AdminAnalyticsOverviewController : ControllerBase
         var mcpSessionsActive = await _db.McpGateSessions
             .CountAsync(s => s.ExpiresAt > nowUtc, ct);
         var mcpTokensIssued = await _db.McpGateTokens.CountAsync(ct);
-        // Estimate sats earned from active sessions (each session = SatsPerCallAtStart * estimated calls)
-        var mcpSatsEarned = await _db.McpGateSessions
-            .Where(s => s.Status == "confirmed")
-            .SumAsync(s => s.SatsPerCallAtStart * 10, ct); // Estimate 10 calls per session
+        // Real sats earned: sum SatsUsed from all issued tokens
+        var mcpSatsEarned = await _db.McpGateTokens
+            .SumAsync(t => t.SatsUsed, ct);
 
         // === L402 Metrics ===
         // L402 payments tracked via AuthEvents with specific event types
@@ -98,6 +100,7 @@ public class AdminAnalyticsOverviewController : ControllerBase
         };
 
         var totalProjects = await _db.Projects.CountAsync(ct);
+        var activeProjects = await _db.Projects.CountAsync(p => p.IsActive, ct);
         var proProjects = await _db.Projects.CountAsync(p => p.Plan == "pro", ct);
 
         // ---- Time series (hourly)
@@ -169,10 +172,24 @@ public class AdminAnalyticsOverviewController : ControllerBase
             })
             .ToList();
 
+        var totalSatsEarned = satsPaid + mcpSatsEarned + l402SatsEarned;
+
+        // Fetch exchange rate once for all USD conversions
+        var btcUsdRate = await _btcRate.GetBtcUsdRateAsync(ct);
+        double? totalSatsEarnedUsd = btcUsdRate.HasValue
+            ? totalSatsEarned / 100_000_000.0 * btcUsdRate.Value
+            : null;
+        double? mcpSatsEarnedUsd = btcUsdRate.HasValue && mcpSatsEarned > 0
+            ? mcpSatsEarned / 100_000_000.0 * btcUsdRate.Value
+            : null;
+        double? l402SatsEarnedUsd = btcUsdRate.HasValue && l402SatsEarned > 0
+            ? l402SatsEarned / 100_000_000.0 * btcUsdRate.Value
+            : null;
+
         return Ok(new AdminAnalyticsOverviewResponse
         {
             TotalProjects = totalProjects,
-            ActiveProjects = totalProjects,
+            ActiveProjects = activeProjects,
 
             AuthRequests = authRequests,
             AuthSuccesses = successes,
@@ -190,11 +207,17 @@ public class AdminAnalyticsOverviewController : ControllerBase
             McpSessionsActive = mcpSessionsActive,
             McpTokensIssued = mcpTokensIssued,
             McpSatsEarned = mcpSatsEarned,
+            McpSatsEarnedUsd = mcpSatsEarnedUsd,
 
             // L402 Metrics
             L402InvoicesCreated = l402InvoicesCreated,
             L402PaymentsReceived = l402PaymentsReceived,
             L402SatsEarned = l402SatsEarned,
+            L402SatsEarnedUsd = l402SatsEarnedUsd,
+
+            // Exchange Rate
+            BtcUsdRate = btcUsdRate,
+            TotalSatsEarnedUsd = totalSatsEarnedUsd,
 
             // Funnel
             Funnel = funnel,

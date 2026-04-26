@@ -193,6 +193,7 @@
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 16px;
+  align-items: stretch;
 }
 
 .chart-card {
@@ -200,7 +201,7 @@
   border: 1px solid rgba(0, 194, 255, 0.15);
   border-radius: 12px;
   padding: 20px;
-  min-height: 400px;
+  min-height: 320px;
   display: flex;
   flex-direction: column;
 }

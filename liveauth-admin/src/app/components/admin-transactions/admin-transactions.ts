@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AdminAnalyticsService } from '../../services/admin-analytics';
 import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.models';
 
@@ -11,11 +12,23 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
   template: `
     <div class="transactions-page">
       <header class="page-header">
-        <h1>Transactions</h1>
+        <div class="header-left">
+          @if (projectId) {
+            <button class="btn-back" (click)="backToUsers()">
+              <i class="pi pi-arrow-left"></i> Users
+            </button>
+          }
+          <div>
+            <h1>Transactions</h1>
+            @if (projectId && projectLabel) {
+              <span class="filter-badge">{{ projectLabel }}</span>
+            }
+          </div>
+        </div>
         <div class="summary">
           <div class="stat">
-            <span class="label">Total Transactions</span>
-            <span class="value">{{ total }}</span>
+            <span class="label">Showing</span>
+            <span class="value">{{ total | number }}</span>
           </div>
           <div class="stat">
             <span class="label">Total Sats</span>
@@ -25,14 +38,17 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
       </header>
 
       <div class="filters">
-        <input 
-          type="text" 
-          [(ngModel)]="searchQuery" 
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
           (keyup.enter)="loadTransactions()"
           placeholder="Search by payment hash, invoice, or ID..."
           class="search-input"
         />
         <button (click)="loadTransactions()" class="btn-primary">Search</button>
+        @if (projectId) {
+          <button (click)="clearProjectFilter()" class="btn-ghost">Clear Filter</button>
+        }
       </div>
 
       <div class="transactions-table" *ngIf="transactions.length > 0">
@@ -393,21 +409,33 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
     }
   `]
 })
-export class AdminTransactionsComponent {
+export class AdminTransactionsComponent implements OnInit {
   transactions: TransactionDto[] = [];
   selectedTransaction: TransactionDetailDto | null = null;
   searchQuery = '';
   loading = false;
   total = 0;
   totalSats = 0;
+  projectId: string | null = null;
+  projectLabel = '';
 
-  constructor(private analytics: AdminAnalyticsService) {
-    this.loadTransactions();
+  constructor(
+    private analytics: AdminAnalyticsService,
+    private route: ActivatedRoute,
+    private router: Router
+  ) {}
+
+  ngOnInit() {
+    this.route.queryParamMap.subscribe(params => {
+      this.projectId = params.get('projectId');
+      this.projectLabel = params.get('projectName') || '';
+      this.loadTransactions();
+    });
   }
 
   loadTransactions() {
     this.loading = true;
-    this.analytics.getTransactions(this.searchQuery).subscribe({
+    this.analytics.getTransactions(this.searchQuery, 50, 0, this.projectId || undefined).subscribe({
       next: (res) => {
         this.transactions = res.transactions;
         this.total = res.total;
@@ -440,6 +468,18 @@ export class AdminTransactionsComponent {
     if (!dateStr) return '-';
     const date = new Date(dateStr);
     return date.toLocaleString();
+  }
+
+  clearProjectFilter() {
+    this.router.navigate([], { queryParams: {}, queryParamsHandling: 'replace' });
+  }
+
+  backToUsers() {
+    this.router.navigate(['/users']);
+  }
+
+  setProjectLabel(name: string) {
+    this.projectLabel = name;
   }
 
   copyToClipboard(text: string) {

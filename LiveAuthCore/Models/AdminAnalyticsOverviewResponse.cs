@@ -29,11 +29,17 @@ public sealed class AdminAnalyticsOverviewResponse
     public int McpSessionsActive { get; set; }
     public int McpTokensIssued { get; set; }
     public long McpSatsEarned { get; set; }
+    public double? McpSatsEarnedUsd { get; set; }
 
     // === L402 Usage ===
     public int L402InvoicesCreated { get; set; }
     public int L402PaymentsReceived { get; set; }
     public long L402SatsEarned { get; set; }
+    public double? L402SatsEarnedUsd { get; set; }
+
+    // === Exchange Rate ===
+    public double? BtcUsdRate { get; set; }
+    public double? TotalSatsEarnedUsd { get; set; }
 
     // === Funnel Analytics ===
     public FunnelMetrics Funnel { get; set; } = new();

@@ -2,6 +2,7 @@ import {Routes} from '@angular/router';
 import {AdminLoginComponent} from './components/admin-login-component/admin-login-component';
 import {AdminDashboardComponent} from './components/admin-dashboard-component/admin-dashboard-component';
 import {AdminTransactionsComponent} from './components/admin-transactions/admin-transactions';
+import {AdminUsersComponent} from './components/admin-users/admin-users';
 import {AdminAuthGuard} from './guards/admin-auth.guard';
 
 export const routes: Routes = [
@@ -22,6 +23,16 @@ export const routes: Routes = [
   {
     path: 'transactions',
     component: AdminTransactionsComponent,
+    canActivate: [AdminAuthGuard]
+  },
+  {
+    path: 'users',
+    component: AdminUsersComponent,
+    canActivate: [AdminAuthGuard]
+  },
+  {
+    path: 'users/:id',
+    component: AdminUsersComponent,
     canActivate: [AdminAuthGuard]
   },
   {
