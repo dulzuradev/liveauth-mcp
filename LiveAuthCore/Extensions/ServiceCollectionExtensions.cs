@@ -183,6 +183,8 @@ public static class ServiceCollectionExtensions
         // HTTP clients
         builder.Services.AddHttpClient("webhooks");
         builder.Services.AddHttpClient("cashu");
+        builder.Services.AddHttpClient<BtcExchangeRateService>();
+        builder.Services.AddScoped<BtcExchangeRateService>();
 
         // Standard ASP.NET Core
         builder.Services.AddHttpContextAccessor();
