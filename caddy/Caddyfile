@@ -1,37 +1,50 @@
 {
     email admin@liveauth.app
-}
-
-liveauth.app {
-    root * /srv/browser
-    try_files {path} /index.html
-    file_server
+    admin off
 }
 
 api.liveauth.app {
-    @options method OPTIONS
-    handle @options {
-        header {
-            Access-Control-Allow-Origin "*"
-            Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, PATCH, DELETE"
-            Access-Control-Allow-Headers "Content-Type, Authorization, X-LW-Public, X-LW-Secret, X-LW-Api-Key, X-LW-Sdk-Version"
-            Access-Control-Max-Age "86400"
-        }
-        respond "" 204
-    }
-    reverse_proxy 127.0.0.1:8081 {
-        header_down Access-Control-Allow-Origin "*"
+    reverse_proxy localhost:8081
+    header Access-Control-Allow-Origin https://liveauth.app
+    header X-Frame-Options SAMEORIGIN
+    header X-Content-Type-Options nosniff
+    encode gzip
+}
+
+liveauth.app {
+    root * /srv
+    try_files {path} {path}/ /index.html
+    file_server
+
+    header X-Frame-Options SAMEORIGIN
+    header X-Content-Type-Options nosniff
+    encode gzip
+
+    handle_errors {
+        respond {err.status_code} {err.status_text}
     }
 }
 
 admin.liveauth.app {
     root * /srv/liveauth-admin
-    try_files {path} /index.html
+    try_files {path} {path}/ /index.html
     file_server
+
+    header X-Frame-Options SAMEORIGIN
+    header X-Content-Type-Options nosniff
+    encode gzip
+
+    handle_errors {
+        respond {err.status_code} {err.status_text}
+    }
 }
 
 docs.liveauth.app {
-    root * /srv/browser/docs
-    try_files {path} /index.html
+    root * /srv/docs
+    try_files {path} {path}/ /index.html
     file_server
+
+    header X-Frame-Options SAMEORIGIN
+    header X-Content-Type-Options nosniff
+    encode gzip
 }
