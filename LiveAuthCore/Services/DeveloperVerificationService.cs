@@ -59,6 +59,13 @@ public class DeveloperVerificationService
         // Increment monthly auth count (counts attempts, not successful verifications)
         project.MonthlyAuthCount += 1;
 
+        // Detach project from EF change tracker so SaveChangesOnly updates the count
+        // without triggering a full project entity update. This avoids conflicts when
+        // the caller still holds a reference to the same project instance.
+        _db.Entry(project).State = EntityState.Modified;
+        _db.Entry(project).Property(p => p.MonthlyAuthCount).IsModified = true;
+        _db.Entry(project).Property(p => p.MonthlyAuthPeriodStart).IsModified = true;
+
         await _db.SaveChangesAsync();
         return session;
     }

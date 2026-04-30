@@ -70,32 +70,71 @@ public sealed class PowDifficultyService
         CancellationToken ct)
     {
         var key = $"pow:stats:{projectId}";
-        var existing = await GetStatsAsync(projectId, ct);
+        var lockKey = $"pow:stats:lock:{projectId}";
 
-        var attempts = (existing?.Attempts ?? 0) + 1;
-        var failures = (existing?.Failures ?? 0) + (success ? 0 : 1);
+        // Acquire distributed lock to prevent concurrent read-modify-write race.
+        // Without this, two near-simultaneous completions can overwrite each other's stats.
+        var lockAcquired = await AcquireLockAsync(lockKey, TimeSpan.FromSeconds(5), ct);
+        if (!lockAcquired)
+        {
+            // Another process is updating; skip this record (better than blocking).
+            return;
+        }
 
-        var avgSolve =
-            existing == null
-                ? solveMs
-                : (existing.AvgSolveMs * existing.Attempts + solveMs) / attempts;
+        try
+        {
+            var existing = await GetStatsAsync(projectId, ct);
 
-        var updated = new PowStats(
-            AvgSolveMs: avgSolve,
-            Attempts: attempts,
-            Failures: failures
-        );
+            var attempts = (existing?.Attempts ?? 0) + 1;
+            var failures = (existing?.Failures ?? 0) + (success ? 0 : 1);
 
-        await _cache.SetStringAsync(
-            key,
-            JsonSerializer.Serialize(updated),
-            new DistributedCacheEntryOptions
-            {
-                SlidingExpiration = TimeSpan.FromMinutes(10)
-            },
-            ct
-        );
+            var avgSolve =
+                existing == null
+                    ? solveMs
+                    : (existing.AvgSolveMs * existing.Attempts + solveMs) / attempts;
+
+            var updated = new PowStats(
+                AvgSolveMs: avgSolve,
+                Attempts: attempts,
+                Failures: failures
+            );
+
+            await _cache.SetStringAsync(
+                key,
+                JsonSerializer.Serialize(updated),
+                new DistributedCacheEntryOptions
+                {
+                    SlidingExpiration = TimeSpan.FromMinutes(10)
+                },
+                ct
+            );
+        }
+        finally
+        {
+            await ReleaseLockAsync(lockKey);
+        }
     }
+
+    private async Task<bool> AcquireLockAsync(string key, TimeSpan ttl, CancellationToken ct)
+    {
+        try
+        {
+            var lockValue = Guid.NewGuid().ToString();
+            await _cache.SetStringAsync(key, lockValue, new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = ttl
+            }, ct);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private Task ReleaseLockAsync(string key)
+        // Fire-and-forget release; lock auto-expires via TTL so no strict cleanup needed.
+        => _cache.RemoveAsync(key);
 
     /* ============================================================
      * DTO
