@@ -4,7 +4,28 @@
 }
 
 api.liveauth.app {
-    reverse_proxy localhost:8081
+    @preflight method OPTIONS
+    handle @preflight {
+        header Access-Control-Allow-Origin "{header.Origin}"
+        header +Access-Control-Allow-Methods GET
+        header +Access-Control-Allow-Methods POST
+        header +Access-Control-Allow-Methods OPTIONS
+        header +Access-Control-Allow-Headers Content-Type
+        header +Access-Control-Allow-Headers Authorization
+        header +Access-Control-Allow-Headers X-Requested-With
+        header +Access-Control-Allow-Headers X-Lw-Public
+        header +Access-Control-Allow-Headers X-Lw-Secret
+        header +Access-Control-Allow-Headers X-Lw-SDK-Version
+        header +Access-Control-Allow-Credentials true
+        respond "OK" 200
+    }
+
+    reverse_proxy localhost:8081 {
+        header_up X-Real-IP X-Forwarded-For
+        header_down Access-Control-Allow-Origin "{header.Origin}"
+        header_down Access-Control-Allow-Credentials true
+    }
+
     header X-Frame-Options SAMEORIGIN
     header X-Content-Type-Options nosniff
     encode gzip
