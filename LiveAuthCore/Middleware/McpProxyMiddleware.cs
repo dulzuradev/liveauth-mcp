@@ -105,16 +105,23 @@ public class McpProxyMiddleware
         if (proxy != null)
             return proxy;
 
-        // Try by ID prefix
-        if (Guid.TryParseExact(pathOrId[..Math.Min(8, pathOrId.Length)], "N", out _))
+        // Try by ID prefix (database-level filtering, not in-memory)
+        if (pathOrId.Length >= 8)
         {
-            // Search by ID prefix
-            var allProxies = await _db.McpProxies
-                .Where(p => p.IsActive)
-                .ToListAsync();
+            var prefix = pathOrId[..8].ToLowerInvariant();
             
-            return allProxies.FirstOrDefault(p => 
-                p.Id.ToString("N").StartsWith(pathOrId, StringComparison.OrdinalIgnoreCase));
+            // Convert prefix to GUID bytes for efficient comparison
+            if (Guid.TryParseExact(prefix + "-0000-0000-0000-000000000000", "N", out _))
+            {
+                // More robust: find by checking if the first 8 chars of the GUID match
+                // Use a case-insensitive GUID prefix search
+                var proxyById = await _db.McpProxies
+                    .Where(p => p.IsActive && 
+                               EF.Functions.Like(p.Id.ToString().ToLower(), prefix + "%"))
+                    .FirstOrDefaultAsync();
+                
+                return proxyById;
+            }
         }
 
         return null;

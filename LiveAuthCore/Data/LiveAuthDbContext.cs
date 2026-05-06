@@ -104,6 +104,16 @@ public class LiveAuthDbContext : DbContext
         modelBuilder.Entity<AuthSession>()
             .HasIndex(s => new { s.ProjectId, s.ClientIp, s.CreatedAt });
         
+        // AuthEvent indexes for efficient querying by project and event type
+        modelBuilder.Entity<AuthEvent>()
+            .HasIndex(e => e.ProjectId);
+        
+        modelBuilder.Entity<AuthEvent>()
+            .HasIndex(e => e.EventType);
+        
+        modelBuilder.Entity<AuthEvent>()
+            .HasIndex(e => new { e.ProjectId, e.EventType });
+        
         modelBuilder.Entity<BillingSubscription>()
             .HasIndex(x => x.InvoiceRHash)
             .IsUnique()
@@ -216,5 +226,8 @@ public class LiveAuthDbContext : DbContext
 
         modelBuilder.Entity<L402Macaroon>()
             .HasIndex(m => new { m.BundleId, m.IsRevoked });
+        
+        modelBuilder.Entity<L402Macaroon>()
+            .HasIndex(m => m.BundleId);
     }
 }

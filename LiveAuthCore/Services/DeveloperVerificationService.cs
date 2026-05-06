@@ -147,8 +147,30 @@ public class DeveloperVerificationService
 
             return true;
         }
-        catch
+        catch (Microsoft.IdentityModel.Tokens.SecurityTokenExpiredException)
         {
+            // Token is valid but expired — expected, not a security issue
+            return false;
+        }
+        catch (Microsoft.IdentityModel.Tokens.SecurityTokenInvalidSignatureException)
+        {
+            // Signature mismatch — potential tampering
+            return false;
+        }
+        catch (Microsoft.IdentityModel.Tokens.SecurityTokenValidationException)
+        {
+            // Malformed token, wrong issuer/audience, etc.
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            // Missing JWT configuration — not a token problem
+            return false;
+        }
+        catch (Exception)
+        {
+            // Fail secure: any unexpected error means reject the token
+            // Could log here for security monitoring (never return true for a bad token)
             return false;
         }
     }

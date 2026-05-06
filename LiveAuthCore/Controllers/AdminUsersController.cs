@@ -35,8 +35,8 @@ public class AdminUsersController : ControllerBase
         {
             var sl = search.ToLower();
             query = query.Where(d =>
-                d.Email.ToLower().Contains(sl) ||
-                (d.GitHubUsername != null && d.GitHubUsername.ToLower().Contains(sl)));
+                EF.Functions.Like(d.Email.ToLower(), $"%{sl}%") ||
+                (d.GitHubUsername != null && EF.Functions.Like(d.GitHubUsername.ToLower(), $"%{sl}%")));
         }
 
         var total = await query.CountAsync(ct);
