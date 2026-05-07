@@ -2,7 +2,8 @@ import { Routes } from '@angular/router';
 import { LoginComponent } from './pages/demo/login-component/login-component';
 import { MockLoginComponent } from './pages/demo/mock-login/mock-login.component';
 import {DeveloperProjectsComponent} from './pages/dev/developer-projects/developer-projects';
-import {VerifyEmailComponent} from './pages/dev/verify-email/verify-email.component';
+import { VerifyEmailComponent } from './pages/dev/verify-email/verify-email.component';
+import { ResendVerificationComponent } from './pages/dev/resend-verification/resend-verification.component';
 import {LandingPageComponent} from './pages/landing-page/landing-page';
 import {McpAgentsComponent} from './pages/mcp-agents/mcp-agents';
 import {AdminComponent} from './pages/dev/admin-component/admin-component';
@@ -31,6 +32,7 @@ export const routes: Routes = [
 
   // Email verification
   { path: 'dev/verify-email', component: VerifyEmailComponent },
+  { path: 'dev/resend-verification', component: ResendVerificationComponent },
 
   // Admin (optional internal)
   { path: 'admin', component: AdminComponent },

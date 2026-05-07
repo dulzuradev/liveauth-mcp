@@ -732,6 +732,37 @@ public class DevAuthController : ControllerBase
         return Ok(new { success = true });
     }
 
+    /// <summary>
+    /// Resend verification email for unverified accounts.
+    /// POST /api/dev/auth/resend-verification
+    /// </summary>
+    [HttpPost("resend-verification")]
+    [EnableRateLimiting("auth:x3")]
+    public async Task<ActionResult> ResendVerification(
+        [FromBody] ResendVerificationRequest request,
+        CancellationToken ct)
+    {
+        var email = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(email) || !IsValidEmail(email))
+            return BadRequest(new { error = "Valid email is required." });
+
+        var dev = await _db.Developers.FirstOrDefaultAsync(d => d.Email == email, ct);
+
+        // Always return success to prevent email enumeration
+        if (dev == null || dev.EmailVerified || string.IsNullOrEmpty(dev.PasswordHash))
+            return Ok(new { message = "If an unverified account exists, a new verification email has been sent." });
+
+        // Generate new token
+        dev.VerificationToken = Guid.NewGuid().ToString("N");
+        dev.VerificationExpiresAt = DateTime.UtcNow.AddHours(24);
+        await _db.SaveChangesAsync(ct);
+
+        await _email.SendVerificationEmailAsync(email, dev.VerificationToken);
+
+        return Ok(new { message = "If an unverified account exists, a new verification email has been sent." });
+    }
+
     private static string HashPassword(string password, string salt)
     {
         var saltBytes = Convert.FromBase64String(salt);

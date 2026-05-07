@@ -209,8 +209,10 @@ public class AdminAuthController : ControllerBase
         if (session == null)
             return Unauthorized(new { error = "Invalid credentials" });
 
-        var hash = HashPassword(request.Password, session.PasswordSalt);
-        if (hash != session.PasswordHash)
+        var computedHash = HashPassword(request.Password, session.PasswordSalt);
+        if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(computedHash),
+                Encoding.UTF8.GetBytes(session.PasswordHash)))
             return Unauthorized(new { error = "Invalid credentials" });
 
         // Generate JWT token

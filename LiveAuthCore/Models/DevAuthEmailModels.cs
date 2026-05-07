@@ -69,3 +69,10 @@ public class ResetPasswordResponse
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
 }
+
+// ─── Resend Verification ───────────────────────────────────────
+
+public class ResendVerificationRequest
+{
+    public string Email { get; set; } = string.Empty;
+}

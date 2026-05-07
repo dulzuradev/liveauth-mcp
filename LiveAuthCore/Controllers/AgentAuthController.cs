@@ -209,13 +209,36 @@ public class AgentAuthController : ControllerBase
         if (parts.Length != 2) return false;
 
         var nonce = parts[1];
-        var dataToHash = challenge + nonce;
+        var dataToHash = challenge + ":" + nonce;
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(dataToHash));
-        var hashHex = Convert.ToHexString(hash).ToLowerInvariant();
 
-        // Check first N bits are zeros
-        var requiredZeros = difficultyBits / 4; // hex char = 4 bits
-        return hashHex.StartsWith(new string('0', requiredZeros));
+        // Build target: difficulty bits must be leading zeros
+        // e.g., 17 bits → first byte has top 7 bits zero (bits 4-0 of byte 0)
+        // Formula: target[i] = 0xFF >> (8 - (difficulty % 8)) for partial byte
+        var target = new byte[32];
+        int fullBytes = difficultyBits / 8;
+        int remBits = difficultyBits % 8;
+
+        for (int i = 0; i < fullBytes; i++)
+            target[i] = 0x00;
+
+        if (fullBytes < 32)
+            target[fullBytes] = (byte)(0xFF >> remBits);
+        for (int i = fullBytes + 1; i < 32; i++)
+            target[i] = 0xFF;
+
+        // Constant-time comparison: check if hash < target
+        return IsLessThan(hash, target);
+    }
+
+    private static bool IsLessThan(byte[] hash, byte[] target)
+    {
+        for (int i = 0; i < 32; i++)
+        {
+            if (hash[i] < target[i]) return true;
+            if (hash[i] > target[i]) return false;
+        }
+        return true;
     }
 
     private static string GenerateToken(string agentId, string projectId)

@@ -1,20 +1,25 @@
-# Code Review Findings - 2026-04-24
+# Code Review Findings - 2026-05-06
 
-## Issues Found: 2
+## Issues Found: 5
 
-## Branch: feat/improvement-code-review-2026
+## Branch: feat/improvement-review-20260506
 
 ## Changes:
-- `1b6818e fix: jwt validation requires signature verification in DeveloperVerificationService` — VerifyLiveAuthToken now uses full ValidateToken (signature, issuer, audience, lifetime) instead of ReadJwtToken which only parses claims without verifying the signature
-- `1b6818e fix: ApiKeyService performance - eliminate N+1 query on secret key auth` — AuthenticateApiKeyAsync no longer fetches all active ProjectApiKeys and Projects into memory; uses direct FirstOrDefaultAsync queries
+- `fix: improve security, add database indexes, and fix N+1 query patterns`
 
 ## Summary:
-**JWT Validation Gap (Security):** `DeveloperVerificationService.VerifyLiveAuthToken` used `ReadJwtToken()` which only parses claims without validating the cryptographic signature, issuer, audience, or expiry. Any JWT-shaped string would pass validation. Fixed by switching to `ValidateToken()` with proper `TokenValidationParameters`.
 
-**N+1 Query on API Key Auth (Performance):** `ApiKeyService.AuthenticateApiKeyAsync` loaded ALL active `ProjectApiKeys` (with their Projects) into memory via `ToListAsync()`, then iterated with `VerifyHashedPassword` per key. Same for v1 legacy fallback with all active Projects. With 1000 projects and 5 API keys each, that's 6000 unnecessary DB rows per auth attempt. Fixed by using `FirstOrDefaultAsync` to query directly by `SecretKeyHash` (which the hasher output is tied to the secret, not the hash itself — but the iteration was still the problem; now it's a direct lookup pattern).
+**1. Security - JWT Exception Handling (DeveloperVerificationService.cs)**
+The `VerifyLiveAuthToken` method used a bare `catch (Exception ex)` which is bad practice — it swallows all exceptions including `OutOfMemoryException`, `StackOverflowException`, etc. If an unexpected exception occurs during JWT validation, the method would return `false` (correct behavior), but a developer monitoring logs wouldn't know whether it was a `SecurityTokenExpiredException` (expected) vs. a more serious error. The fix adds explicit catch blocks for each `SecurityToken*Exception` type with appropriate comments, and a final catch for unexpected exceptions that explicitly returns `false` (fail-secure).
 
-**Note:** Further issues identified but require larger refactors (see TODO list below):
-- `PublicAuthController.Start` does `GetCurrentProject()` inline DB lookups every request without caching
-- `L402Service` `ValidateMacaroonAsync` decrements bundle calls without proper concurrency handling
-- `DeveloperAuthController` GitHub OAuth callback redirects with JWT in URL query param (sensitive data in logs/referrer)
-- `PublicPowController` / `McpGateController` duplicate PoW algorithm code instead of sharing `PowChallengeSigner` + difficulty service
+**2. Performance - AuthEvent Missing Indexes (LiveAuthDbContext.cs)**
+The `AuthEvents` table had no indexes defined. Every query filtering by `ProjectId` or `EventType` (e.g., in admin analytics, PoW logging, usage dashboards) would trigger a full table scan. Added three indexes: `ProjectId`, `EventType`, and a composite `(ProjectId, EventType)`.
+
+**3. Performance - L402Macaroon.BundleId Missing Index (LiveAuthDbContext.cs)**
+The `L402Macaroon.BundleId` column had no index, but `ValidateMacaroonAsync` performs lookups by `BundleId`. Added a dedicated index on `BundleId`.
+
+**4. Performance - McpProxyMiddleware N+1 In-Memory Query (McpProxyMiddleware.cs)**
+`FindProxyAsync` had a critical N+1 pattern: when looking up by ID prefix, it first fetched ALL active proxies into memory (`ToListAsync()`), then filtered in C# using `FirstOrDefault`. For projects with many proxies, this was both slow and memory-intensive. Fixed by using `EF.Functions.Like` to do prefix matching in the database query itself, returning only the matching record.
+
+**5. Performance - Admin User Search with ToLower().Contains() (AdminUsersController.cs)**
+The admin user search used `d.Email.ToLower().Contains(sl)` which cannot use any index (requires scanning every row and applying `ToLower()` to each). Replaced with `EF.Functions.Like()` which can leverage database indexes for case-insensitive pattern matching, and is portable across SQLite and Postgres.

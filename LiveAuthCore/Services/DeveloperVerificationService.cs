@@ -31,7 +31,7 @@ public class DeveloperVerificationService
         var limit = PlanLimits.GetMonthlyAuthLimit(project.Plan ?? "free", project.ProPaidUntil);
         if (project.MonthlyAuthCount >= limit)
         {
-            var plan = project.Plan.ToLowerInvariant();
+            var plan = project.Plan?.ToLowerInvariant() ?? "free";
             throw new ApplicationException(
                 $"Monthly {limit:N0} verification limit exceeded. Upgrade to {(plan == "free" ? "Pro" : "Enterprise")} for more.");
         }

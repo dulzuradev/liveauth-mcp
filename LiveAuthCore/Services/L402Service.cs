@@ -85,7 +85,32 @@ public class L402Service
         
         // TODO: In v2, track (preimageHash -> paymentHash) at invoice creation time
         
-        return null; // Simplified - needs proper implementation
+        // Try to find preimage mapping (stored at invoice creation time)
+        var storedPreimage = GetPreimageByPaymentHash(tokenHash);
+        if (!string.IsNullOrEmpty(storedPreimage))
+        {
+            // Re-verify: preimage must hash to the token hash
+            var expectedHash = ComputeTokenHash(storedPreimage);
+            if (string.Equals(tokenHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+            {
+                // Token hash is valid preimage representation - cache it
+                var ttl = GetTokenTtl();
+                _cache.Set($"l402_token:{tokenHash}", true, ttl);
+                return tokenHash;
+            }
+        }
+        
+        // If token itself is a payment hash (fallback from IssueTokenAsync), check payment status
+        var normalizedToken = NormalizePaymentHash(tokenHash);
+        if (!string.IsNullOrEmpty(normalizedToken))
+        {
+            // Check if this token was previously issued
+            var cached = GetTokenByPaymentHash(normalizedToken);
+            if (!string.IsNullOrEmpty(cached))
+                return cached;
+        }
+
+        return null; // Cannot validate - no mapping found
     }
 
     /// <summary>
@@ -123,6 +148,49 @@ public class L402Service
         var normalized = paymentHash.Replace("-", "+").Replace("_", "/");
         while (normalized.Length % 4 != 0) normalized += "=";
         return normalized;
+    }
+
+    private string? GetPreimageByPaymentHash(string paymentHash)
+    {
+        if (_cache.TryGetValue($"l402_preimage:{paymentHash}", out string? preimage))
+            return preimage;
+        return null;
+    }
+
+    private static string? NormalizePaymentHash(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return null;
+
+        // Try hex (64 chars)
+        if (input.Length == 64 && IsHex(input))
+            return input.ToLowerInvariant();
+
+        // Try base64 → hex
+        try
+        {
+            var b64 = input.Replace('-', '+').Replace('_', '/');
+            while (b64.Length % 4 != 0) b64 += "=";
+            var bytes = Convert.FromBase64String(b64);
+            if (bytes.Length == 32)
+                return Convert.ToHexString(bytes).ToLowerInvariant();
+        }
+        catch
+        {
+            // Not base64
+        }
+
+        return null;
+    }
+
+    private static bool IsHex(string s)
+    {
+        foreach (var c in s)
+        {
+            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')))
+                return false;
+        }
+        return true;
     }
 
     private string? GetTokenByPaymentHash(string paymentHash)

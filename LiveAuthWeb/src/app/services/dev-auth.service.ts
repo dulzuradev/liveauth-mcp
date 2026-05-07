@@ -184,4 +184,12 @@ export class DevAuthService {
       req
     );
   }
+
+  // POST /api/dev/auth/resend-verification
+  resendVerification(req: { email: string }): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(
+      `${this.baseUrl}/api/dev/auth/resend-verification`,
+      req
+    );
+  }
 }

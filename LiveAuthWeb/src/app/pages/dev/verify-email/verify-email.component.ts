@@ -16,7 +16,7 @@ type VerifyState = 'verifying' | 'success' | 'error';
     <div class="verify-page">
       <div class="verify-card">
         <div class="verify-icon">
-          <i class="pi" [class.pi-check-circle]="state === 'success'" [class.pi-times-circle]="state === 'error'" [class.pi-spin pi-spinner]="state === 'verifying'"></i>
+          <i class="pi" [class.pi-check-circle]="state === 'success'" [class.pi-times-circle]="state === 'error'" [class.pi-spin]="state === 'verifying'" [class.pi-spinner]="state === 'verifying'"></i>
         </div>
 
         <h2 class="gradient-text">
@@ -37,12 +37,20 @@ type VerifyState = 'verifying' | 'success' | 'error';
           class="mb-3">
         </p-message>
 
-        <div *ngIf="state === 'error'">
+        <div *ngIf="state === 'error'" class="error-actions">
+          <button *ngIf="isExpired"
+            pButton
+            label="Resend Verification Email"
+            icon="pi pi-envelope"
+            class="resend-btn"
+            (click)="goToResend()">
+          </button>
           <button
             pButton
-            label="Go to Login"
+            [label]="isExpired ? 'Back to Login' : 'Go to Login'"
             icon="pi pi-arrow-right"
             iconPos="right"
+            class="login-btn"
             (click)="goToLogin()">
           </button>
         </div>
@@ -80,11 +88,28 @@ type VerifyState = 'verifying' | 'success' | 'error';
     h2 { margin-bottom: 16px; }
 
     p { color: #888; margin-bottom: 24px; }
+
+    .error-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .error-actions button {
+      width: 100%;
+    }
+
+    .resend-btn {
+      background: #00C2FF !important;
+      border-color: #00C2FF !important;
+    }
   `]
 })
 export class VerifyEmailComponent implements OnInit {
   state: VerifyState = 'verifying';
   errorMessage = 'Something went wrong. The link may be expired or invalid.';
+  isExpired = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -116,16 +141,24 @@ export class VerifyEmailComponent implements OnInit {
       },
       error: (err) => {
         this.state = 'error';
-        if (err.error?.error) {
+        const msg = err.error?.error || err.message || '';
+        if (msg.includes('expired')) {
+          this.errorMessage = 'Verification token has expired. Please request a new one.';
+          this.isExpired = true;
+        } else if (err.error?.error) {
           this.errorMessage = err.error.error;
-        } else if (err.message) {
-          this.errorMessage = err.message;
+        } else {
+          this.errorMessage = msg || 'Something went wrong. The link may be expired or invalid.';
         }
       }
     });
   }
 
   goToLogin() {
-    this.router.navigate(['/dev/projects']);
+    this.router.navigate(['/dev/login']);
+  }
+
+  goToResend() {
+    this.router.navigate(['/dev/resend-verification']);
   }
 }
