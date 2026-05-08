@@ -89,7 +89,8 @@ public class DeveloperProjectsController : ControllerBase
                 DeveloperId = dev.Id,
                 Name = req.Name,
                 PublicKey = pub,
-                SecretKeyHash = hash
+                SecretKeyHash = hash,
+                UseCustomNode = false
             };
 
             _db.Projects.Add(project);

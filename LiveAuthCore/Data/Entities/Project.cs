@@ -43,7 +43,7 @@ public class Project
     public DateTime? ProPaidUntil { get; set; }
 
     // Custom LND node configuration
-    public bool? UseCustomNode { get; set; }
+    public bool UseCustomNode { get; set; } = false;
     public string? LndBaseUrl { get; set; }
     public string? LndMacaroon { get; set; } // Encrypted
 

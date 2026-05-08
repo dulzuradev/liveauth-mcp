@@ -43,7 +43,7 @@
       <p-tabs [(value)]="selectedLoginTab">
         <p-tablist>
           <p-tab value="github">GitHub</p-tab>
-          <p-tab value="lightning">Lightning</p-tab>
+
           <p-tab value="email">Email</p-tab>
         </p-tablist>
         <p-tabpanels>
@@ -62,62 +62,7 @@
             </div>
           </p-tabpanel>
 
-          <!-- Lightning Tab -->
-          <p-tabpanel value="lightning">
-            <div class="p-fluid">
-              <p class="mb-3">Pay a tiny Lightning invoice to verify your developer account.</p>
 
-              <div class="field">
-                <input
-                  pInputText
-                  type="email"
-                  [(ngModel)]="developerEmail"
-                  placeholder="Developer email address"
-                  class="w-full"
-                  (keyup.enter)="startLogin()"
-                  [disabled]="!!loginSession"/>
-              </div>
-
-              <button
-                (click)="startLogin()"
-                [disabled]="!developerEmail || !!loginSession"
-                [loading]="loginInProgress"
-                icon="pi pi-bolt"
-                label="Generate Invoice"
-                class="w-full p-button-lg"
-                pButton>
-              </button>
-
-              <!-- Invoice shown once created -->
-              <div *ngIf="loginSession" class="mt-4">
-                <div class="flex justify-content-between align-items-center mb-2">
-                  <span><b>Amount:</b> {{ loginSession.amountSats }} sats</span>
-                  <span><b>Expires:</b> {{ remainingTimeLabel }}</span>
-                </div>
-                <div class="flex justify-content-center mb-3">
-                  <div class="ln-qr-svg-box">
-                    <qrcode class="ln-qr-svg" [value]="lightningQrValue" [size]="280" [errorLevel]="'M'" [mode]="'svg'"></qrcode>
-                  </div>
-                </div>
-                <a class="block text-sm text-primary text-center mb-2" [href]="'LIGHTNING:' + lightningQrValue">
-                  Open in Lightning wallet
-                </a>
-                <div class="invoice-row flex gap-2 align-items-center">
-                  <input
-                    #loginInvoiceInput
-                    (click)="loginInvoiceInput.select()"
-                    [value]="loginSession.invoice"
-                    class="invoice-input"
-                    readonly
-                    style="flex:1; padding:8px; border-radius:6px; background:#222; color:#fff; border:1px solid #444; font-family:monospace; font-size:0.8rem;"/>
-                  <button (click)="copyLoginInvoice()" class="p-button-rounded p-button-secondary" icon="pi pi-copy" pButton></button>
-                </div>
-                <p *ngIf="copiedLoginInvoice" class="mt-2" style="color:#64ff8f;">Copied!</p>
-                <p *ngIf="polling" class="mt-2 text-primary">Waiting for payment confirmation…</p>
-                <p *ngIf="remainingSeconds <= 0" class="mt-2 text-red-500">Invoice expired. Close and try again.</p>
-              </div>
-            </div>
-          </p-tabpanel>
 
           <!-- Email / Password Tab -->
           <p-tabpanel value="email">

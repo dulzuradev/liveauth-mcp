@@ -1404,7 +1404,8 @@ console.log('onTimeRangeChange', range);
   private extractErrorMessage(err: any): string {
     if (!err) return 'Unexpected error';
 
-    // Backend-standard error
+    // Backend-standard error: { error: "..." }
+    if (err.error?.error) return err.error.error;
     if (err.error?.message) return err.error.message;
 
     // Fallbacks
