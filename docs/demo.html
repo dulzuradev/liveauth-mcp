@@ -514,107 +514,35 @@
             const invoiceRes = await fetch(`${API_URL}/api/public/auth/demo/start`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-LW-Public': 'la_pk_demo'
                 },
                 body: JSON.stringify({
-                    amount: 1,
-                    memo: `LiveAuth Demo - ${identifier}`
+                    userHint: identifier
                 })
             });
 
-            // -----------------------------
-            // DEMO / FALLBACK MODE
-            // -----------------------------
             if (!invoiceRes.ok) {
-                const mockInvoice = {
-                    paymentRequest:
-                        'lnbc10n1p0test1test2test3test4test5test6test7test8test9test0test',
-                    paymentHash: 'demo_hash_' + Date.now()
-                };
-
-                currentLnSession = mockInvoice;
-
-                progressBar.style.width = '100%';
-
-                const paymentRequest = mockInvoice.paymentRequest;
-
-                result.innerHTML = `
-        <strong>⚡ Lightning Invoice Created</strong>
-
-        <p style="margin-top:0.75rem;">
-          Amount: <strong>3 sats</strong>
-        </p>
-
-        <div style="text-align:center; margin:1.25rem 0;">
-          <img
-            src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
-                    'lightning:' + paymentRequest
-                )}"
-            alt="Lightning QR Code"
-            style="
-              background: white;
-              padding: 14px;
-              border-radius: 14px;
-              max-width: 260px;
-              width: 100%;
-            "
-          />
-        </div>
-
-        <div class="invoice" style="font-size:0.7rem;">
-          ${paymentRequest}
-        </div>
-
-        <p style="font-size:0.9rem;margin-top:0.75rem;">
-          Scan with your Lightning wallet to pay.
-        </p>
-        <div
-          id="ln-payment-status-message"
-          style="font-size:0.9rem;margin-top:0.75rem;"
-        >
-          Scan with your Lightning wallet to pay.
-        </div>
-        <button
-          class="btn-lightning"
-          style="margin-top:1rem;"
-          onclick="simulateLightningPayment()"
-        >
-          Simulate Payment (Demo)
-        </button>
-      `;
-
-                result.classList.add('show');
-
-                document.getElementById('ln-status').textContent =
-                    'awaiting payment';
-
-                document.getElementById('ln-stats').style.display = 'flex';
-
-                btn.disabled = false;
-                btn.textContent = 'Create Lightning Invoice';
-
-                return;
+                const errorText = await invoiceRes.text();
+                throw new Error(errorText || `Invoice request failed (${invoiceRes.status})`);
             }
 
-            // -----------------------------
-            // REAL INVOICE MODE
-            // -----------------------------
             const invoice = await invoiceRes.json();
+            const paymentRequest = invoice.invoice || invoice.paymentRequest || invoice.bolt11;
+
+            if (!invoice.sessionId || !paymentRequest) {
+                throw new Error('Demo invoice response was missing a sessionId or BOLT11 invoice.');
+            }
 
             currentLnSession = invoice;
 
             progressBar.style.width = '100%';
 
-            const paymentRequest =
-                invoice.invoice ||
-                invoice.paymentRequest ||
-                invoice.bolt11;
-
             result.innerHTML = `
       <strong>⚡ Lightning Invoice Created</strong>
 
       <p style="margin-top:0.75rem;">
-        Amount: <strong>${invoice.amountSats || 1} sats</strong>
+        Amount: <strong>${invoice.amountSats || 3} sats</strong>
       </p>
 
       <div style="text-align:center; margin:1.25rem 0;">
@@ -640,6 +568,12 @@
       <p style="font-size:0.9rem;margin-top:0.75rem;">
         Scan with your Lightning wallet to pay.
       </p>
+      <div
+        id="ln-payment-status-message"
+        style="font-size:0.9rem;margin-top:0.75rem;"
+      >
+        Awaiting payment.
+      </div>
 
       <button
         class="btn-lightning"
@@ -659,6 +593,7 @@
 
             btn.disabled = false;
             btn.textContent = 'Create Lightning Invoice';
+            return;
 
         } catch (err) {
             result.innerHTML = `
@@ -699,9 +634,9 @@
         if (!currentLnSession) return;
 
         const statusEl = document.getElementById('ln-status');
-        const paymentHash = currentLnSession.paymentHash || currentLnSession.hash;
 
-        const existingStatusMessage = document.getElementById('ln-status');
+        const result = document.getElementById('ln-result');
+        const existingStatusMessage = document.getElementById('ln-payment-status-message') || statusEl;
 
         if (existingStatusMessage) {
             existingStatusMessage.innerHTML = `
@@ -709,28 +644,21 @@
     `;
         }
         try {
-            // setInterval(() => {
-            //     const existingStatusMessage = document.getElementById('ln-status');
-            //     existingStatusMessage.innerHTML = `
-            //     <strong>✅ Payment Verified!</strong>
-            //     <p>Lightning payment confirmed.</p>
-            //   `
-            // });
-                const checkRes = await fetch(
-                    `${API_URL}/api/SatsPrinter/demo/confirm`, { invoiceId: paymentHash },
-                    { method: 'POST' }
-                );
+            const checkRes = await fetch(`${API_URL}/api/public/auth/demo/confirm`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-LW-Public': 'la_pk_demo'
+                },
+                body: JSON.stringify({
+                    sessionId: currentLnSession.sessionId
+                })
+            });
 
-                if (checkRes.ok) {
-                    statusEl.textContent = '✅ paid';
+            if (checkRes.ok) {
+                const confirmResult = await checkRes.json();
 
-                    if (existingStatusMessage) {
-                        existingStatusMessage.innerHTML = `
-              <strong>✅ Payment Verified!</strong>
-              <p>Lightning payment confirmed.</p>
-            `;
-                    }
-                } else {
+                if (!confirmResult.verified) {
                     statusEl.textContent = 'pending';
 
                     if (existingStatusMessage) {
@@ -739,7 +667,29 @@
               <p>Please pay the invoice and click Check again.</p>
             `;
                     }
+
+                    return;
                 }
+
+                statusEl.textContent = '✅ paid';
+
+                result.innerHTML = `
+          <strong>✅ Payment Verified!</strong>
+          <p>Lightning payment confirmed.</p>
+          ${confirmResult.token ? `<div class="token">Token: ${confirmResult.token.slice(0, 40)}...</div>` : ''}
+        `;
+                result.classList.add('show');
+            } else {
+                const errorText = await checkRes.text();
+                statusEl.textContent = 'pending';
+
+                if (existingStatusMessage) {
+                    existingStatusMessage.innerHTML = `
+              <strong>❌ Check failed</strong>
+              <p>${errorText || `Request failed (${checkRes.status})`}</p>
+            `;
+                }
+            }
         } catch (err) {
             if (existingStatusMessage) {
                 existingStatusMessage.innerHTML = `
