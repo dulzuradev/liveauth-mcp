@@ -709,37 +709,37 @@
     `;
         }
         try {
-            setInterval(() => {
-                const existingStatusMessage = document.getElementById('ln-status');
-                existingStatusMessage.innerHTML = `
-                <strong>✅ Payment Verified!</strong>
-                <p>Lightning payment confirmed.</p>
-              `
-            });
-            //     const checkRes = await fetch(
-            //         `${API_URL}/api/SatsPrinter/demo/confirm`, { invoiceId: paymentHash },
-            //         { method: 'POST' }
-            //     );
-            //
-            //     if (checkRes.ok) {
-            //         statusEl.textContent = '✅ paid';
-            //
-            //         if (existingStatusMessage) {
-            //             existingStatusMessage.innerHTML = `
-            //   <strong>✅ Payment Verified!</strong>
-            //   <p>Lightning payment confirmed.</p>
-            // `;
-            //         }
-            //     } else {
-            //         statusEl.textContent = 'pending';
-            //
-            //         if (existingStatusMessage) {
-            //             existingStatusMessage.innerHTML = `
-            //   <strong>⏳ Payment not yet received</strong>
-            //   <p>Please pay the invoice and click Check again.</p>
-            // `;
-            //         }
-            //     }
+            // setInterval(() => {
+            //     const existingStatusMessage = document.getElementById('ln-status');
+            //     existingStatusMessage.innerHTML = `
+            //     <strong>✅ Payment Verified!</strong>
+            //     <p>Lightning payment confirmed.</p>
+            //   `
+            // });
+                const checkRes = await fetch(
+                    `${API_URL}/api/SatsPrinter/demo/confirm`, { invoiceId: paymentHash },
+                    { method: 'POST' }
+                );
+
+                if (checkRes.ok) {
+                    statusEl.textContent = '✅ paid';
+
+                    if (existingStatusMessage) {
+                        existingStatusMessage.innerHTML = `
+              <strong>✅ Payment Verified!</strong>
+              <p>Lightning payment confirmed.</p>
+            `;
+                    }
+                } else {
+                    statusEl.textContent = 'pending';
+
+                    if (existingStatusMessage) {
+                        existingStatusMessage.innerHTML = `
+              <strong>⏳ Payment not yet received</strong>
+              <p>Please pay the invoice and click Check again.</p>
+            `;
+                    }
+                }
         } catch (err) {
             if (existingStatusMessage) {
                 existingStatusMessage.innerHTML = `
