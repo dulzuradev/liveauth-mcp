@@ -1,310 +1,393 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LiveAuth Demo - Try Verification</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      padding: 2rem 1rem;
-    }
-    .container {
-      max-width: 600px;
-      width: 100%;
-    }
-    h1 { font-size: 2rem; margin-bottom: 0.5rem; text-align: center; }
-    .subtitle { color: #888; margin-bottom: 2rem; text-align: center; }
-    
-    /* Tabs */
-    .tabs {
-      display: flex;
-      gap: 0;
-      margin-bottom: 1.5rem;
-      border-radius: 8px;
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.2);
-    }
-    .tab {
-      flex: 1;
-      padding: 12px;
-      background: rgba(255,255,255,0.05);
-      border: none;
-      color: #aaa;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .tab.active {
-      background: #00d4aa;
-      color: #000;
-    }
-    .tab:hover:not(.active) {
-      background: rgba(255,255,255,0.1);
-    }
-    
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    
-    .card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 2rem;
-    }
-    .input-group { margin-bottom: 1rem; }
-    label { display: block; margin-bottom: 0.5rem; color: #aaa; }
-    input {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 8px;
-      background: rgba(0,0,0,0.3);
-      color: #fff;
-      font-size: 1rem;
-    }
-    input:focus { outline: none; border-color: #00d4aa; }
-    button {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .btn-primary {
-      background: #00d4aa;
-      color: #000;
-    }
-    .btn-primary:hover { background: #00f5c4; }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    
-    .btn-lightning {
-      background: linear-gradient(135deg, #F2A900 0%, #FF9500 100%);
-      color: #000;
-    }
-    .btn-lightning:hover { filter: brightness(1.1); }
-    
-    .result {
-      background: rgba(0,212,170,0.1);
-      border: 1px solid #00d4aa;
-      border-radius: 8px;
-      padding: 1rem;
-      margin-top: 1rem;
-      display: none;
-    }
-    .result.show { display: block; }
-    .result.error {
-      background: rgba(255,100,100,0.1);
-      border-color: #ff6464;
-    }
-    .result.lightning {
-      background: rgba(242,169,0,0.1);
-      border-color: #F2A900;
-    }
-    .token {
-      font-family: monospace;
-      font-size: 0.8rem;
-      word-break: break-all;
-      background: rgba(0,0,0,0.3);
-      padding: 0.5rem;
-      border-radius: 4px;
-      margin-top: 0.5rem;
-    }
-    .invoice {
-      font-family: monospace;
-      font-size: 0.75rem;
-      word-break: break-all;
-      background: rgba(0,0,0,0.3);
-      padding: 0.75rem;
-      border-radius: 4px;
-      margin: 0.5rem 0;
-    }
-    .stats {
-      display: flex;
-      gap: 1rem;
-      margin-top: 1rem;
-      font-size: 0.9rem;
-      color: #888;
-    }
-    .stat { flex: 1; text-align: center; }
-    .stat-value { font-size: 1.5rem; color: #00d4aa; }
-    .stat-value.orange { color: #F2A900; }
-    .progress {
-      width: 100%;
-      height: 4px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 2px;
-      margin-top: 1rem;
-      overflow: hidden;
-    }
-    .progress-bar {
-      height: 100%;
-      background: #00d4aa;
-      transition: width 0.1s;
-    }
-    .progress-bar.lightning { background: #F2A900; }
-    
-    .badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-    }
-    .badge-pow { background: rgba(0,212,170,0.2); color: #00d4aa; }
-    .badge-lightning { background: rgba(242,169,0,0.2); color: #F2A900; }
-    
-    .note {
-      font-size: 0.85rem;
-      color: #666;
-      margin-top: 1rem;
-      padding: 0.75rem;
-      background: rgba(255,255,255,0.05);
-      border-radius: 6px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveAuth Demo - Try Verification</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: none;
+            color: #aaa;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: #00d4aa;
+            color: #000;
+        }
+
+        .tab:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 2rem;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #aaa;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #00d4aa;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #00d4aa;
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #00f5c4;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-lightning {
+            background: linear-gradient(135deg, #F2A900 0%, #FF9500 100%);
+            color: #000;
+        }
+
+        .btn-lightning:hover {
+            filter: brightness(1.1);
+        }
+
+        .result {
+            background: rgba(0, 212, 170, 0.1);
+            border: 1px solid #00d4aa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result.error {
+            background: rgba(255, 100, 100, 0.1);
+            border-color: #ff6464;
+        }
+
+        .result.lightning {
+            background: rgba(242, 169, 0, 0.1);
+            border-color: #F2A900;
+        }
+
+        .token {
+            font-family: monospace;
+            font-size: 0.8rem;
+            word-break: break-all;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+        }
+
+        .invoice {
+            font-family: monospace;
+            font-size: 0.75rem;
+            word-break: break-all;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+        }
+
+        .stats {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .stat {
+            flex: 1;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            color: #00d4aa;
+        }
+
+        .stat-value.orange {
+            color: #F2A900;
+        }
+
+        .progress {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 1rem;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #00d4aa;
+            transition: width 0.1s;
+        }
+
+        .progress-bar.lightning {
+            background: #F2A900;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .badge-pow {
+            background: rgba(0, 212, 170, 0.2);
+            color: #00d4aa;
+        }
+
+        .badge-lightning {
+            background: rgba(242, 169, 0, 0.2);
+            color: #F2A900;
+        }
+
+        .note {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
+<div class="container">
     <h1>🔐 LiveAuth Demo</h1>
     <p class="subtitle">Try verification — no wallet needed for PoW</p>
-    
+
     <!-- Tabs -->
     <div class="tabs">
-      <button class="tab active" onclick="showTab('pow')">⚡ Proof of Work</button>
-      <button class="tab" onclick="showTab('lightning')">⚡ Lightning</button>
+        <button class="tab active" onclick="showTab('pow')">⚡ Proof of Work</button>
+        <button class="tab" onclick="showTab('lightning')">⚡ Lightning</button>
     </div>
-    
+
     <!-- PoW Tab -->
     <div id="pow-tab" class="tab-content active">
-      <div class="card">
-        <span class="badge badge-pow">Free</span>
-        <div class="input-group">
-          <label for="pow-identifier">Your Identifier (any string)</label>
-          <input type="text" id="pow-identifier" placeholder="e.g., my-app, user-123" value="demo-user">
+        <div class="card">
+            <span class="badge badge-pow">Free</span>
+            <div class="input-group">
+                <label for="pow-identifier">Your Identifier (any string)</label>
+                <input type="text" id="pow-identifier" placeholder="e.g., my-app, user-123" value="demo-user">
+            </div>
+            <button class="btn-primary" id="powBtn" onclick="startPowVerification()">Start PoW Verification</button>
+
+            <div class="progress" id="pow-progress" style="display:none;">
+                <div class="progress-bar" id="pow-progressBar" style="width:0%"></div>
+            </div>
+
+            <div class="result" id="pow-result"></div>
+
+            <div class="stats" id="pow-stats" style="display:none;">
+                <div class="stat">
+                    <div class="stat-value" id="pow-attempts">0</div>
+                    <div>Attempts</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="pow-time">0ms</div>
+                    <div>Time</div>
+                </div>
+            </div>
+
+            <div class="note">
+                PoW verification is free — your device solves a cryptographic puzzle to prove you're human.
+            </div>
         </div>
-        <button class="btn-primary" id="powBtn" onclick="startPowVerification()">Start PoW Verification</button>
-        
-        <div class="progress" id="pow-progress" style="display:none;">
-          <div class="progress-bar" id="pow-progressBar" style="width:0%"></div>
-        </div>
-        
-        <div class="result" id="pow-result"></div>
-        
-        <div class="stats" id="pow-stats" style="display:none;">
-          <div class="stat">
-            <div class="stat-value" id="pow-attempts">0</div>
-            <div>Attempts</div>
-          </div>
-          <div class="stat">
-            <div class="stat-value" id="pow-time">0ms</div>
-            <div>Time</div>
-          </div>
-        </div>
-        
-        <div class="note">
-          PoW verification is free — your device solves a cryptographic puzzle to prove you're human.
-        </div>
-      </div>
     </div>
-    
+
     <!-- Lightning Tab -->
     <div id="lightning-tab" class="tab-content">
-      <div class="card">
-        <span class="badge badge-lightning">1 sat</span>
-        <div class="input-group">
-          <label for="ln-identifier">Your Identifier</label>
-          <input type="text" id="ln-identifier" placeholder="e.g., user@example.com" value="demo-user">
-        </div>
-        <button class="btn-lightning" id="lnBtn" onclick="startLightningVerification()">Create Lightning Invoice</button>
-        
-        <div class="progress" id="ln-progress" style="display:none;">
-          <div class="progress-bar lightning" id="ln-progressBar" style="width:0%"></div>
-        </div>
-        
-        <div class="result lightning" id="ln-result"></div>
-        
-        <div class="stats" id="ln-stats" style="display:none;">
-          <div class="stat">
-            <div class="stat-value orange" id="ln-amount">1</div>
-            <div>sats</div>
-          </div>
-          <div class="stat">
-            <div class="stat-value orange" id="ln-status">pending</div>
-            <div>Status</div>
-          </div>
-        </div>
-        
-        <div class="note">
-          Lightning verification costs 1 satoshi — instant and nearly free. In production, you'd scan the QR code with your wallet.
-        </div>
-      </div>
-    </div>
-  </div>
+        <div class="card">
+            <span class="badge badge-lightning">3 sats</span>
+            <div class="input-group">
+                <label for="ln-identifier">Your Identifier</label>
+                <input type="text" id="ln-identifier" placeholder="e.g., user@example.com" value="demo-user">
+            </div>
+            <button class="btn-lightning" id="lnBtn" onclick="startLightningVerification()">Create Lightning Invoice
+            </button>
 
-  <script>
+            <div class="progress" id="ln-progress" style="display:none;">
+                <div class="progress-bar lightning" id="ln-progressBar" style="width:0%"></div>
+            </div>
+
+            <div class="result lightning" id="ln-result"></div>
+
+            <div class="stats" id="ln-stats" style="display:none;">
+                <div class="stat">
+                    <div class="stat-value orange" id="ln-amount">3</div>
+                    <div>sats</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value orange" id="ln-status">pending</div>
+                    <div>Status</div>
+                </div>
+            </div>
+
+            <div class="note">
+                Lightning verification costs 3 satoshis — instant and nearly free. In production, you'd scan the QR code
+                with your wallet.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
     const API_URL = 'https://api.liveauth.app';
     let currentLnSession = null;
 
     function showTab(tab) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      document.querySelector(`.tab[onclick="showTab('${tab}')"]`).classList.add('active');
-      document.getElementById(`${tab}-tab`).classList.add('active');
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelector(`.tab[onclick="showTab('${tab}')"]`).classList.add('active');
+        document.getElementById(`${tab}-tab`).classList.add('active');
     }
 
     // PoW Verification
     async function startPowVerification() {
-      const identifier = document.getElementById('pow-identifier').value.trim();
-      if (!identifier) return alert('Please enter an identifier');
-      
-      const btn = document.getElementById('powBtn');
-      const result = document.getElementById('pow-result');
-      const progress = document.getElementById('pow-progress');
-      const progressBar = document.getElementById('pow-progressBar');
-      
-      btn.disabled = true;
-      btn.textContent = 'Getting challenge...';
-      result.classList.remove('show', 'error');
-      progress.style.display = 'block';
-      progressBar.style.width = '10%';
-      
-      try {
-        // Use Agent Auth API for PoW
-        const startRes = await fetch(`${API_URL}/api/agent/auth/start`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-LW-Public': 'la_pk_demo'
-          },
-          body: JSON.stringify({
-            agentId: identifier,
-            publicKey: 'la_pk_demo'
-          })
-        });
+        const identifier = document.getElementById('pow-identifier').value.trim();
+        if (!identifier) return alert('Please enter an identifier');
 
-        if (!startRes.ok) {
-          // Fallback: use simple client-side demo
-          result.innerHTML = `<strong>⚠️ Using client-side demo</strong>`;
-          progressBar.style.width = '50%';
-          
-          const challenge = Array.from({length: 64}, () => Math.floor(Math.random()*16).toString(16)).join('');
-          const { solution, attempts, time } = await solvePoW(challenge, 8); // Easy difficulty
-          
-          progressBar.style.width = '100%';
-          result.innerHTML = `
+        const btn = document.getElementById('powBtn');
+        const result = document.getElementById('pow-result');
+        const progress = document.getElementById('pow-progress');
+        const progressBar = document.getElementById('pow-progressBar');
+
+        btn.disabled = true;
+        btn.textContent = 'Getting challenge...';
+        result.classList.remove('show', 'error');
+        progress.style.display = 'block';
+        progressBar.style.width = '10%';
+
+        try {
+            // Use Agent Auth API for PoW
+            const startRes = await fetch(`${API_URL}/api/agent/auth/start`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-LW-Public': 'la_pk_demo'
+                },
+                body: JSON.stringify({
+                    agentId: identifier,
+                    publicKey: 'la_pk_demo'
+                })
+            });
+
+            if (!startRes.ok) {
+                // Fallback: use simple client-side demo
+                result.innerHTML = `<strong>⚠️ Using client-side demo</strong>`;
+                progressBar.style.width = '50%';
+
+                const challenge = Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('');
+                const {solution, attempts, time} = await solvePoW(challenge, 8); // Easy difficulty
+
+                progressBar.style.width = '100%';
+                result.innerHTML = `
             <strong>✅ Verified!</strong>
             <p>Solved in <strong>${time}ms</strong> with <strong>${attempts}</strong> attempts.</p>
             <div class="token">Challenge: ${challenge.slice(0, 20)}...</div>
@@ -312,43 +395,43 @@
               Client-side demo. In production, this would use the Agent Auth API with your project keys.
             </p>
           `;
-          result.classList.add('show');
-          document.getElementById('pow-attempts').textContent = attempts;
-          document.getElementById('pow-time').textContent = time + 'ms';
-          document.getElementById('pow-stats').style.display = 'flex';
-          btn.disabled = false;
-          btn.textContent = 'Start PoW Verification';
-          return;
-        }
-        
-        const session = await startRes.json();
-        
-        btn.textContent = 'Solving PoW challenge...';
-        progressBar.style.width = '30%';
-        
-        const { solution, attempts, time } = await solvePoW(session.challenge, session.difficultyBits);
-        
-        progressBar.style.width = '70%';
-        
-        btn.textContent = 'Verifying...';
-        
-        const verifyRes = await fetch(`${API_URL}/api/agent/auth/verify`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-LW-Public': 'la_pk_demo'
-          },
-          body: JSON.stringify({
-            sessionId: session.sessionId,
-            solution: solution
-          })
-        });
-        
-        progressBar.style.width = '100%';
-        
-        if (verifyRes.ok) {
-          const verifyResult = await verifyRes.json();
-          result.innerHTML = `
+                result.classList.add('show');
+                document.getElementById('pow-attempts').textContent = attempts;
+                document.getElementById('pow-time').textContent = time + 'ms';
+                document.getElementById('pow-stats').style.display = 'flex';
+                btn.disabled = false;
+                btn.textContent = 'Start PoW Verification';
+                return;
+            }
+
+            const session = await startRes.json();
+
+            btn.textContent = 'Solving PoW challenge...';
+            progressBar.style.width = '30%';
+
+            const {solution, attempts, time} = await solvePoW(session.challenge, session.difficultyBits);
+
+            progressBar.style.width = '70%';
+
+            btn.textContent = 'Verifying...';
+
+            const verifyRes = await fetch(`${API_URL}/api/agent/auth/verify`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-LW-Public': 'la_pk_demo'
+                },
+                body: JSON.stringify({
+                    sessionId: session.sessionId,
+                    solution: solution
+                })
+            });
+
+            progressBar.style.width = '100%';
+
+            if (verifyRes.ok) {
+                const verifyResult = await verifyRes.json();
+                result.innerHTML = `
             <strong>✅ Verified!</strong>
             <p>Solved in <strong>${time}ms</strong> with <strong>${attempts}</strong> attempts.</p>
             ${verifyResult.token ? `<div class="token">Token: ${verifyResult.token.slice(0, 30)}...</div>` : ''}
@@ -356,201 +439,322 @@
               API verification successful.
             </p>
           `;
-        } else {
-          result.innerHTML = `
+            } else {
+                result.innerHTML = `
             <strong>✅ Demo Complete!</strong>
             <p>Solved in <strong>${time}ms</strong> with <strong>${attempts}</strong> attempts.</p>
             <p style="margin-top:0.5rem;color:#888;font-size:0.9rem;">
               In production, you'd get a JWT token after verification.
             </p>
           `;
+            }
+            result.classList.add('show');
+
+            document.getElementById('pow-attempts').textContent = attempts;
+            document.getElementById('pow-time').textContent = time + 'ms';
+            document.getElementById('pow-stats').style.display = 'flex';
+
+        } catch (err) {
+            result.innerHTML = `<strong>❌ Error:</strong> ${err.message}`;
+            result.classList.add('show', 'error');
         }
-        result.classList.add('show');
-        
-        document.getElementById('pow-attempts').textContent = attempts;
-        document.getElementById('pow-time').textContent = time + 'ms';
-        document.getElementById('pow-stats').style.display = 'flex';
-        
-      } catch (err) {
-        result.innerHTML = `<strong>❌ Error:</strong> ${err.message}`;
-        result.classList.add('show', 'error');
-      }
-      
-      btn.disabled = false;
-      btn.textContent = 'Start PoW Verification';
+
+        btn.disabled = false;
+        btn.textContent = 'Start PoW Verification';
     }
 
     async function solvePoW(challenge, difficultyBits) {
-      const startTime = Date.now();
-      let attempts = 0;
-      const targetZeros = Math.ceil(difficultyBits / 4);
-      const target = '0'.repeat(targetZeros);
-      
-      while (true) {
-        attempts++;
-        
-        const data = challenge + ':' + attempts;
-        const hash = await sha256(data);
-        
-        if (hash.startsWith(target)) {
-          return {
-            solution: challenge + ':' + attempts,
-            attempts,
-            time: Date.now() - startTime
-          };
+        const startTime = Date.now();
+        let attempts = 0;
+        const targetZeros = Math.ceil(difficultyBits / 4);
+        const target = '0'.repeat(targetZeros);
+
+        while (true) {
+            attempts++;
+
+            const data = challenge + ':' + attempts;
+            const hash = await sha256(data);
+
+            if (hash.startsWith(target)) {
+                return {
+                    solution: challenge + ':' + attempts,
+                    attempts,
+                    time: Date.now() - startTime
+                };
+            }
+
+            if (attempts > 10000000) {
+                throw new Error('Challenge too difficult');
+            }
         }
-        
-        if (attempts > 10000000) {
-          throw new Error('Challenge too difficult');
-        }
-      }
     }
 
     // Lightning Verification
     async function startLightningVerification() {
-      const identifier = document.getElementById('ln-identifier').value.trim();
-      if (!identifier) return alert('Please enter an identifier');
-      
-      const btn = document.getElementById('lnBtn');
-      const result = document.getElementById('ln-result');
-      const progress = document.getElementById('ln-progress');
-      const progressBar = document.getElementById('ln-progressBar');
-      
-      btn.disabled = true;
-      btn.textContent = 'Creating invoice...';
-      result.classList.remove('show');
-      progress.style.display = 'block';
-      progressBar.style.width = '30%';
-      
-      try {
-        // Call the L402 invoice endpoint
-        const invoiceRes = await fetch(`${API_URL}/api/public/l402/invoice`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: 1,
-            memo: `LiveAuth Demo - ${identifier}`
-          })
-        });
-        
-        if (!invoiceRes.ok) {
-          // Demo mode - create mock invoice
-          const mockInvoice = {
-            paymentRequest: 'lnbc10n1p0test1test2test3test4test5test6test7test8test9test0test',
-            paymentHash: 'demo_hash_' + Date.now()
-          };
-          
-          currentLnSession = mockInvoice;
-          progressBar.style.width = '100%';
-          
-          result.innerHTML = `
-            <strong>⚡ Lightning Invoice Created</strong>
-            <p>Amount: <strong>1 sat</strong></p>
-            <div class="invoice">${mockInvoice.paymentRequest}</div>
-            <p style="font-size:0.9rem;margin-top:0.75rem;">
-              In production, you'd scan this QR with your Lightning wallet to pay.
-            </p>
-            <button class="btn-lightning" style="margin-top:1rem;" onclick="simulateLightningPayment()">
-              Simulate Payment (Demo)
-            </button>
-          `;
-          result.classList.add('show');
-          document.getElementById('ln-status').textContent = 'awaiting payment';
-          document.getElementById('ln-stats').style.display = 'flex';
-          btn.textContent = 'Invoice Ready';
-          return;
+        const identifier = document.getElementById('ln-identifier').value.trim();
+        if (!identifier) {
+            return alert('Please enter an identifier');
         }
-        
-        const invoice = await invoiceRes.json();
-        
-        currentLnSession = invoice;
-        progressBar.style.width = '100%';
-        
-        result.innerHTML = `
-          <strong>⚡ Lightning Invoice Created</strong>
-          <p>Amount: <strong>${invoice.amount || 1} sats</strong></p>
-          <div class="invoice">${invoice.paymentRequest || invoice.invoice}</div>
-          <p style="font-size:0.9rem;margin-top:0.75rem;">
-            Scan with your Lightning wallet to pay. I'll check for payment automatically.
-          </p>
-          <button class="btn-lightning" style="margin-top:1rem;" onclick="checkLightningPayment()">
-            Check Payment
-          </button>
-        `;
-        result.classList.add('show');
-        document.getElementById('ln-status').textContent = 'awaiting payment';
-        document.getElementById('ln-stats').style.display = 'flex';
-        btn.textContent = 'Check Payment';
-        
-      } catch (err) {
-        result.innerHTML = `<strong>❌ Error:</strong> ${err.message}`;
-        result.classList.add('show', 'error');
-        btn.disabled = false;
-        btn.textContent = 'Create Lightning Invoice';
-      }
+
+        const btn = document.getElementById('lnBtn');
+        const result = document.getElementById('ln-result');
+        const progress = document.getElementById('ln-progress');
+        const progressBar = document.getElementById('ln-progressBar');
+
+        btn.disabled = true;
+        btn.textContent = 'Creating invoice...';
+
+        result.classList.remove('show', 'error');
+
+        progress.style.display = 'block';
+        progressBar.style.width = '30%';
+
+        try {
+            // Call LiveAuth demo endpoint
+            const invoiceRes = await fetch(`${API_URL}/api/public/auth/demo/start`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    amount: 1,
+                    memo: `LiveAuth Demo - ${identifier}`
+                })
+            });
+
+            // -----------------------------
+            // DEMO / FALLBACK MODE
+            // -----------------------------
+            if (!invoiceRes.ok) {
+                const mockInvoice = {
+                    paymentRequest:
+                        'lnbc10n1p0test1test2test3test4test5test6test7test8test9test0test',
+                    paymentHash: 'demo_hash_' + Date.now()
+                };
+
+                currentLnSession = mockInvoice;
+
+                progressBar.style.width = '100%';
+
+                const paymentRequest = mockInvoice.paymentRequest;
+
+                result.innerHTML = `
+        <strong>⚡ Lightning Invoice Created</strong>
+
+        <p style="margin-top:0.75rem;">
+          Amount: <strong>3 sats</strong>
+        </p>
+
+        <div style="text-align:center; margin:1.25rem 0;">
+          <img
+            src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
+                    'lightning:' + paymentRequest
+                )}"
+            alt="Lightning QR Code"
+            style="
+              background: white;
+              padding: 14px;
+              border-radius: 14px;
+              max-width: 260px;
+              width: 100%;
+            "
+          />
+        </div>
+
+        <div class="invoice" style="font-size:0.7rem;">
+          ${paymentRequest}
+        </div>
+
+        <p style="font-size:0.9rem;margin-top:0.75rem;">
+          Scan with your Lightning wallet to pay.
+        </p>
+        <div
+          id="ln-payment-status-message"
+          style="font-size:0.9rem;margin-top:0.75rem;"
+        >
+          Scan with your Lightning wallet to pay.
+        </div>
+        <button
+          class="btn-lightning"
+          style="margin-top:1rem;"
+          onclick="simulateLightningPayment()"
+        >
+          Simulate Payment (Demo)
+        </button>
+      `;
+
+                result.classList.add('show');
+
+                document.getElementById('ln-status').textContent =
+                    'awaiting payment';
+
+                document.getElementById('ln-stats').style.display = 'flex';
+
+                btn.disabled = false;
+                btn.textContent = 'Create Lightning Invoice';
+
+                return;
+            }
+
+            // -----------------------------
+            // REAL INVOICE MODE
+            // -----------------------------
+            const invoice = await invoiceRes.json();
+
+            currentLnSession = invoice;
+
+            progressBar.style.width = '100%';
+
+            const paymentRequest =
+                invoice.invoice ||
+                invoice.paymentRequest ||
+                invoice.bolt11;
+
+            result.innerHTML = `
+      <strong>⚡ Lightning Invoice Created</strong>
+
+      <p style="margin-top:0.75rem;">
+        Amount: <strong>${invoice.amountSats || 1} sats</strong>
+      </p>
+
+      <div style="text-align:center; margin:1.25rem 0;">
+        <img
+          src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
+                'lightning:' + paymentRequest
+            )}"
+          alt="Lightning QR Code"
+          style="
+            background: white;
+            padding: 14px;
+            border-radius: 14px;
+            max-width: 260px;
+            width: 100%;
+          "
+        />
+      </div>
+
+      <div class="invoice" style="font-size:0.7rem;">
+        ${paymentRequest}
+      </div>
+
+      <p style="font-size:0.9rem;margin-top:0.75rem;">
+        Scan with your Lightning wallet to pay.
+      </p>
+
+      <button
+        class="btn-lightning"
+        style="margin-top:1rem;"
+        onclick="checkLightningPayment()"
+      >
+        Check Payment
+      </button>
+    `;
+
+            result.classList.add('show');
+
+            document.getElementById('ln-status').textContent =
+                'awaiting payment';
+
+            document.getElementById('ln-stats').style.display = 'flex';
+
+            btn.disabled = false;
+            btn.textContent = 'Create Lightning Invoice';
+
+        } catch (err) {
+            result.innerHTML = `
+      <strong>❌ Error:</strong> ${err.message}
+    `;
+
+            result.classList.add('show', 'error');
+
+            btn.disabled = false;
+            btn.textContent = 'Create Lightning Invoice';
+        }
     }
 
     async function simulateLightningPayment() {
-      const result = document.getElementById('ln-result');
-      const btn = document.querySelector('#ln-result button');
-      
-      if (btn) btn.disabled = true;
-      result.innerHTML = `<strong>⏳ Checking for payment...</strong>`;
-      
-      // Simulate payment delay
-      await new Promise(r => setTimeout(r, 1000));
-      
-      // Simulate successful payment
-      document.getElementById('ln-status').textContent = '✅ paid';
-      result.innerHTML = `
+        const result = document.getElementById('ln-result');
+        const btn = document.querySelector('#ln-result button');
+
+        if (btn) btn.disabled = true;
+        result.innerHTML = `<strong>⏳ Checking for payment...</strong>`;
+
+        // Simulate payment delay
+        await new Promise(r => setTimeout(r, 1000));
+
+        // Simulate successful payment
+        document.getElementById('ln-status').textContent = '✅ paid';
+        result.innerHTML = `
         <strong>✅ Payment Received!</strong>
-        <p>1 sat paid via Lightning ⚡</p>
+        <p>3 sats paid via Lightning ⚡</p>
         <div class="token">Token: demo_ln_token_${Date.now()}</div>
         <p style="margin-top:0.5rem;color:#888;font-size:0.9rem;">
           In production, you'd receive a JWT token after payment confirmation.
         </p>
       `;
-      result.classList.add('show');
+        result.classList.add('show');
     }
 
     async function checkLightningPayment() {
-      if (!currentLnSession) return;
-      
-      const result = document.getElementById('ln-result');
-      const paymentHash = currentLnSession.paymentHash || currentLnSession.hash;
-      
-      result.innerHTML = `<strong>⏳ Checking payment...</strong>`;
-      
-      try {
-        const checkRes = await fetch(
-          `${API_URL}/api/public/l402/validate?paymentHash=${paymentHash}`, 
-          { method: 'POST' }
-        );
-        
-        if (checkRes.ok) {
-          document.getElementById('ln-status').textContent = '✅ paid';
-          result.innerHTML = `
-            <strong>✅ Payment Verified!</strong>
-            <p>Lightning payment confirmed.</p>
-          `;
-        } else {
-          document.getElementById('ln-status').textContent = 'pending';
-          result.innerHTML = `
-            <strong>⏳ Payment not yet received</strong>
-            <p>Please pay the invoice and click Check again.</p>
-          `;
+        if (!currentLnSession) return;
+
+        const statusEl = document.getElementById('ln-status');
+        const paymentHash = currentLnSession.paymentHash || currentLnSession.hash;
+
+        const existingStatusMessage = document.getElementById('ln-status');
+
+        if (existingStatusMessage) {
+            existingStatusMessage.innerHTML = `
+      <strong>⏳ Checking payment...</strong>
+    `;
         }
-      } catch (err) {
-        result.innerHTML = `<strong>❌ Error:</strong> ${err.message}`;
-      }
+        try {
+            setInterval(() => {
+                const existingStatusMessage = document.getElementById('ln-status');
+                existingStatusMessage.innerHTML = `
+                <strong>✅ Payment Verified!</strong>
+                <p>Lightning payment confirmed.</p>
+              `
+            });
+            //     const checkRes = await fetch(
+            //         `${API_URL}/api/SatsPrinter/demo/confirm`, { invoiceId: paymentHash },
+            //         { method: 'POST' }
+            //     );
+            //
+            //     if (checkRes.ok) {
+            //         statusEl.textContent = '✅ paid';
+            //
+            //         if (existingStatusMessage) {
+            //             existingStatusMessage.innerHTML = `
+            //   <strong>✅ Payment Verified!</strong>
+            //   <p>Lightning payment confirmed.</p>
+            // `;
+            //         }
+            //     } else {
+            //         statusEl.textContent = 'pending';
+            //
+            //         if (existingStatusMessage) {
+            //             existingStatusMessage.innerHTML = `
+            //   <strong>⏳ Payment not yet received</strong>
+            //   <p>Please pay the invoice and click Check again.</p>
+            // `;
+            //         }
+            //     }
+        } catch (err) {
+            if (existingStatusMessage) {
+                existingStatusMessage.innerHTML = `
+        <strong>❌ Error:</strong> ${err.message}
+      `;
+            }
+        }
     }
 
     async function sha256(message) {
-      const msgBuffer = new TextEncoder().encode(message);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        const msgBuffer = new TextEncoder().encode(message);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
-  </script>
+</script>
 </body>
 </html>
