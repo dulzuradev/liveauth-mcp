@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fetch from 'node-fetch';
+import { BudgetExceededError, LiveAuthMcpClient, LiveAuthMcpServerGate, solvePow } from './index.js';
 
 // Mock node-fetch
 vi.mock('node-fetch');
@@ -8,6 +9,110 @@ const mockedFetch = vi.mocked(fetch);
 // Test constants
 const API_BASE = process.env.LIVEAUTH_API_BASE || 'https://api.liveauth.app';
 const API_KEY = process.env.LIVEAUTH_API_KEY || '';
+
+function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+    ...init,
+  });
+}
+
+describe('LiveAuth MCP SDK helpers', () => {
+  it('exports a client that sends the public key header and remembers confirmed tokens', async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fakeFetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      calls.push({ url, init });
+
+      if (url.endsWith('/api/mcp/start')) {
+        return jsonResponse({
+          quoteId: 'quote-1',
+          powChallenge: {
+            projectPublicKey: 'la_pk_test',
+            challengeHex: 'abc123',
+            targetHex: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+            difficultyBits: 0,
+            expiresAtUnix: 9999999999,
+            signature: 'sig-test',
+          },
+          invoice: null,
+        });
+      }
+
+      return jsonResponse({
+        jwt: 'jwt-test',
+        expiresIn: 600,
+        remainingBudgetSats: 1000,
+        refreshToken: 'refresh-test',
+      });
+    });
+
+    const client = new LiveAuthMcpClient({
+      publicKey: 'la_pk_test',
+      baseUrl: API_BASE,
+      fetch: fakeFetch,
+    });
+
+    const session = await client.start();
+    const token = await client.confirm(session);
+
+    expect(session.method).toBe('pow');
+    expect(token.jwt).toBe('jwt-test');
+    expect(client.token).toBe('jwt-test');
+    expect(calls[0]?.init?.headers).toMatchObject({ 'X-LW-Public': 'la_pk_test' });
+    expect(calls[1]?.init?.headers).toMatchObject({ 'X-LW-Public': 'la_pk_test' });
+  });
+
+  it('solves PoW with the backend publicKey:challengeHex:nonce payload', async () => {
+    const solution = await solvePow({
+      projectPublicKey: 'la_pk_test',
+      challengeHex: 'abc123',
+      targetHex: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+      difficultyBits: 0,
+      expiresAtUnix: 9999999999,
+      signature: 'sig-test',
+    });
+
+    expect(solution.nonce).toBe(0);
+    expect(solution.sig).toBe('sig-test');
+    expect(solution.hashHex).toHaveLength(64);
+  });
+
+  it('throws BudgetExceededError when the server gate receives deny', async () => {
+    const fakeFetch = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith('/api/mcp/usage')) {
+        return jsonResponse({
+          status: 'active',
+          callsUsed: 10,
+          satsUsed: 100,
+          maxSatsPerDay: 100,
+          remainingBudgetSats: 0,
+          maxCallsPerMinute: 60,
+          expiresAt: new Date().toISOString(),
+          dayWindowStart: null,
+        });
+      }
+
+      return jsonResponse({
+        status: 'deny',
+        callsUsed: 10,
+        satsUsed: 100,
+      });
+    });
+
+    const gate = new LiveAuthMcpServerGate({
+      publicKey: 'la_pk_test',
+      baseUrl: API_BASE,
+      fetch: fakeFetch,
+    });
+
+    await expect(gate.gateTool('jwt-test', {}, async () => 'never', {})).rejects.toBeInstanceOf(
+      BudgetExceededError
+    );
+  });
+});
 
 describe('LiveAuth MCP Server E2E', () => {
   beforeEach(() => {

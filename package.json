@@ -4,8 +4,32 @@
   "description": "MCP server for LiveAuth - PoW and Lightning authentication for AI agents",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./server": {
+      "types": "./dist/server-gate.d.ts",
+      "default": "./dist/server-gate.js"
+    },
+    "./pow": {
+      "types": "./dist/pow.d.ts",
+      "default": "./dist/pow.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
-    "liveauth-mcp": "dist/index.js"
+    "liveauth-mcp": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
