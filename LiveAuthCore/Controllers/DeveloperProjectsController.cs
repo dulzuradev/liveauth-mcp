@@ -250,6 +250,10 @@ public class DeveloperProjectsController : ControllerBase
             SatsPerLogin = project.SatsPerLogin,
             MaxAuthsPerIpPerHour = project.MaxAuthsPerIpPerHour,
             AllowDemoAuth = project.AllowDemoAuth,
+            McpSatsPerCall = project.McpSatsPerCall,
+            McpInvoiceCallCredits = project.McpInvoiceCallCredits,
+            McpMaxSatsPerDay = project.McpMaxSatsPerDay,
+            McpMaxCallsPerMinute = project.McpMaxCallsPerMinute,
             UseCustomNode = project.UseCustomNode,
             LndBaseUrl = project.LndBaseUrl,
             LndMacaroon = project.LndMacaroon
@@ -286,6 +290,10 @@ public class DeveloperProjectsController : ControllerBase
 
         project.AllowedDomains = cleanedDomains;
         project.AllowDemoAuth = request.AllowDemoAuth;
+        project.McpSatsPerCall = Math.Clamp(request.McpSatsPerCall, 1, 10_000);
+        project.McpInvoiceCallCredits = Math.Clamp(request.McpInvoiceCallCredits, 1, 10_000);
+        project.McpMaxSatsPerDay = Math.Clamp(request.McpMaxSatsPerDay, 1, 10_000_000);
+        project.McpMaxCallsPerMinute = Math.Clamp(request.McpMaxCallsPerMinute, 1, 10_000);
 
         // Custom LND node config
         project.UseCustomNode = request.UseCustomNode;
@@ -723,6 +731,21 @@ public class DeveloperProjectsController : ControllerBase
         var totalVerifications = usageEvents.Count(e => e.Type == "verified");
         var totalSatsCharged = usageEvents.Sum(e => e.SatsCharged);
 
+        var mcpSessionsQuery = _db.McpGateSessions.Where(s => s.ProjectId == projectId);
+        var mcpTokensQuery = _db.McpGateTokens.Where(t => t.ProjectId == projectId);
+
+        var mcpSessionsTotal = await mcpSessionsQuery.CountAsync(ct);
+        var mcpSessionsActive = await mcpSessionsQuery
+            .CountAsync(s => (s.Status == "pending" || s.Status == "confirmed") && s.ExpiresAt > now, ct);
+        var mcpTokensIssued = await mcpTokensQuery.CountAsync(ct);
+        var mcpTokensActive = await mcpTokensQuery
+            .CountAsync(t => t.Status == "active" && t.ExpiresAt > now, ct);
+        var mcpCallsUsed = await mcpTokensQuery.SumAsync(t => (long?)t.CallsUsed, ct) ?? 0L;
+        var mcpSatsUsed = await mcpTokensQuery.SumAsync(t => (long?)t.SatsUsed, ct) ?? 0L;
+        var mcpActiveBudgetSats = await mcpTokensQuery
+            .Where(t => t.Status == "active" && t.ExpiresAt > now)
+            .SumAsync(t => (long?)t.MaxSatsPerDay, ct) ?? 0L;
+
         var limit = PlanLimits.GetMonthlyAuthLimit(project.Plan, project.ProPaidUntil);
         var used = project.MonthlyAuthCount;
         
@@ -739,7 +762,18 @@ public class DeveloperProjectsController : ControllerBase
             PeriodEnd = periodEnd,
             TotalSatsCharged = totalSatsCharged,
             TotalVerifications = totalVerifications,
-            L402BalanceSats = project.L402BalanceSats
+            L402BalanceSats = project.L402BalanceSats,
+            McpSatsPerCall = project.McpSatsPerCall,
+            McpInvoiceCallCredits = project.McpInvoiceCallCredits,
+            McpMaxSatsPerDay = project.McpMaxSatsPerDay,
+            McpMaxCallsPerMinute = project.McpMaxCallsPerMinute,
+            McpSessionsTotal = mcpSessionsTotal,
+            McpSessionsActive = mcpSessionsActive,
+            McpTokensIssued = mcpTokensIssued,
+            McpTokensActive = mcpTokensActive,
+            McpCallsUsed = mcpCallsUsed,
+            McpSatsUsed = mcpSatsUsed,
+            McpActiveBudgetSats = mcpActiveBudgetSats
         };
 
         return Ok(response);

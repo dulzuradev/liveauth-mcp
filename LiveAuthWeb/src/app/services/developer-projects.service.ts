@@ -36,6 +36,18 @@ export interface ProjectUsageResponse {
   periodEnd: string;
   totalSatsCharged: number;
   totalVerifications: number;
+  l402BalanceSats: number;
+  mcpSatsPerCall: number;
+  mcpInvoiceCallCredits: number;
+  mcpMaxSatsPerDay: number;
+  mcpMaxCallsPerMinute: number;
+  mcpSessionsTotal: number;
+  mcpSessionsActive: number;
+  mcpTokensIssued: number;
+  mcpTokensActive: number;
+  mcpCallsUsed: number;
+  mcpSatsUsed: number;
+  mcpActiveBudgetSats: number;
 }
 
 export interface RotateSecretResponse {
@@ -54,6 +66,10 @@ export interface ProjectSettingsResponse {
   useCustomNode: boolean;
   lndBaseUrl: string | null;
   lndMacaroon: string | null;   // Masked in UI
+  mcpSatsPerCall: number;
+  mcpInvoiceCallCredits: number;
+  mcpMaxSatsPerDay: number;
+  mcpMaxCallsPerMinute: number;
 }
 
 export interface UpdateProjectSettingsRequest extends ProjectSettingsResponse {}

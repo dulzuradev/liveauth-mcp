@@ -18,4 +18,16 @@ public sealed class ProjectUsageResponse
     public int TotalVerifications { get; set; }
     
     public long L402BalanceSats { get; set; }
+
+    public int McpSatsPerCall { get; set; }
+    public int McpInvoiceCallCredits { get; set; }
+    public long McpMaxSatsPerDay { get; set; }
+    public int McpMaxCallsPerMinute { get; set; }
+    public int McpSessionsTotal { get; set; }
+    public int McpSessionsActive { get; set; }
+    public int McpTokensIssued { get; set; }
+    public int McpTokensActive { get; set; }
+    public long McpCallsUsed { get; set; }
+    public long McpSatsUsed { get; set; }
+    public long McpActiveBudgetSats { get; set; }
 }

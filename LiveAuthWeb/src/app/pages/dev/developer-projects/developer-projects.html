@@ -811,6 +811,35 @@
               </div>
             </div>
 
+            <div class="mcp-settings-panel mt-3">
+              <div class="panel-title-row">
+                <div>
+                  <h4>MCP Gate</h4>
+                  <span>Per-call metering</span>
+                </div>
+                <p-tag value="MCP" severity="info"></p-tag>
+              </div>
+
+              <div class="grid mt-2">
+                <div class="col-12 md:col-3">
+                  <label>Sats per MCP Call</label>
+                  <input type="number" [(ngModel)]="projectForm.mcpSatsPerCall" pInputText class="w-full"/>
+                </div>
+                <div class="col-12 md:col-3">
+                  <label>Invoice Call Credits</label>
+                  <input type="number" [(ngModel)]="projectForm.mcpInvoiceCallCredits" pInputText class="w-full"/>
+                </div>
+                <div class="col-12 md:col-3">
+                  <label>Daily MCP Budget</label>
+                  <input type="number" [(ngModel)]="projectForm.mcpMaxSatsPerDay" pInputText class="w-full"/>
+                </div>
+                <div class="col-12 md:col-3">
+                  <label>Calls / Minute</label>
+                  <input type="number" [(ngModel)]="projectForm.mcpMaxCallsPerMinute" pInputText class="w-full"/>
+                </div>
+              </div>
+            </div>
+
             <!-- Custom LND Node Section -->
             <div class="mt-3 pt-3 border-top-1 border-300">
               <div class="flex align-items-center gap-2 mb-2">
@@ -912,6 +941,42 @@
               <p>Period: {{ usage.periodStart | date:'mediumDate' }} - {{ usage.periodEnd | date:'mediumDate' }}</p>
               <p>Total Verifications: {{ usage.totalVerifications | number }}</p>
               <p>Total Sats Charged: {{ usage.totalSatsCharged | number }}</p>
+            </div>
+
+            <div class="mcp-usage-panel">
+              <div class="panel-title-row">
+                <div>
+                  <h4>MCP Gate</h4>
+                  <span>{{ usage.mcpSatsPerCall | number }} sats per call</span>
+                </div>
+                <p-tag value="LiveAuth MCP" severity="info"></p-tag>
+              </div>
+
+              <div class="usage-stats mcp-stats">
+                <div class="stat">
+                  <div class="stat-value">{{ usage.mcpSessionsActive | number }}</div>
+                  <div class="stat-label">Active Sessions</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value">{{ usage.mcpTokensActive | number }}</div>
+                  <div class="stat-label">Active Tokens</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value">{{ usage.mcpCallsUsed | number }}</div>
+                  <div class="stat-label">Tool Calls</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value">{{ usage.mcpSatsUsed | number }}</div>
+                  <div class="stat-label">Sats Used</div>
+                </div>
+              </div>
+
+              <div class="usage-period">
+                <p>Total MCP Sessions: {{ usage.mcpSessionsTotal | number }}</p>
+                <p>Tokens Issued: {{ usage.mcpTokensIssued | number }}</p>
+                <p>Active Token Budget: {{ usage.mcpActiveBudgetSats | number }} sats</p>
+                <p>L402 Balance: {{ usage.l402BalanceSats | number }} sats</p>
+              </div>
             </div>
           </ng-container>
           

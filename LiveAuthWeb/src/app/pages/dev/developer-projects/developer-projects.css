@@ -1073,6 +1073,36 @@
   justify-content: flex-end;
 }
 
+.mcp-settings-panel,
+.mcp-usage-panel {
+  padding: 16px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(0, 194, 255, 0.14);
+}
+
+.mcp-usage-panel {
+  margin-top: 20px;
+}
+
+.panel-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.panel-title-row h4 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+
+.panel-title-row span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
 /* Tab styling */
 :host ::ng-deep .p-tabs .p-tablist-tab-list {
   background: transparent !important;
@@ -1156,6 +1186,11 @@
     grid-template-columns: 1fr;
   }
 
+  .usage-stats,
+  .usage-stats.mcp-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .form-inline {
     flex-direction: column;
   }
@@ -1201,6 +1236,11 @@
   .dashboard-title {
     font-size: 1.6rem;
   }
+
+  .usage-stats,
+  .usage-stats.mcp-stats {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Usage Tab Styles */
@@ -1227,6 +1267,11 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   margin-bottom: 16px;
+}
+
+.usage-stats.mcp-stats {
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 14px;
 }
 
 .usage-stats .stat {
@@ -1289,4 +1334,18 @@
   color: white;
   font-size: 0.75rem;
   font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .usage-stats,
+  .usage-stats.mcp-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .usage-stats,
+  .usage-stats.mcp-stats {
+    grid-template-columns: 1fr;
+  }
 }

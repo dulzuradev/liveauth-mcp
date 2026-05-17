@@ -124,8 +124,7 @@ public class McpGateController : ControllerBase
         if (project == null) return Unauthorized();
         if (!project.IsActive) return Forbid();
 
-        // v1 config: reuse existing per-project sats/login as sats/call until we add explicit fields.
-        var satsPerCall = Math.Clamp(project.SatsPerLogin, 1, 50);
+        var mcpConfig = GetMcpConfig(project);
 
         var forceLightning = req.ForceLightning == true;
         var forceL402 = req.ForceL402 == true;
@@ -136,7 +135,7 @@ public class McpGateController : ControllerBase
             var l402Session = new McpGateSession
             {
                 ProjectId = project.Id,
-                SatsPerCallAtStart = satsPerCall,
+                SatsPerCallAtStart = mcpConfig.SatsPerCall,
                 Status = "pending",
                 CreatedAt = DateTime.UtcNow,
                 ExpiresAt = DateTime.UtcNow.AddMinutes(10)
@@ -161,7 +160,7 @@ public class McpGateController : ControllerBase
         if (forceLightning)
         {
             // Generate Lightning invoice
-            var satsAmount = satsPerCall * 10; // Default: 10x sats per call as buffer
+            var satsAmount = mcpConfig.SatsPerCall * mcpConfig.InvoiceCallCredits;
             
             var invoiceResult = await _lightning.CreateLoginInvoiceAsync(
                 $"mcp:{project.Id}",
@@ -175,7 +174,7 @@ public class McpGateController : ControllerBase
                 ProjectId = project.Id,
                 LightningInvoice = invoiceResult.Bolt11,
                 LightningPaymentHash = invoiceResult.InvoiceId,
-                SatsPerCallAtStart = satsPerCall,
+                SatsPerCallAtStart = mcpConfig.SatsPerCall,
                 Status = "pending",
                 CreatedAt = DateTime.UtcNow,
                 ExpiresAt = DateTime.UtcNow.AddMinutes(10)
@@ -203,7 +202,7 @@ public class McpGateController : ControllerBase
                 PowDifficultyBits = difficultyBits,
                 PowExpiresAtUnix = expiresAtUnix,
                 PowSignature = sig,
-                SatsPerCallAtStart = satsPerCall,
+                SatsPerCallAtStart = mcpConfig.SatsPerCall,
                 Status = "pending",
                 CreatedAt = DateTime.UtcNow,
                 ExpiresAt = DateTime.UtcNow.AddMinutes(10)
@@ -239,6 +238,7 @@ public class McpGateController : ControllerBase
         var project = GetProject();
         if (project == null) return Unauthorized();
         if (!project.IsActive) return Forbid();
+        var mcpConfig = GetMcpConfig(project);
 
         if (!Guid.TryParse(req.QuoteId, out var sessionId))
             return BadRequest("Invalid quoteId");
@@ -314,9 +314,8 @@ public class McpGateController : ControllerBase
                 ExpiresAt = expiresUtc,
                 CallsUsed = 0,
                 SatsUsed = 0,
-                // v1: placeholder limits; will move to Project config
-                MaxCallsPerMinute = 60,
-                MaxSatsPerDay = 10_000,
+                MaxCallsPerMinute = mcpConfig.MaxCallsPerMinute,
+                MaxSatsPerDay = mcpConfig.MaxSatsPerDay,
                 DayWindowStart = DateTime.UtcNow.Date,
                 Status = "active"
             };
@@ -380,8 +379,8 @@ public class McpGateController : ControllerBase
                 ExpiresAt = expiresUtc,
                 CallsUsed = 0,
                 SatsUsed = 0,
-                MaxCallsPerMinute = 60,
-                MaxSatsPerDay = session.SatsPerCallAtStart * 100, // Prepaid buffer
+                MaxCallsPerMinute = mcpConfig.MaxCallsPerMinute,
+                MaxSatsPerDay = session.SatsPerCallAtStart * mcpConfig.InvoiceCallCredits,
                 DayWindowStart = DateTime.UtcNow.Date,
                 Status = "active"
             };
@@ -445,7 +444,7 @@ public class McpGateController : ControllerBase
                 ExpiresAt = expiresUtc,
                 CallsUsed = 0,
                 SatsUsed = 0,
-                MaxCallsPerMinute = 60,
+                MaxCallsPerMinute = mcpConfig.MaxCallsPerMinute,
                 MaxSatsPerDay = remainingCalls * 1, // 1 sat per call budget
                 DayWindowStart = DateTime.UtcNow.Date,
                 Status = "active"
@@ -690,4 +689,20 @@ public class McpGateController : ControllerBase
             DayWindowStart: gateToken.DayWindowStart
         ));
     }
+
+    private static McpProjectConfig GetMcpConfig(Project project)
+    {
+        return new McpProjectConfig(
+            SatsPerCall: Math.Clamp(project.McpSatsPerCall, 1, 10_000),
+            InvoiceCallCredits: Math.Clamp(project.McpInvoiceCallCredits, 1, 10_000),
+            MaxSatsPerDay: Math.Clamp(project.McpMaxSatsPerDay, 1, 10_000_000),
+            MaxCallsPerMinute: Math.Clamp(project.McpMaxCallsPerMinute, 1, 10_000)
+        );
+    }
+
+    private readonly record struct McpProjectConfig(
+        int SatsPerCall,
+        int InvoiceCallCredits,
+        long MaxSatsPerDay,
+        int MaxCallsPerMinute);
 }

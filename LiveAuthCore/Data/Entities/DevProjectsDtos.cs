@@ -11,6 +11,11 @@ public sealed class ProjectSettingsResponse
     
     public bool AllowDemoAuth { get; set; }
 
+    public int McpSatsPerCall { get; set; }
+    public int McpInvoiceCallCredits { get; set; }
+    public long McpMaxSatsPerDay { get; set; }
+    public int McpMaxCallsPerMinute { get; set; }
+
     // Custom LND node config
     public bool? UseCustomNode { get; set; }
     public string? LndBaseUrl { get; set; }
@@ -26,6 +31,11 @@ public sealed class UpdateProjectSettingsRequest
     public int MaxAuthsPerIpPerHour { get; set; }
     
     public bool AllowDemoAuth { get; set; }
+
+    public int McpSatsPerCall { get; set; }
+    public int McpInvoiceCallCredits { get; set; }
+    public long McpMaxSatsPerDay { get; set; }
+    public int McpMaxCallsPerMinute { get; set; }
 
     // Custom LND node config
     public bool UseCustomNode { get; set; }

@@ -53,6 +53,12 @@ public class Project
     // L402 balance for MCP per-call metering
     public long L402BalanceSats { get; set; } = 0;
 
+    // MCP LiveAuth Gate configuration
+    public int McpSatsPerCall { get; set; } = 1;
+    public int McpInvoiceCallCredits { get; set; } = 10;
+    public long McpMaxSatsPerDay { get; set; } = 10_000;
+    public int McpMaxCallsPerMinute { get; set; } = 60;
+
     // ✅ FIX: nullable disables EF concurrency + RETURNING
     // Removed TypeName to allow EF Core to map correctly for each DB provider (bytea for Postgres, BLOB for SQLite)
     public byte[]? RowVersion { get; set; } = Guid.NewGuid().ToByteArray();

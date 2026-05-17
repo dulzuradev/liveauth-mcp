@@ -52,6 +52,10 @@ export interface ProjectSettingsForm {
   webhookUrl: string;
   satsPerLogin: number | null;
   maxAuthsPerIpPerHour: number | null;
+  mcpSatsPerCall: number | null;
+  mcpInvoiceCallCredits: number | null;
+  mcpMaxSatsPerDay: number | null;
+  mcpMaxCallsPerMinute: number | null;
   // Custom LND node config
   useCustomNode: boolean;
   lndBaseUrl: string;
@@ -174,6 +178,10 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
     webhookUrl: '',
     satsPerLogin: null,
     maxAuthsPerIpPerHour: null,
+    mcpSatsPerCall: 1,
+    mcpInvoiceCallCredits: 10,
+    mcpMaxSatsPerDay: 10000,
+    mcpMaxCallsPerMinute: 60,
     useCustomNode: false,
     lndBaseUrl: '',
     lndMacaroon: ''
@@ -782,6 +790,10 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
           webhookUrl: res.webhookUrl ?? '',
           satsPerLogin: res.satsPerLogin,
           maxAuthsPerIpPerHour: res.maxAuthsPerIpPerHour,
+          mcpSatsPerCall: res.mcpSatsPerCall ?? 1,
+          mcpInvoiceCallCredits: res.mcpInvoiceCallCredits ?? 10,
+          mcpMaxSatsPerDay: res.mcpMaxSatsPerDay ?? 10000,
+          mcpMaxCallsPerMinute: res.mcpMaxCallsPerMinute ?? 60,
           useCustomNode: res.useCustomNode ?? false,
           lndBaseUrl: res.lndBaseUrl ?? '',
           lndMacaroon: res.lndMacaroon ? '••••••••' : ''  // Masked
@@ -885,6 +897,10 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
       webhookUrl: this.projectForm.webhookUrl || null,
       satsPerLogin: this.projectForm.satsPerLogin ?? 0,
       maxAuthsPerIpPerHour: this.projectForm.maxAuthsPerIpPerHour ?? 0,
+      mcpSatsPerCall: this.projectForm.mcpSatsPerCall ?? 1,
+      mcpInvoiceCallCredits: this.projectForm.mcpInvoiceCallCredits ?? 10,
+      mcpMaxSatsPerDay: this.projectForm.mcpMaxSatsPerDay ?? 10000,
+      mcpMaxCallsPerMinute: this.projectForm.mcpMaxCallsPerMinute ?? 60,
       useCustomNode: this.projectForm.useCustomNode,
       lndBaseUrl: this.projectForm.lndBaseUrl || null
     };

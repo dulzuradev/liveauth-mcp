@@ -34,20 +34,32 @@ public static class PipelineExtensions
 
     private static async Task RunColumnMigrationsAsync(System.Data.Common.DbConnection connection)
     {
-        // Add L402BalanceSats to Projects if missing
-        using var checkCmd = connection.CreateCommand();
-        checkCmd.CommandText = "SELECT 1 FROM pragma_table_info('Projects') WHERE name='L402BalanceSats' LIMIT 1";
-        var exists = await checkCmd.ExecuteScalarAsync();
-        if (exists == null)
-        {
-            using var alterCmd = connection.CreateCommand();
-            alterCmd.CommandText = "ALTER TABLE Projects ADD COLUMN L402BalanceSats INTEGER NOT NULL DEFAULT 0";
-            await alterCmd.ExecuteNonQueryAsync();
-        }
+        await EnsureColumnAsync(connection, "Projects", "L402BalanceSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "Projects", "McpSatsPerCall", "INTEGER NOT NULL DEFAULT 1");
+        await EnsureColumnAsync(connection, "Projects", "McpInvoiceCallCredits", "INTEGER NOT NULL DEFAULT 10");
+        await EnsureColumnAsync(connection, "Projects", "McpMaxSatsPerDay", "INTEGER NOT NULL DEFAULT 10000");
+        await EnsureColumnAsync(connection, "Projects", "McpMaxCallsPerMinute", "INTEGER NOT NULL DEFAULT 60");
 
         // Add remaining table creations from GetSqliteMigrations that need separate handling
         // (CREATE TABLE IF NOT EXISTS is already in the SQL; these just need table-check guard)
         await RunTableMigrationsAsync(connection);
+    }
+
+    private static async Task EnsureColumnAsync(
+        System.Data.Common.DbConnection connection,
+        string tableName,
+        string columnName,
+        string definition)
+    {
+        using var checkCmd = connection.CreateCommand();
+        checkCmd.CommandText = $"SELECT 1 FROM pragma_table_info('{tableName}') WHERE name='{columnName}' LIMIT 1";
+        var exists = await checkCmd.ExecuteScalarAsync();
+        if (exists != null)
+            return;
+
+        using var alterCmd = connection.CreateCommand();
+        alterCmd.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition}";
+        await alterCmd.ExecuteNonQueryAsync();
     }
 
     private static async Task RunTableMigrationsAsync(System.Data.Common.DbConnection connection)
