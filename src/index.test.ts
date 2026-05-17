@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fetch from 'node-fetch';
-import { BudgetExceededError, LiveAuthMcpClient, LiveAuthMcpServerGate, solvePow } from './index.js';
+import {
+  BudgetExceededError,
+  LiveAuthMcpClient,
+  LiveAuthMcpServerGate,
+  createMcpClient,
+  createMcpGate,
+  solvePow
+} from './index.js';
 
 // Mock node-fetch
 vi.mock('node-fetch');
@@ -62,6 +69,81 @@ describe('LiveAuth MCP SDK helpers', () => {
     expect(client.token).toBe('jwt-test');
     expect(calls[0]?.init?.headers).toMatchObject({ 'X-LW-Public': 'la_pk_test' });
     expect(calls[1]?.init?.headers).toMatchObject({ 'X-LW-Public': 'la_pk_test' });
+    client.destroy();
+  });
+
+  it('auto-refreshes confirmed tokens before expiry', async () => {
+    vi.useFakeTimers();
+
+    const fakeFetch = vi.fn(async () =>
+      jsonResponse({
+        jwt: 'jwt-refreshed',
+        expiresIn: 60,
+        remainingBudgetSats: 900,
+      })
+    );
+
+    const client = new LiveAuthMcpClient({
+      publicKey: 'la_pk_test',
+      baseUrl: API_BASE,
+      fetch: fakeFetch,
+      refreshBufferMs: 500,
+    });
+
+    try {
+      client.setToken('jwt-old', 'refresh-test', 1);
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(fakeFetch).toHaveBeenCalledWith(
+        `${API_BASE}/api/mcp/refresh`,
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ 'X-LW-Public': 'la_pk_test' }),
+          body: JSON.stringify({ refreshToken: 'refresh-test' }),
+        })
+      );
+      expect(client.token).toBe('jwt-refreshed');
+    } finally {
+      client.destroy();
+      vi.useRealTimers();
+    }
+  });
+
+  it('exports factory helpers and an invoke alias for gated calls', async () => {
+    const client = createMcpClient({
+      publicKey: 'la_pk_test',
+      baseUrl: API_BASE,
+      fetch: vi.fn(),
+    });
+
+    const fakeFetch = vi.fn(async () =>
+      jsonResponse({
+        status: 'ok',
+        callsUsed: 1,
+        satsUsed: 1,
+      })
+    );
+
+    const gate = createMcpGate({
+      publicKey: 'la_pk_test',
+      baseUrl: API_BASE,
+      fetch: fakeFetch,
+    });
+
+    const result = await gate.invoke(
+      'jwt-test',
+      { message: 'hello' },
+      async (input, context) => ({
+        text: input.message,
+        satsUsed: context.liveAuth.charge.satsUsed,
+      }),
+      {},
+      { validateFirst: false }
+    );
+
+    expect(client).toBeInstanceOf(LiveAuthMcpClient);
+    expect(gate).toBeInstanceOf(LiveAuthMcpServerGate);
+    expect(result).toEqual({ text: 'hello', satsUsed: 1 });
   });
 
   it('solves PoW with the backend publicKey:challengeHex:nonce payload', async () => {

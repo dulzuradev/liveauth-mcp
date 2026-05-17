@@ -85,6 +85,16 @@ export class LiveAuthMcpServerGate {
       liveAuth
     });
   }
+
+  async invoke<TInput, TResult, TContext extends object = Record<string, never>>(
+    jwt: string,
+    input: TInput,
+    handler: ToolHandler<TInput, TResult, TContext>,
+    context: TContext,
+    options: GateToolOptions = {}
+  ): Promise<TResult> {
+    return this.gateTool(jwt, input, handler, context, options);
+  }
 }
 
 export function withLiveAuthToolGate<TInput, TResult, TContext extends object = Record<string, never>>(

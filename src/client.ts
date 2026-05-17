@@ -23,13 +23,17 @@ export class LiveAuthMcpClient {
 
   private readonly fetchImpl: NonNullable<LiveAuthMcpClientConfig['fetch']>;
   private readonly authMethod: NonNullable<LiveAuthMcpClientConfig['authMethod']>;
+  private readonly autoRefresh: boolean;
+  private readonly refreshBufferMs: number;
   private readonly onInvoice: NonNullable<LiveAuthMcpClientConfig['onInvoice']> | undefined;
   private readonly onBudgetExceeded: NonNullable<LiveAuthMcpClientConfig['onBudgetExceeded']> | undefined;
+  private readonly onRefreshError: NonNullable<LiveAuthMcpClientConfig['onRefreshError']> | undefined;
 
   private session?: AuthSession;
   private jwt?: string;
   private refreshToken: string | undefined;
   private jwtExpiresAtMs: number | undefined;
+  private refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(config: LiveAuthMcpClientConfig) {
     if (!config.publicKey) {
@@ -40,8 +44,11 @@ export class LiveAuthMcpClient {
     this.baseUrl = cleanBaseUrl(config.baseUrl);
     this.fetchImpl = requireFetch(config.fetch);
     this.authMethod = config.authMethod ?? 'auto';
+    this.autoRefresh = config.autoRefresh ?? true;
+    this.refreshBufferMs = config.refreshBufferMs ?? 30_000;
     this.onInvoice = config.onInvoice;
     this.onBudgetExceeded = config.onBudgetExceeded;
+    this.onRefreshError = config.onRefreshError;
   }
 
   get currentSession(): AuthSession | undefined {
@@ -57,9 +64,19 @@ export class LiveAuthMcpClient {
   }
 
   setToken(jwt: string, refreshToken?: string, expiresIn?: number): void {
+    this.clearRefreshTimer();
     this.jwt = jwt;
     this.refreshToken = refreshToken ?? this.refreshToken;
-    this.jwtExpiresAtMs = expiresIn ? Date.now() + expiresIn * 1_000 : undefined;
+    this.jwtExpiresAtMs = expiresIn && expiresIn > 0 ? Date.now() + expiresIn * 1_000 : undefined;
+    this.scheduleRefresh();
+  }
+
+  destroy(): void {
+    this.clearRefreshTimer();
+    this.session = undefined;
+    this.jwt = undefined;
+    this.refreshToken = undefined;
+    this.jwtExpiresAtMs = undefined;
   }
 
   async start(options: McpStartOptions = {}): Promise<AuthSession> {
@@ -195,6 +212,32 @@ export class LiveAuthMcpClient {
     if (response.jwt) {
       this.setToken(response.jwt, response.refreshToken ?? undefined, response.expiresIn);
     }
+  }
+
+  private scheduleRefresh(): void {
+    if (!this.autoRefresh || !this.refreshToken || !this.jwtExpiresAtMs) {
+      return;
+    }
+
+    const delayMs = Math.max(0, this.jwtExpiresAtMs - Date.now() - this.refreshBufferMs);
+    this.refreshTimer = setTimeout(() => {
+      this.refresh().catch((error: unknown) => {
+        this.clearRefreshTimer();
+        this.onRefreshError?.(error);
+      });
+    }, delayMs);
+
+    const timer = this.refreshTimer as { unref?: () => void };
+    timer.unref?.();
+  }
+
+  private clearRefreshTimer(): void {
+    if (!this.refreshTimer) {
+      return;
+    }
+
+    clearTimeout(this.refreshTimer);
+    this.refreshTimer = undefined;
   }
 
   private requireSession(): AuthSession {

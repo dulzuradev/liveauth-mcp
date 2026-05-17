@@ -9,8 +9,11 @@ export interface LiveAuthMcpClientConfig {
   baseUrl?: string;
   authMethod?: AuthMethod;
   fetch?: FetchLike;
+  autoRefresh?: boolean;
+  refreshBufferMs?: number;
   onInvoice?: (invoice: McpInvoice) => void;
   onBudgetExceeded?: (result: McpChargeResult) => void;
+  onRefreshError?: (error: unknown) => void;
 }
 
 export interface LiveAuthMcpServerGateConfig {

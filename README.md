@@ -88,9 +88,9 @@ The package can also be imported as a TypeScript/JavaScript SDK. Importing the p
 ### Client Auth Helper
 
 ```ts
-import { LiveAuthMcpClient } from '@liveauth-labs/mcp-server/client';
+import { createMcpClient } from '@liveauth-labs/mcp-server';
 
-const liveauth = new LiveAuthMcpClient({
+const liveauth = createMcpClient({
   publicKey: 'la_pk_xxx',
   baseUrl: 'https://api.liveauth.app',
   onInvoice(invoice) {
@@ -105,6 +105,8 @@ const token = await liveauth.confirm(session);
 console.log(token.jwt);
 ```
 
+The client stores confirmed JWTs, refreshes them before expiry when a refresh token is returned, and exposes the current token through `liveauth.token`. Call `liveauth.destroy()` when your app is shutting down to clear token state and refresh timers.
+
 To require a real paid invoice:
 
 ```ts
@@ -118,15 +120,15 @@ const token = await liveauth.confirmLightning(session);
 ### Server Gate Helper
 
 ```ts
-import { LiveAuthMcpServerGate } from '@liveauth-labs/mcp-server/server';
+import { createMcpGate } from '@liveauth-labs/mcp-server';
 
-const gate = new LiveAuthMcpServerGate({
+const gate = createMcpGate({
   publicKey: 'la_pk_xxx',
   baseUrl: 'https://api.liveauth.app',
   defaultCostSats: 1,
 });
 
-const result = await gate.gateTool(
+const result = await gate.invoke(
   jwtFromYourTransport,
   { message: 'hello' },
   async (input, context) => ({
@@ -136,6 +138,8 @@ const result = await gate.gateTool(
   {}
 );
 ```
+
+`gate.invoke(...)` validates the JWT, charges the configured sats cost, and passes `context.liveAuth` into your handler. The older `gate.gateTool(...)` name is still supported.
 
 ## Configuration
 
