@@ -80,8 +80,8 @@ export interface ProjectSettingsForm {
     ToggleSwitchModule,
     LocalTimePipe
   ],
-  templateUrl: './developer-projects-redesign.html',
-  styleUrls: ['./dashboard-redesign.css']
+  templateUrl: './developer-projects.html',
+  styleUrls: ['./developer-projects.css']
 })
 export class DeveloperProjectsComponent implements OnInit, OnDestroy {
 
@@ -186,7 +186,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   loadingWebhooks = false;
 
   // Tabs
-  _projectDialogTab: 'overview' | 'analytics' | 'logs' | 'keys' | 'webhooks' = 'overview';
+  _projectDialogTab: 'overview' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' = 'overview';
   timeRange: '1h' | '24h' | '7d' = '24h';
 
   private get windowHours(): number {
@@ -198,7 +198,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   }
 
   // Called by (valueChange) on <p-tabs>
-  setProjectDialogTab(tab: 'overview' | 'analytics' | 'usage' | 'logs' | 'keys' | 'webhooks' | any) {
+  setProjectDialogTab(tab: 'overview' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' | any) {
     this._projectDialogTab = tab;
 
     if (!this.selectedProject) return;
@@ -228,7 +228,6 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
 
   onTimeRangeChange(range: '1h' | '24h' | '7d') {
     this.timeRange = range;
-console.log('onTimeRangeChange', range);
     if (!this.selectedProject) return;
 
     // Reload whichever tab is active
