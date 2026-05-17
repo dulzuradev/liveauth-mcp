@@ -18,11 +18,9 @@ public class L402Middleware
     private LightningService _lightning = null!;
     private ILogger<L402Middleware> _logger = null!;
     
-    // Paths that require L402 payment
-    private static readonly string[] GatedPaths = new[]
-    {
-        "/api/mcp"
-    };
+    // API endpoints negotiate payment/session state themselves. Do not gate
+    // /api/mcp here, or clients cannot start PoW/Lightning/L402 auth flows.
+    private static readonly string[] GatedPaths = Array.Empty<string>();
 
     // Paths that skip L402 check entirely
     private static readonly string[] ExcludedPaths = new[]

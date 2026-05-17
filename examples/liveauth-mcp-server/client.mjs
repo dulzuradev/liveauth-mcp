@@ -245,14 +245,15 @@ class LiveAuthMcpClient {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.jwt}`
+        'Authorization': `Bearer ${this.jwt}`,
+        ...(this.apiKey && { 'X-LW-Public': this.apiKey })
       },
       body: JSON.stringify({ callCostSats: costSats })
     });
 
     if (!response.ok) {
       console.error('Charge failed:', response.status);
-      return { decision: 'error' };
+      return { status: 'error' };
     }
 
     const result = await response.json();
@@ -266,7 +267,8 @@ class LiveAuthMcpClient {
     const response = await fetch(`${this.apiUrl}/api/mcp/usage`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${this.jwt}`
+        'Authorization': `Bearer ${this.jwt}`,
+        ...(this.apiKey && { 'X-LW-Public': this.apiKey })
       }
     });
 
@@ -430,12 +432,12 @@ async function main() {
 
       // Step 4: Charge for the tool call
       const chargeResult = await client.charge('echo', 1);
-      if (chargeResult.decision === 'deny') {
+      if (chargeResult.status === 'deny') {
         console.log('❌ Charge denied (budget exceeded or bundle depleted)');
         break;
       }
 
-      console.log('✅ Charge authorized:', chargeResult.decision);
+      console.log('✅ Charge authorized:', chargeResult.status);
       console.log('📊 Remaining budget:', client.usage.dailyBudget, 'sats');
       console.log(`\n✅ /echo call debited from bundle`);
       console.log(`   Message echoed: "${message}"`);

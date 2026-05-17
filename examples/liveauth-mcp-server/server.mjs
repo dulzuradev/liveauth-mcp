@@ -206,6 +206,31 @@ function getWeather(city) {
   };
 }
 
+async function validateLiveAuthSession() {
+  if (LOCAL_MODE) {
+    return { authenticated: true, localMode: true };
+  }
+
+  const jwt = process.env.LIVEAUTH_JWT;
+  if (!jwt) {
+    throw new Error('Missing LIVEAUTH_JWT. Authenticate with LiveAuth before calling tools.');
+  }
+
+  const response = await fetch(`${LIVEAUTH_API_URL}/api/mcp/usage`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${jwt}`,
+      ...(LIVEAUTH_API_KEY && { 'X-LW-Public': LIVEAUTH_API_KEY })
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`LiveAuth session validation failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 // ============================================================
 // MCP Server
 // ============================================================
@@ -256,6 +281,7 @@ class LiveAuthMcpServer {
       const { name, arguments: args } = request.params;
 
       try {
+        const authSession = await validateLiveAuthSession();
         let result;
 
         switch (name) {
@@ -267,7 +293,7 @@ class LiveAuthMcpServer {
             result = {
               echo: args.message,
               timestamp: new Date().toISOString(),
-              authenticated: true,
+              authenticated: authSession.authenticated ?? true,
               message: 'L402 auth successful! Your call was debited from your bundle.'
             };
             break;
