@@ -1080,7 +1080,7 @@
                   <td><code>{{ wh.eventType }}</code></td>
                   <td>
                     <p-tag [value]="wh.status"
-                           [severity]="wh.status === 'Delivered' ? 'success' : wh.status === 'Dead' ? 'danger' : 'warn'">
+                           [severity]="wh.status === 'Delivered' ? 'success' : (wh.status === 'Dead' || wh.status === 'Failed') ? 'danger' : 'warn'">
                     </p-tag>
                   </td>
                   <td>{{ wh.lastStatusCode || '—' }}</td>

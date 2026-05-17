@@ -177,11 +177,13 @@ public static class ServiceCollectionExtensions
 
         // Hosted services
         builder.Services.AddHostedService<DevLoginSessionCleanupService>();
-        builder.Services.AddHostedService<WebhookDeliveryWorker>();
         builder.Services.AddHostedService<PowNonceCleanupService>();
 
         // HTTP clients
-        builder.Services.AddHttpClient("webhooks");
+        builder.Services.AddHttpClient("webhooks", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
         builder.Services.AddHttpClient("cashu");
         builder.Services.AddHttpClient<BtcExchangeRateService>();
         builder.Services.AddScoped<BtcExchangeRateService>();

@@ -1,5 +1,4 @@
-using System.Net.Http.Json;
-using System.Text.Json;
+using System.Text;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +15,7 @@ public class WebhookDeliveryWorker : BackgroundService
 {
     private readonly IServiceProvider _services;
     private readonly ILogger<WebhookDeliveryWorker> _logger;
+    private const int MaxAttempts = 5;
     private readonly TimeSpan _interval = TimeSpan.FromSeconds(10);
 
     public WebhookDeliveryWorker(
@@ -50,11 +50,37 @@ public class WebhookDeliveryWorker : BackgroundService
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
 
-        // Get pending webhooks that are due for delivery
+        var now = DateTime.UtcNow;
+        var staleInProgressBefore = now.AddMinutes(-5);
+
+        var exhaustedEvents = await db.WebhookEvents
+            .Where(e =>
+                (e.Status == WebhookEventStatus.Pending || e.Status == WebhookEventStatus.Failed) &&
+                e.AttemptCount >= MaxAttempts)
+            .ToListAsync(ct);
+
+        foreach (var evt in exhaustedEvents)
+        {
+            evt.Status = WebhookEventStatus.Dead;
+            evt.NextAttemptAt = DateTime.MaxValue;
+        }
+
+        if (exhaustedEvents.Count > 0)
+        {
+            await db.SaveChangesAsync(ct);
+        }
+
+        // Get pending webhooks that are due for delivery. Stale InProgress
+        // events are included so a crash mid-delivery does not wedge the queue.
         var pendingEvents = await db.WebhookEvents
-            .Where(e => e.Status == WebhookEventStatus.Pending || e.Status == WebhookEventStatus.Failed)
-            .Where(e => e.NextAttemptAt <= DateTime.UtcNow)
-            .Where(e => e.AttemptCount < 5) // Max 5 retries
+            .Where(e =>
+                ((e.Status == WebhookEventStatus.Pending ||
+                  e.Status == WebhookEventStatus.Failed) &&
+                 e.AttemptCount < MaxAttempts) ||
+                (e.Status == WebhookEventStatus.InProgress &&
+                 e.LastAttemptAt != null &&
+                 e.LastAttemptAt <= staleInProgressBefore))
+            .Where(e => e.NextAttemptAt <= now || e.Status == WebhookEventStatus.InProgress)
             .OrderBy(e => e.CreatedAt)
             .Take(10) // Process 10 at a time
             .Include(e => e.Project)
@@ -73,33 +99,37 @@ public class WebhookDeliveryWorker : BackgroundService
             evt.Status = WebhookEventStatus.Failed;
             evt.LastError = "No webhook URL configured";
             evt.AttemptCount++;
+            evt.LastAttemptAt = DateTime.UtcNow;
+            evt.LastStatusCode = null;
             evt.NextAttemptAt = DateTime.UtcNow.AddMinutes(5);
+            MarkDeadIfExhausted(evt);
             await db.SaveChangesAsync(ct);
             return;
         }
 
         evt.AttemptCount++;
         evt.Status = WebhookEventStatus.InProgress;
+        evt.LastAttemptAt = DateTime.UtcNow;
+        evt.LastStatusCode = null;
         await db.SaveChangesAsync(ct);
 
         try
         {
-            using var httpClient = new HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(30)
-            };
+            var httpClientFactory = _services.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("webhooks");
 
             // Add signature header for verification
             var payload = evt.PayloadJson ?? "{}";
             var signature = ComputeSignature(payload, evt.Project.WebhookSecret ?? "");
             
             var request = new HttpRequestMessage(HttpMethod.Post, evt.Project.WebhookUrl);
-            request.Content = JsonContent.Create(JsonSerializer.Deserialize<object>(payload));
+            request.Content = new StringContent(payload, Encoding.UTF8, "application/json");
             request.Headers.Add("X-LiveAuth-Signature", signature);
             request.Headers.Add("X-LiveAuth-Event", evt.EventType);
             request.Headers.Add("X-LiveAuth-Event-Id", evt.Id.ToString());
 
             var response = await httpClient.SendAsync(request, ct);
+            evt.LastStatusCode = (int)response.StatusCode;
 
             if (response.IsSuccessStatusCode)
             {
@@ -115,6 +145,7 @@ public class WebhookDeliveryWorker : BackgroundService
                 evt.Status = WebhookEventStatus.Failed;
                 evt.LastError = $"HTTP {response.StatusCode}: {error[..Math.Min(500, error.Length)]}";
                 evt.NextAttemptAt = DateTime.UtcNow.AddMinutes(GetRetryDelay(evt.AttemptCount));
+                MarkDeadIfExhausted(evt);
                 _logger.LogWarning("Webhook delivery failed: {EventId} - {Error}", 
                     evt.Id, evt.LastError);
             }
@@ -124,6 +155,7 @@ public class WebhookDeliveryWorker : BackgroundService
             evt.Status = WebhookEventStatus.Failed;
             evt.LastError = ex.Message[..Math.Min(200, ex.Message.Length)];
             evt.NextAttemptAt = DateTime.UtcNow.AddMinutes(GetRetryDelay(evt.AttemptCount));
+            MarkDeadIfExhausted(evt);
             _logger.LogError(ex, "Webhook delivery error: {EventId}", evt.Id);
         }
 
@@ -138,6 +170,14 @@ public class WebhookDeliveryWorker : BackgroundService
         4 => 60,  // 1 hour
         _ => 60   // default 1 hour
     };
+
+    private static void MarkDeadIfExhausted(WebhookEvent evt)
+    {
+        if (evt.AttemptCount < MaxAttempts) return;
+
+        evt.Status = WebhookEventStatus.Dead;
+        evt.NextAttemptAt = DateTime.MaxValue;
+    }
 
     private static string ComputeSignature(string payload, string secret)
     {

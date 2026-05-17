@@ -18,15 +18,18 @@ public class PublicAuthController : ControllerBase
     private readonly LiveAuthDbContext _db;
     private readonly LightningService _lightning;
     private readonly IConfiguration _configuration;
+    private readonly WebhookService _webhooks;
 
     public PublicAuthController(
         LiveAuthDbContext db,
         LightningService lightning,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        WebhookService webhooks)
     {
         _db = db;
         _lightning = lightning;
         _configuration = configuration;
+        _webhooks = webhooks;
     }
 
     private Project? GetCurrentProject()
@@ -337,6 +340,7 @@ public class PublicAuthController : ControllerBase
                 });
 
                 await _db.SaveChangesAsync(ct);
+                await EnqueueLoginSucceededWebhookAsync(project, session, "DEMO_SIMULATED_SUCCESS", 0, ct);
             }
 
             var demoToken = GenerateEndUserJwt(session, project);
@@ -370,6 +374,7 @@ public class PublicAuthController : ControllerBase
                 });
 
                 await _db.SaveChangesAsync(ct);
+                await EnqueueLoginSucceededWebhookAsync(project, session, "PUBLIC_AUTH_TEST", 0, ct);
             }
 
             return Ok(new PublicConfirmAuthResponse
@@ -403,6 +408,7 @@ public class PublicAuthController : ControllerBase
                 });
 
                 await _db.SaveChangesAsync(ct);
+                await EnqueueLoginSucceededWebhookAsync(project, session, "PUBLIC_AUTH_PAID", session.AmountSats, ct);
             }
         }
 
@@ -560,12 +566,36 @@ public class PublicAuthController : ControllerBase
         });
 
         await _db.SaveChangesAsync(ct);
+        await EnqueueLoginSucceededWebhookAsync(project, session, "DEMO_LIGHTNING_PAID", session.AmountSats, ct);
 
         return Ok(new PublicConfirmAuthResponse
         {
             Verified = true,
             Token = GenerateDemoJwt(session, project)
         });
+    }
+
+    private async Task EnqueueLoginSucceededWebhookAsync(
+        Project project,
+        AuthSession session,
+        string reason,
+        long satsPaid,
+        CancellationToken ct)
+    {
+        var payload = new
+        {
+            type = "liveauth.auth.succeeded",
+            projectId = project.Id,
+            sessionId = session.Id,
+            environment = session.Environment ?? project.Environment ?? "TEST",
+            satsPaid,
+            reason,
+            paidAt = session.PaidAt,
+            clientIp = session.ClientIp,
+            createdAt = DateTime.UtcNow
+        };
+
+        await _webhooks.EnqueueAsync(project, "liveauth.auth.succeeded", payload, ct);
     }
 
     private string GenerateDemoJwt(AuthSession session, Project project)

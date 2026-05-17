@@ -271,7 +271,10 @@ public class DeveloperProjectsController : ControllerBase
         if (!IsAdmin() && project.DeveloperId != devId)
             return Forbid("Not your project.");
 
-        project.WebhookUrl = request.WebhookUrl;
+        if (!TryNormalizeWebhookUrl(request.WebhookUrl, out var webhookUrl))
+            return BadRequest("Webhook URL must be an absolute http or https URL.");
+
+        project.WebhookUrl = webhookUrl;
         project.SatsPerLogin = request.SatsPerLogin <= 0 ? 0 : request.SatsPerLogin;
         project.MaxAuthsPerIpPerHour = request.MaxAuthsPerIpPerHour <= 0 ? 0 : request.MaxAuthsPerIpPerHour;
 
@@ -584,7 +587,7 @@ public class DeveloperProjectsController : ControllerBase
                 CreatedAt = e.CreatedAt,
                 LastAttemptAt = e.LastAttemptAt,
                 AttemptCount = e.AttemptCount,
-                Status = e.Status,
+                Status = e.Status.ToString(),
                 LastStatusCode = e.LastStatusCode,
                 LastError = e.LastError
             })
@@ -609,12 +612,32 @@ public class DeveloperProjectsController : ControllerBase
 
         evt.Status = WebhookEventStatus.Pending;
         evt.NextAttemptAt = DateTime.UtcNow;
+        evt.AttemptCount = 0;
         evt.LastError = null;
         evt.LastStatusCode = null;
+        evt.LastAttemptAt = null;
+        evt.DeliveredAt = null;
 
         await _db.SaveChangesAsync(ct);
 
         return NoContent();
+    }
+
+    private static bool TryNormalizeWebhookUrl(string? webhookUrl, out string? normalized)
+    {
+        normalized = null;
+
+        var trimmed = webhookUrl?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed)) return true;
+
+        if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+            return false;
+
+        if (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)
+            return false;
+
+        normalized = uri.ToString();
+        return true;
     }
 
     [HttpPatch("{projectId:guid}/environment")]

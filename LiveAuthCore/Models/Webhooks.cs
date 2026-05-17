@@ -9,7 +9,7 @@ public sealed class WebhookEventDto
     public DateTime CreatedAt { get; set; }
     public DateTime? LastAttemptAt { get; set; }
     public int AttemptCount { get; set; }
-    public WebhookEventStatus Status { get; set; }
+    public string Status { get; set; } = default!;
     public int? LastStatusCode { get; set; }
     public string? LastError { get; set; }
 }

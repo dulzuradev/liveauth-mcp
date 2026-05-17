@@ -101,7 +101,7 @@ export interface CreateApiKeyResponse {
   secretKey: string; // shown once
 }
 
-export type WebhookEventStatus = 'Pending' | 'Delivering' | 'Delivered' | 'Dead';
+export type WebhookEventStatus = 'Pending' | 'InProgress' | 'Delivered' | 'Failed' | 'Dead';
 
 export interface WebhookEventDto {
   id: string;
