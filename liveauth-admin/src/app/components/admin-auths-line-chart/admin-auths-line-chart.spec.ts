@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { AdminAuthsLineChart } from './admin-auths-line-chart';
+import { AdminAuthsLineChartComponent } from './admin-auths-line-chart';
 
-describe('AdminAuthsLineChart', () => {
-  let component: AdminAuthsLineChart;
-  let fixture: ComponentFixture<AdminAuthsLineChart>;
+describe('AdminAuthsLineChartComponent', () => {
+  let component: AdminAuthsLineChartComponent;
+  let fixture: ComponentFixture<AdminAuthsLineChartComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [AdminAuthsLineChart]
+      imports: [AdminAuthsLineChartComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(AdminAuthsLineChart);
+    fixture = TestBed.createComponent(AdminAuthsLineChartComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

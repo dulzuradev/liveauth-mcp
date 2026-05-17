@@ -105,6 +105,7 @@ export class AdminAnalyticsService {
               eventType: e.eventType,
               success: !!e.success,
               satsPaid: e.satsPaid ?? undefined,
+              reason: e.reason ?? undefined,
               clientIpMasked: e.clientIpMasked ?? undefined
             }))
             : []
@@ -116,14 +117,14 @@ export class AdminAnalyticsService {
     return this.http.get<AdminProjectUsageDto[]>(
       `${this.baseUrl}/api/admin/analytics/projects`,
       { params: { windowHours }, headers: this.getAuthHeaders() }
-    );
+    ).pipe(map(projects => projects ?? []));
   }
 
   getSubscriptions(): Observable<AdminSubscriptionDto[]> {
     return this.http.get<AdminSubscriptionDto[]>(
       `${this.baseUrl}/api/admin/analytics/subscriptions`,
       { headers: this.getAuthHeaders() }
-    );
+    ).pipe(map(subscriptions => subscriptions ?? []));
   }
 
   getTransactions(search?: string, limit = 50, offset = 0, projectId?: string): Observable<AdminTransactionsResponse> {

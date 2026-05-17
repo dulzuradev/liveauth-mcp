@@ -1,13 +1,16 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
 
-import { AdminAnalytics } from './admin-analytics';
+import { AdminAnalyticsService } from './admin-analytics';
 
-describe('AdminAnalytics', () => {
-  let service: AdminAnalytics;
+describe('AdminAnalyticsService', () => {
+  let service: AdminAnalyticsService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
-    service = TestBed.inject(AdminAnalytics);
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient()]
+    });
+    service = TestBed.inject(AdminAnalyticsService);
   });
 
   it('should be created', () => {

@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { AdminProjectsDonut } from './admin-projects-donut';
+import { AdminProjectsDonutComponent } from './admin-projects-donut';
 
-describe('AdminProjectsDonut', () => {
-  let component: AdminProjectsDonut;
-  let fixture: ComponentFixture<AdminProjectsDonut>;
+describe('AdminProjectsDonutComponent', () => {
+  let component: AdminProjectsDonutComponent;
+  let fixture: ComponentFixture<AdminProjectsDonutComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [AdminProjectsDonut]
+      imports: [AdminProjectsDonutComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(AdminProjectsDonut);
+    fixture = TestBed.createComponent(AdminProjectsDonutComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

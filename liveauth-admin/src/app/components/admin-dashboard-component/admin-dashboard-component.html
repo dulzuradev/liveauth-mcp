@@ -1,35 +1,27 @@
 <div class="admin-shell">
-
-  <!-- ================= HEADER ================= -->
   <header class="admin-header">
-    <div class="title">
-      <h1>⚡ LiveAuth Admin</h1>
+    <div class="title-block">
+      <span class="eyebrow">Operations Monitor</span>
+      <h1>LiveAuth Admin</h1>
       <div class="status-row">
         <span class="status ok">
           <i class="pi pi-check-circle"></i>
-          CONNECTED
+          Connected
         </span>
         <span class="last-updated" *ngIf="data">
-          Last updated: {{ data.generatedAtUtc | date:'shortTime' }}
+          Updated {{ data.generatedAtUtc | date:'shortTime' }}
         </span>
       </div>
     </div>
 
     <div class="controls">
-      <button
-        pButton
-        label="Transactions"
-        icon="pi pi-list"
-        class="p-button-outlined"
-        routerLink="/transactions">
+      <button type="button" class="nav-button" routerLink="/transactions">
+        <i class="pi pi-list"></i>
+        Transactions
       </button>
-
-      <button
-        pButton
-        label="Users"
-        icon="pi pi-users"
-        class="p-button-outlined"
-        routerLink="/users">
+      <button type="button" class="nav-button" routerLink="/users">
+        <i class="pi pi-users"></i>
+        Users
       </button>
 
       <p-select
@@ -42,193 +34,122 @@
       </p-select>
 
       <button
-        pButton
-        icon="pi pi-refresh"
-        class="p-button-outlined"
-        (click)="reload(windowHours)"
-        [loading]="loading">
+        type="button"
+        class="icon-button"
+        title="Refresh analytics"
+        aria-label="Refresh analytics"
+        [disabled]="loading || refreshing"
+        (click)="reload(windowHours)">
+        <i class="pi" [class.pi-refresh]="!refreshing" [class.pi-spinner]="refreshing" [class.pi-spin]="refreshing"></i>
       </button>
     </div>
   </header>
 
-  <!-- ================= LOADING / ERROR STATES ================= -->
-  <section *ngIf="loading && !data" class="loading">
+  <section *ngIf="loading && !data" class="state-panel">
     <p-progressSpinner></p-progressSpinner>
-    <p>Loading analytics…</p>
+    <span>Loading analytics</span>
   </section>
 
-  <section *ngIf="error" class="error">
+  <section *ngIf="error" class="state-panel error">
     <i class="pi pi-exclamation-triangle"></i>
-    {{ error }}
+    <span>{{ error }}</span>
   </section>
 
-  <!-- ================= MAIN DASHBOARD CONTENT ================= -->
-  <div *ngIf="data" class="dashboard-content">
-
-    <!-- ================= KEY METRICS ROW ================= -->
+  <main *ngIf="data" class="dashboard-content">
     <section class="metrics-grid">
-      <!-- Total Projects -->
-      <div class="metric-card">
-        <div class="metric-header">
-          <i class="pi pi-folder"></i>
-          <span>Total Projects</span>
-        </div>
-        <div class="metric-value">{{ data.totalProjects }}</div>
-        <div class="metric-footer">
-          <span class="pro-count">{{ data.proProjects }} Pro</span>
-          <span class="free-count">{{ data.freeProjects }} Free</span>
-        </div>
-      </div>
+      <article class="metric-card">
+        <span class="metric-label">Projects</span>
+        <strong>{{ data.totalProjects | number }}</strong>
+        <small>{{ data.activeProjects | number }} active, {{ data.proProjects | number }} pro</small>
+      </article>
 
-      <!-- Total Auths -->
-      <div class="metric-card">
-        <div class="metric-header">
-          <i class="pi pi-shield"></i>
-          <span>Auth Requests</span>
-        </div>
-        <div class="metric-value">{{ data.totalAuths | number }}</div>
-        <div class="metric-footer">
-          <span class="success">{{ successRate }}% success</span>
-        </div>
-      </div>
+      <article class="metric-card">
+        <span class="metric-label">Auth Requests</span>
+        <strong>{{ data.totalAuths | number }}</strong>
+        <small>{{ successRate }}% success, {{ failureRate }}% failed</small>
+      </article>
 
-      <!-- Revenue -->
-      <div class="metric-card highlight">
-        <div class="metric-header">
-          <i class="pi pi-bolt"></i>
-          <span>Sats Collected</span>
-        </div>
-        <div class="metric-value">{{ data.totalSatsPaid | number }}</div>
-        <div class="metric-footer">
-          <span>≈ ${{ usdEquivalent | number:'1.2-2' }} USD</span>
-        </div>
-      </div>
+      <article class="metric-card accent">
+        <span class="metric-label">Total Earned</span>
+        <strong>{{ totalSatsEarned | number }} sats</strong>
+        <small *ngIf="totalSatsEarnedUsd !== null">≈ ${{ totalSatsEarnedUsd | number:'1.2-2' }}</small>
+        <small *ngIf="totalSatsEarnedUsd === null">BTC/USD unavailable</small>
+      </article>
 
-      <!-- Success Rate -->
-      <div class="metric-card">
-        <div class="metric-header">
-          <i class="pi pi-check-circle"></i>
-          <span>Successful</span>
-        </div>
-        <div class="metric-value success">{{ data.successfulAuths | number }}</div>
-        <div class="metric-footer">
-          <span class="danger">{{ data.failedAuths | number }} failed</span>
-        </div>
-      </div>
+      <article class="metric-card">
+        <span class="metric-label">Paid Auths</span>
+        <strong>{{ data.paidAuths | number }}</strong>
+        <small>{{ data.totalSatsPaid | number }} sats, {{ avgSatsPerPaidAuth | number:'1.0-1' }} avg</small>
+      </article>
 
-      <!-- Rate Limits -->
-      <div class="metric-card warning">
-        <div class="metric-header">
-          <i class="pi pi-exclamation-triangle"></i>
-          <span>Rate Limits Hit</span>
-        </div>
-        <div class="metric-value">{{ data.rateLimitHits | number }}</div>
-        <div class="metric-footer">
-          <span>{{ rateLimitPercent }}% of requests</span>
-        </div>
-      </div>
+      <article class="metric-card warn">
+        <span class="metric-label">Rate Limits</span>
+        <strong>{{ data.rateLimitHits | number }}</strong>
+        <small>{{ rateLimitPercent }}% of auth requests</small>
+      </article>
 
-      <!-- Avg Sats -->
-      <div class="metric-card">
-        <div class="metric-header">
-          <i class="pi pi-chart-line"></i>
-          <span>Avg Sats/Auth</span>
-        </div>
-        <div class="metric-value">{{ avgSatsPerAuth | number:'1.0-1' }}</div>
-        <div class="metric-footer">
-          <span>across all projects</span>
-        </div>
-      </div>
+      <article class="metric-card">
+        <span class="metric-label">MCP</span>
+        <strong>{{ data.mcpSessionsTotal | number }}</strong>
+        <small>{{ data.mcpSessionsActive | number }} active, {{ data.mcpSatsEarned | number }} sats</small>
+      </article>
 
-      <!-- MCP Sessions -->
-      <div class="metric-card">
-        <div class="metric-header">
-          <i class="pi pi-server"></i>
-          <span>MCP Sessions</span>
-        </div>
-        <div class="metric-value">{{ data.mcpSessionsTotal }}</div>
-        <div class="metric-footer">
-          <span>{{ data.mcpSessionsActive }} active</span>
-        </div>
-      </div>
+      <article class="metric-card">
+        <span class="metric-label">L402</span>
+        <strong>{{ data.l402PaymentsReceived | number }}</strong>
+        <small>{{ data.l402InvoicesCreated | number }} invoices, {{ data.l402SatsEarned | number }} sats</small>
+      </article>
 
-      <!-- L402 Revenue -->
-      <div class="metric-card highlight">
-        <div class="metric-header">
-          <i class="pi pi-bolt"></i>
-          <span>L402 Revenue</span>
-        </div>
-        <div class="metric-value">{{ data.l402SatsEarned | number }} sats</div>
-        <div class="metric-footer">
-          <span>{{ data.l402PaymentsReceived }} payments</span>
-        </div>
-      </div>
+      <article class="metric-card">
+        <span class="metric-label">Pending Invoices</span>
+        <strong>{{ data.pendingInvoices | number }}</strong>
+        <small>{{ data.activeAuthSessions | number }} active auth sessions</small>
+      </article>
+    </section>
 
-      <!-- MCP Revenue -->
-      <div class="metric-card highlight">
-        <div class="metric-header">
-          <i class="pi pi-code"></i>
-          <span>MCP Revenue</span>
+    <section class="panel funnel-panel" *ngIf="data.funnel">
+      <header class="section-header">
+        <div>
+          <h2>Auth Funnel</h2>
+          <span>{{ windowHours }} hour window</span>
         </div>
-        <div class="metric-value">{{ data.mcpSatsEarned | number }} sats</div>
-        <div class="metric-footer">
-          <span>{{ data.mcpTokensIssued }} tokens</span>
+      </header>
+
+      <div class="funnel">
+        <div class="funnel-stage">
+          <strong>{{ data.funnel.challengesIssued | number }}</strong>
+          <span>Challenges</span>
+        </div>
+        <div class="funnel-stage">
+          <strong>{{ data.funnel.authsStarted | number }}</strong>
+          <span>Started</span>
+        </div>
+        <div class="funnel-stage">
+          <strong>{{ data.funnel.authsPaid | number }}</strong>
+          <span>Paid</span>
+          <small>{{ data.funnel.startToPaidRate | number:'1.0-1' }}%</small>
+        </div>
+        <div class="funnel-stage">
+          <strong>{{ data.funnel.authsVerified | number }}</strong>
+          <span>Verified</span>
+          <small>{{ data.funnel.paidToVerifiedRate | number:'1.0-1' }}%</small>
+        </div>
+        <div class="funnel-stage">
+          <strong>{{ data.funnel.tokensUsed | number }}</strong>
+          <span>Tokens Used</span>
+          <small>{{ data.funnel.verifiedToUsedRate | number:'1.0-1' }}%</small>
         </div>
       </div>
     </section>
 
-    <!-- ================= FUNNEL ANALYTICS ================= -->
-    <section class="metrics-grid" *ngIf="data.funnel">
-      <div class="metric-card full-width">
-        <div class="metric-header">
-          <i class="pi pi-filter"></i>
-          <span>Auth Funnel</span>
-        </div>
-        <div class="funnel-container">
-          <div class="funnel-stage">
-            <div class="funnel-value">{{ data.funnel.challengesIssued }}</div>
-            <div class="funnel-label">Challenges Issued</div>
-          </div>
-          <div class="funnel-arrow">→</div>
-          <div class="funnel-stage">
-            <div class="funnel-value">{{ data.funnel.authsStarted }}</div>
-            <div class="funnel-label">Auths Started</div>
-          </div>
-          <div class="funnel-arrow">→</div>
-          <div class="funnel-stage">
-            <div class="funnel-value">{{ data.funnel.authsPaid }}</div>
-            <div class="funnel-label">Auths Paid</div>
-            <div class="funnel-rate">{{ data.funnel.startToPaidRate | number:'1.0-0' }}%</div>
-          </div>
-          <div class="funnel-arrow">→</div>
-          <div class="funnel-stage">
-            <div class="funnel-value">{{ data.funnel.authsVerified }}</div>
-            <div class="funnel-label">Verified</div>
-            <div class="funnel-rate">{{ data.funnel.paidToVerifiedRate | number:'1.0-0' }}%</div>
-          </div>
-          <div class="funnel-arrow">→</div>
-          <div class="funnel-stage">
-            <div class="funnel-value">{{ data.funnel.tokensUsed }}</div>
-            <div class="funnel-label">Tokens Used</div>
-            <div class="funnel-rate">{{ data.funnel.verifiedToUsedRate | number:'1.0-0' }}%</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ================= CHARTS ROW ================= -->
     <section class="charts-grid">
-      <!-- Auths Over Time (Line Chart) -->
-      <div class="chart-card wide">
-        <div class="card-header">
-          <h3>
-            <i class="pi pi-chart-line"></i>
-            Authentication Activity
-          </h3>
-          <div class="card-actions">
-            <button pButton icon="pi pi-download" class="p-button-text p-button-sm" (click)="exportChart('auths')"></button>
+      <article class="panel chart-panel wide">
+        <header class="section-header">
+          <div>
+            <h2>Authentication Activity</h2>
+            <span>{{ data.successfulAuths | number }} successful, {{ data.failedAuths | number }} failed</span>
           </div>
-        </div>
+        </header>
 
         <div class="chart-wrapper">
           <admin-auths-line-chart
@@ -238,425 +159,325 @@
 
           <div *ngIf="isAuthSeriesEmpty" class="empty-state">
             <i class="pi pi-info-circle"></i>
-            <p>No authentication activity in this window</p>
+            <span>No authentication activity in this window</span>
           </div>
         </div>
-      </div>
+      </article>
 
-      <!-- Projects Distribution (Donut) -->
-      <div class="chart-card">
-        <div class="card-header">
-          <h3>
-            <i class="pi pi-chart-pie"></i>
-            Projects Distribution
-          </h3>
-        </div>
+      <article class="panel chart-panel">
+        <header class="section-header">
+          <div>
+            <h2>Project Mix</h2>
+            <span>{{ data.proProjects | number }} pro, {{ data.freeProjects | number }} free</span>
+          </div>
+        </header>
 
         <div class="chart-wrapper">
           <admin-projects-donut
-            [proFree]="{
-              pro: data.proProjects,
-              free: data.freeProjects
-            }">
+            [proFree]="{ pro: data.proProjects, free: data.freeProjects }">
           </admin-projects-donut>
         </div>
-
-        <div class="chart-legend">
-          <div class="legend-item">
-            <span class="legend-color pro"></span>
-            <span>Pro ({{ data.proProjects }})</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-color free"></span>
-            <span>Free ({{ data.freeProjects }})</span>
-          </div>
-        </div>
-      </div>
+      </article>
     </section>
 
-    <!-- ================= TABS ================= -->
-    <div class="tabs">
-      <button 
-        class="tab" 
-        [class.active]="activeTab === 'projects'"
-        (click)="activeTab = 'projects'">
-        <i class="pi pi-folder"></i> Projects
+    <nav class="tabs" aria-label="Admin dashboard tables">
+      <button type="button" class="tab" [class.active]="activeTab === 'projects'" (click)="selectTab('projects')">
+        <i class="pi pi-folder"></i>
+        Projects
       </button>
-      <button 
-        class="tab" 
-        [class.active]="activeTab === 'subscriptions'"
-        (click)="activeTab = 'subscriptions'">
-        <i class="pi pi-credit-card"></i> Subscriptions
+      <button type="button" class="tab" [class.active]="activeTab === 'subscriptions'" (click)="selectTab('subscriptions')">
+        <i class="pi pi-credit-card"></i>
+        Subscriptions
       </button>
-      <button 
-        class="tab" 
-        [class.active]="activeTab === 'events'"
-        (click)="activeTab = 'events'">
-        <i class="pi pi-history"></i> Events
+      <button type="button" class="tab" [class.active]="activeTab === 'events'" (click)="selectTab('events')">
+        <i class="pi pi-history"></i>
+        Events
       </button>
-    </div>
+    </nav>
 
-    <!-- ================= DATA TABLES ================= -->
-    <section class="tables-grid" *ngIf="activeTab === 'projects'">
-
-      <!-- Project Usage Table -->
-      <div class="table-card" style="grid-column: 1 / -1;">
-        <div class="table-header">
-          <h3>
-            <i class="pi pi-folder"></i>
-            Project Usage
-          </h3>
-          <div class="table-search">
-            <input
-              type="text"
-              [(ngModel)]="projectSearch"
-              (input)="onProjectSearch()"
-              placeholder="Search projects..." />
-            <button pButton icon="pi pi-download" class="p-button-text" (click)="exportTable('projects')"></button>
-          </div>
+    <section class="panel table-panel" *ngIf="activeTab === 'projects'">
+      <header class="table-header">
+        <div>
+          <h2>Project Usage</h2>
+          <span>{{ filteredProjects.length | number }} of {{ projectUsage.length | number }} projects</span>
         </div>
 
-        <p-table
-          #projectsTable
-          [value]="filteredProjects"
-          [scrollable]="true"
-          scrollHeight="400px"
-          [paginator]="true"
-          [rows]="10"
-          [rowsPerPageOptions]="[10, 25, 50]"
-          sortMode="multiple"
-          dataKey="projectId"
-          styleClass="p-datatable-sm p-datatable-gridlines p-datatable-striped">
-
-          <ng-template pTemplate="header">
-            <tr>
-              <th pSortableColumn="name" style="min-width:150px">
-                Project <p-sortIcon field="name"></p-sortIcon>
-              </th>
-              <th pSortableColumn="plan" style="width:100px">
-                Plan <p-sortIcon field="plan"></p-sortIcon>
-              </th>
-              <th pSortableColumn="auths" style="width:100px">
-                Auths <p-sortIcon field="auths"></p-sortIcon>
-              </th>
-              <th pSortableColumn="successes" style="width:100px">
-                Success <p-sortIcon field="successes"></p-sortIcon>
-              </th>
-              <th pSortableColumn="failures" style="width:100px">
-                Failures <p-sortIcon field="failures"></p-sortIcon>
-              </th>
-              <th pSortableColumn="rateLimitHits" style="width:120px">
-                Rate Limits <p-sortIcon field="rateLimitHits"></p-sortIcon>
-              </th>
-              <th pSortableColumn="satsPaid" style="width:120px">
-                Sats Paid <p-sortIcon field="satsPaid"></p-sortIcon>
-              </th>
-              <th style="width:100px">Success %</th>
-            </tr>
-          </ng-template>
-
-          <ng-template pTemplate="body" let-p>
-            <tr>
-              <td>
-                <div class="project-name" (click)="viewProject(p)">
-                  <i class="pi pi-eye"></i>
-                  {{ p.name }}
-                </div>
-              </td>
-              <td>
-                <p-tag
-                  [value]="p.plan.toUpperCase()"
-                  [severity]="p.plan === 'pro' ? 'success' : 'secondary'">
-                </p-tag>
-              </td>
-              <td class="numeric">{{ p.auths | number }}</td>
-              <td class="numeric success">{{ p.successes | number }}</td>
-              <td class="numeric danger">{{ p.failures | number }}</td>
-              <td class="numeric warning">{{ p.rateLimitHits | number }}</td>
-              <td class="numeric">{{ p.satsPaid | number }}</td>
-              <td class="numeric">
-                <span [class.success]="getSuccessRate(p) > 95" [class.warning]="getSuccessRate(p) < 80">
-                  {{ getSuccessRate(p) | number:'1.1-1' }}%
-                </span>
-              </td>
-            </tr>
-          </ng-template>
-
-          <ng-template pTemplate="emptymessage">
-            <tr>
-              <td colspan="8" class="empty-message">
-                <i class="pi pi-info-circle"></i>
-                No project usage data available
-              </td>
-            </tr>
-          </ng-template>
-        </p-table>
-      </div>
-
-    </section>
-
-    <!-- ================= SUBSCRIPTIONS TAB ================= -->
-    <section class="table-card" *ngIf="activeTab === 'subscriptions'">
-      <div class="table-header">
-        <h3>
-          <i class="pi pi-credit-card"></i>
-          Subscriptions
-        </h3>
-        <div class="table-search">
-          <button pButton icon="pi pi-download" class="p-button-text" (click)="exportTable('subscriptions')"></button>
+        <div class="table-tools">
+          <label class="search-field">
+            <i class="pi pi-search"></i>
+            <input type="search" [(ngModel)]="projectSearch" placeholder="Search project or ID" />
+          </label>
+          <button type="button" class="icon-button" title="Export projects" (click)="exportTable('projects')">
+            <i class="pi pi-download"></i>
+          </button>
         </div>
-      </div>
+      </header>
 
       <p-table
-        #subsTable
-        [value]="subscriptions"
+        [value]="filteredProjects"
         [scrollable]="true"
-        scrollHeight="500px"
+        scrollHeight="460px"
         [paginator]="true"
-        [rows]="10"
-        [rowsPerPageOptions]="[10, 25, 50]"
+        [rows]="12"
+        [rowsPerPageOptions]="[12, 25, 50]"
         sortMode="multiple"
         dataKey="projectId"
-        styleClass="p-datatable-sm p-datatable-gridlines p-datatable-striped">
-
+        styleClass="p-datatable-sm p-datatable-gridlines">
         <ng-template pTemplate="header">
           <tr>
-            <th pSortableColumn="projectName" style="min-width:150px">
-              Project <p-sortIcon field="projectName"></p-sortIcon>
-            </th>
-            <th pSortableColumn="plan" style="width:100px">
-              Plan <p-sortIcon field="plan"></p-sortIcon>
-            </th>
-            <th pSortableColumn="isPaid" style="width:100px">
-              Status <p-sortIcon field="isPaid"></p-sortIcon>
-            </th>
-            <th pSortableColumn="amountSats" style="width:120px">
-              Sats <p-sortIcon field="amountSats"></p-sortIcon>
-            </th>
-            <th pSortableColumn="createdAt" style="width:150px">
-              Created <p-sortIcon field="createdAt"></p-sortIcon>
-            </th>
-            <th pSortableColumn="expiresAt" style="width:150px">
-              Expires <p-sortIcon field="expiresAt"></p-sortIcon>
-            </th>
+            <th pSortableColumn="name">Project <p-sortIcon field="name"></p-sortIcon></th>
+            <th pSortableColumn="plan">Plan <p-sortIcon field="plan"></p-sortIcon></th>
+            <th pSortableColumn="auths">Auths <p-sortIcon field="auths"></p-sortIcon></th>
+            <th pSortableColumn="successes">Success <p-sortIcon field="successes"></p-sortIcon></th>
+            <th pSortableColumn="failures">Failures <p-sortIcon field="failures"></p-sortIcon></th>
+            <th pSortableColumn="rateLimitHits">Rate Limits <p-sortIcon field="rateLimitHits"></p-sortIcon></th>
+            <th pSortableColumn="satsPaid">Sats Paid <p-sortIcon field="satsPaid"></p-sortIcon></th>
+            <th>Success %</th>
           </tr>
         </ng-template>
 
-        <ng-template pTemplate="body" let-s>
+        <ng-template pTemplate="body" let-p>
           <tr>
-            <td>{{ s.projectName }}</td>
             <td>
-              <p-tag
-                [value]="s.plan | uppercase"
-                [severity]="s.plan === 'pro' ? 'success' : 'secondary'">
-              </p-tag>
+              <button type="button" class="link-button" (click)="viewProject(p)">
+                {{ p.name }}
+              </button>
+              <span class="id-text">{{ p.projectId }}</span>
             </td>
             <td>
               <p-tag
-                [value]="s.isPaid ? 'PAID' : 'PENDING'"
-                [severity]="s.isPaid ? 'success' : 'danger'"
-                [icon]="s.isPaid ? 'pi pi-check' : 'pi pi-clock'">
+                [value]="p.plan.toUpperCase()"
+                [severity]="p.plan === 'pro' ? 'success' : 'secondary'">
               </p-tag>
             </td>
-            <td class="numeric">{{ s.amountSats | number }}</td>
-            <td>{{ s.createdAt | date:'short' }}</td>
-            <td>
-              <span [class.warning]="isExpiringSoon(s.expiresAt)">
-                {{ s.expiresAt | date:'short' }}
-              </span>
-            </td>
+            <td class="numeric">{{ p.auths | number }}</td>
+            <td class="numeric success">{{ p.successes | number }}</td>
+            <td class="numeric danger">{{ p.failures | number }}</td>
+            <td class="numeric warning">{{ p.rateLimitHits | number }}</td>
+            <td class="numeric">{{ p.satsPaid | number }}</td>
+            <td class="numeric">{{ getSuccessRate(p) | number:'1.0-1' }}%</td>
           </tr>
         </ng-template>
 
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td colspan="6" class="empty-message">
-              <i class="pi pi-info-circle"></i>
-              No subscriptions available
-            </td>
+            <td colspan="8" class="empty-message">No project usage data</td>
           </tr>
         </ng-template>
       </p-table>
     </section>
 
-    <!-- ================= EVENTS TAB ================= -->
-    <section class="table-card" *ngIf="activeTab === 'events'">
-      <div class="table-header">
-        <h3>
-          <i class="pi pi-history"></i>
-          Recent Authentication Events
-        </h3>
-        <div class="table-search">
-          <input
-            type="text"
-            [(ngModel)]="eventSearch"
-            (input)="onEventSearch()"
-            placeholder="Search events..." />
-          <button pButton icon="pi pi-download" class="p-button-text" (click)="exportTable('events')"></button>
+    <section class="panel table-panel" *ngIf="activeTab === 'subscriptions'">
+      <header class="table-header">
+        <div>
+          <h2>Subscriptions</h2>
+          <span>{{ filteredSubscriptions.length | number }} of {{ subscriptions.length | number }} subscriptions</span>
         </div>
-      </div>
+
+        <div class="table-tools">
+          <label class="search-field">
+            <i class="pi pi-search"></i>
+            <input type="search" [(ngModel)]="subscriptionSearch" placeholder="Search project or status" />
+          </label>
+          <button type="button" class="icon-button" title="Export subscriptions" (click)="exportTable('subscriptions')">
+            <i class="pi pi-download"></i>
+          </button>
+        </div>
+      </header>
 
       <p-table
-        #eventsTable
+        [value]="filteredSubscriptions"
+        [scrollable]="true"
+        scrollHeight="460px"
+        [paginator]="true"
+        [rows]="12"
+        [rowsPerPageOptions]="[12, 25, 50]"
+        sortMode="multiple"
+        dataKey="subscriptionId"
+        styleClass="p-datatable-sm p-datatable-gridlines">
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="projectName">Project <p-sortIcon field="projectName"></p-sortIcon></th>
+            <th pSortableColumn="plan">Plan <p-sortIcon field="plan"></p-sortIcon></th>
+            <th pSortableColumn="isPaid">Status <p-sortIcon field="isPaid"></p-sortIcon></th>
+            <th pSortableColumn="amountSats">Sats <p-sortIcon field="amountSats"></p-sortIcon></th>
+            <th pSortableColumn="createdAt">Created <p-sortIcon field="createdAt"></p-sortIcon></th>
+            <th pSortableColumn="paidAt">Paid <p-sortIcon field="paidAt"></p-sortIcon></th>
+            <th pSortableColumn="expiresAt">Expires <p-sortIcon field="expiresAt"></p-sortIcon></th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-s>
+          <tr>
+            <td>
+              {{ s.projectName }}
+              <span class="id-text">{{ s.projectId }}</span>
+            </td>
+            <td>{{ s.plan | uppercase }}</td>
+            <td>
+              <p-tag
+                [value]="s.isPaid ? (isExpiringSoon(s.expiresAt) ? 'EXPIRING' : 'PAID') : 'PENDING'"
+                [severity]="getSubscriptionStatus(s)">
+              </p-tag>
+            </td>
+            <td class="numeric">{{ s.amountSats | number }}</td>
+            <td>{{ s.createdAt | date:'short' }}</td>
+            <td>{{ s.paidAt ? (s.paidAt | date:'short') : '-' }}</td>
+            <td>{{ s.expiresAt | date:'short' }}</td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="7" class="empty-message">No subscriptions</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </section>
+
+    <section class="panel table-panel" *ngIf="activeTab === 'events'">
+      <header class="table-header">
+        <div>
+          <h2>Auth Events</h2>
+          <span>{{ filteredEvents.length | number }} of {{ authEvents.length | number }} recent events</span>
+        </div>
+
+        <div class="table-tools">
+          <label class="search-field">
+            <i class="pi pi-search"></i>
+            <input type="search" [(ngModel)]="eventSearch" placeholder="Search event, project, IP" />
+          </label>
+          <button type="button" class="icon-button" title="Export events" (click)="exportTable('events')">
+            <i class="pi pi-download"></i>
+          </button>
+        </div>
+      </header>
+
+      <p-table
         [value]="filteredEvents"
         [scrollable]="true"
-        scrollHeight="500px"
+        scrollHeight="520px"
         [paginator]="true"
         [rows]="20"
         [rowsPerPageOptions]="[20, 50, 100]"
         sortMode="multiple"
-        dataKey="timestamp"
-        styleClass="p-datatable-sm p-datatable-gridlines p-datatable-striped">
-
+        dataKey="id"
+        styleClass="p-datatable-sm p-datatable-gridlines">
         <ng-template pTemplate="header">
           <tr>
-            <th pSortableColumn="timestamp" style="width:150px">
-              Timestamp <p-sortIcon field="timestamp"></p-sortIcon>
-            </th>
-            <th pSortableColumn="projectName" style="min-width:150px">
-              Project <p-sortIcon field="projectName"></p-sortIcon>
-            </th>
-            <th pSortableColumn="eventType" style="width:120px">
-              Type <p-sortIcon field="eventType"></p-sortIcon>
-            </th>
-            <th pSortableColumn="success" style="width:100px">
-              Status <p-sortIcon field="success"></p-sortIcon>
-            </th>
-            <th pSortableColumn="satsPaid" style="width:100px">
-              Sats <p-sortIcon field="satsPaid"></p-sortIcon>
-            </th>
-            <th style="width:120px">Client IP</th>
+            <th pSortableColumn="timestamp">Time <p-sortIcon field="timestamp"></p-sortIcon></th>
+            <th pSortableColumn="projectName">Project <p-sortIcon field="projectName"></p-sortIcon></th>
+            <th pSortableColumn="eventType">Type <p-sortIcon field="eventType"></p-sortIcon></th>
+            <th pSortableColumn="success">Status <p-sortIcon field="success"></p-sortIcon></th>
+            <th pSortableColumn="satsPaid">Sats <p-sortIcon field="satsPaid"></p-sortIcon></th>
+            <th>Reason</th>
+            <th>IP</th>
           </tr>
         </ng-template>
 
         <ng-template pTemplate="body" let-e>
           <tr>
             <td>{{ e.timestamp | date:'short' }}</td>
-            <td>{{ e.projectName }}</td>
             <td>
-              <p-tag
-                [value]="e.eventType"
-                severity="secondary">
-              </p-tag>
+              {{ e.projectName }}
+              <span class="id-text">{{ e.projectId }}</span>
             </td>
+            <td>{{ e.eventType }}</td>
             <td>
               <p-tag
-                [value]="e.success ? 'SUCCESS' : 'FAILED'"
-                [severity]="e.success ? 'success' : 'danger'"
-                [icon]="e.success ? 'pi pi-check' : 'pi pi-times'">
+                [value]="e.success ? 'OK' : 'FAIL'"
+                [severity]="e.success ? 'success' : 'danger'">
               </p-tag>
             </td>
             <td class="numeric">{{ e.satsPaid ?? '-' }}</td>
-            <td>
-              <code class="ip-code">{{ e.clientIpMasked }}</code>
-            </td>
+            <td>{{ e.reason || '-' }}</td>
+            <td><code>{{ e.clientIpMasked || '-' }}</code></td>
           </tr>
         </ng-template>
 
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td colspan="6" class="empty-message">
-              <i class="pi pi-info-circle"></i>
-              No authentication events available
-            </td>
+            <td colspan="7" class="empty-message">No auth events</td>
           </tr>
         </ng-template>
       </p-table>
     </section>
+  </main>
 
-  </div>
-
-  <!-- ================= PROJECT DETAIL MODAL ================= -->
-  <div class="modal-overlay" *ngIf="showProjectModal && selectedProject" (click)="closeProjectModal()">
-    <div class="modal-content" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h2>
-          <i class="pi pi-folder"></i>
-          {{ selectedProject.name }}
-        </h2>
-        <button class="modal-close" (click)="closeProjectModal()">
+  <div class="modal-overlay" *ngIf="selectedProject" (click)="closeProjectModal()">
+    <section class="project-dialog" (click)="$event.stopPropagation()">
+      <header>
+        <div>
+          <h2>{{ selectedProject.name }}</h2>
+          <span>{{ selectedProject.projectId }}</span>
+        </div>
+        <button type="button" class="icon-button" title="Close" (click)="closeProjectModal()">
           <i class="pi pi-times"></i>
         </button>
-      </div>
-      
-      <div class="modal-body">
-        <!-- Project Stats -->
-        <div class="detail-grid">
-          <div class="detail-item">
-            <div class="detail-label">Project ID</div>
-            <div class="detail-value" style="font-size: 0.9rem;">{{ selectedProject.projectId }}</div>
-          </div>
-          <div class="detail-item">
-            <div class="detail-label">Plan</div>
-            <div class="detail-value" [class.success]="selectedProject.plan === 'pro'">
-              {{ selectedProject.plan | uppercase }}
-            </div>
-          </div>
-          <div class="detail-item">
-            <div class="detail-label">Total Auths</div>
-            <div class="detail-value">{{ selectedProject.auths | number }}</div>
-          </div>
-          <div class="detail-item">
-            <div class="detail-label">Success Rate</div>
-            <div class="detail-value" [class.success]="getSuccessRate(selectedProject) > 95">
-              {{ getSuccessRate(selectedProject) | number:'1.1-1' }}%
-            </div>
-          </div>
-          <div class="detail-item">
-            <div class="detail-label">Sats Paid</div>
-            <div class="detail-value">{{ selectedProject.satsPaid | number }}</div>
-          </div>
-          <div class="detail-item">
-            <div class="detail-label">Rate Limits</div>
-            <div class="detail-value">{{ selectedProject.rateLimitHits | number }}</div>
-          </div>
-        </div>
+      </header>
 
-        <!-- Project Events -->
-        <div class="history-section">
-          <h4>Recent Activity</h4>
-          <table class="history-table">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Sats</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let event of projectEvents.slice(0, 10)">
-                <td>{{ event.timestamp | date:'short' }}</td>
-                <td>{{ event.eventType }}</td>
-                <td>
-                  <span [class.success]="event.success" [class.danger]="!event.success">
-                    {{ event.success ? '✓' : '✗' }}
-                  </span>
-                </td>
-                <td>{{ event.satsPaid ?? '-' }}</td>
-              </tr>
-              <tr *ngIf="projectEvents.length === 0">
-                <td colspan="4" class="empty-message">No recent activity</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <div class="detail-grid">
+        <article>
+          <span>Plan</span>
+          <strong>{{ selectedProject.plan | uppercase }}</strong>
+        </article>
+        <article>
+          <span>Auths</span>
+          <strong>{{ selectedProject.auths | number }}</strong>
+        </article>
+        <article>
+          <span>Success Rate</span>
+          <strong>{{ getSuccessRate(selectedProject) | number:'1.0-1' }}%</strong>
+        </article>
+        <article>
+          <span>Sats Paid</span>
+          <strong>{{ selectedProject.satsPaid | number }}</strong>
+        </article>
+        <article>
+          <span>Failures</span>
+          <strong>{{ selectedProject.failures | number }}</strong>
+        </article>
+        <article>
+          <span>Rate Limits</span>
+          <strong>{{ selectedProject.rateLimitHits | number }}</strong>
+        </article>
       </div>
-    </div>
+
+      <div class="dialog-table">
+        <h3>Recent Activity</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Sats</th>
+              <th>Reason</th>
+              <th>IP</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let event of selectedProjectEvents.slice(0, 12)">
+              <td>{{ event.timestamp | date:'short' }}</td>
+              <td>{{ event.eventType }}</td>
+              <td [class.success]="event.success" [class.danger]="!event.success">
+                {{ event.success ? 'OK' : 'FAIL' }}
+              </td>
+              <td>{{ event.satsPaid ?? '-' }}</td>
+              <td>{{ event.reason || '-' }}</td>
+              <td>{{ event.clientIpMasked || '-' }}</td>
+            </tr>
+            <tr *ngIf="selectedProjectEvents.length === 0">
+              <td colspan="6" class="empty-message">No recent events for this project</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
-  <!-- ================= FOOTER ================= -->
   <footer *ngIf="data" class="dashboard-footer">
-    <div class="footer-content">
-      <span>
-        <i class="pi pi-clock"></i>
-        Generated {{ data.generatedAtUtc | date:'medium' }}
-      </span>
-      <span>
-        <i class="pi pi-chart-bar"></i>
-        Viewing {{ windowHours }}h window
-      </span>
-    </div>
+    <span>Generated {{ data.generatedAtUtc | date:'medium' }}</span>
+    <span>Viewing {{ windowHours }}h window</span>
   </footer>
-
 </div>

@@ -6,6 +6,7 @@ export interface AdminAuthEventDto {
   eventType: string;
   success: boolean;
   satsPaid?: number;
+  reason?: string;
   clientIpMasked?: string;
 }
 
@@ -90,6 +91,7 @@ export interface AdminProjectUsageDto {
 
 // Subscription / revenue visibility
 export interface AdminSubscriptionDto {
+  subscriptionId?: string;
   projectId: string;
   projectName: string;
 
@@ -99,6 +101,7 @@ export interface AdminSubscriptionDto {
   isPaid: boolean;
 
   createdAt: string;
+  paidAt?: string | null;
   expiresAt: string;
 }
 
