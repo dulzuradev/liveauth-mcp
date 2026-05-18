@@ -243,21 +243,7 @@ public class DeveloperProjectsController : ControllerBase
         if (!IsAdmin() && project.DeveloperId != devId)
             return Forbid("Not your project.");
 
-        return Ok(new ProjectSettingsResponse
-        {
-            AllowedDomains = project.AllowedDomains ?? new List<string>(),
-            WebhookUrl = project.WebhookUrl,
-            SatsPerLogin = project.SatsPerLogin,
-            MaxAuthsPerIpPerHour = project.MaxAuthsPerIpPerHour,
-            AllowDemoAuth = project.AllowDemoAuth,
-            McpSatsPerCall = project.McpSatsPerCall,
-            McpInvoiceCallCredits = project.McpInvoiceCallCredits,
-            McpMaxSatsPerDay = project.McpMaxSatsPerDay,
-            McpMaxCallsPerMinute = project.McpMaxCallsPerMinute,
-            UseCustomNode = project.UseCustomNode,
-            LndBaseUrl = project.LndBaseUrl,
-            LndMacaroon = project.LndMacaroon
-        });
+        return Ok(ToProjectSettingsResponse(project));
     }
 
     // ✅ Update project settings
@@ -304,7 +290,7 @@ public class DeveloperProjectsController : ControllerBase
         }
 
         await _db.SaveChangesAsync(ct);
-        return NoContent();
+        return Ok(ToProjectSettingsResponse(project));
     }
 
     // ✅ Test LND connection
@@ -646,6 +632,25 @@ public class DeveloperProjectsController : ControllerBase
 
         normalized = uri.ToString();
         return true;
+    }
+
+    private static ProjectSettingsResponse ToProjectSettingsResponse(Project project)
+    {
+        return new ProjectSettingsResponse
+        {
+            AllowedDomains = project.AllowedDomains ?? new List<string>(),
+            WebhookUrl = project.WebhookUrl,
+            SatsPerLogin = project.SatsPerLogin,
+            MaxAuthsPerIpPerHour = project.MaxAuthsPerIpPerHour,
+            AllowDemoAuth = project.AllowDemoAuth,
+            McpSatsPerCall = project.McpSatsPerCall,
+            McpInvoiceCallCredits = project.McpInvoiceCallCredits,
+            McpMaxSatsPerDay = project.McpMaxSatsPerDay,
+            McpMaxCallsPerMinute = project.McpMaxCallsPerMinute,
+            UseCustomNode = project.UseCustomNode,
+            LndBaseUrl = project.LndBaseUrl,
+            LndMacaroon = project.LndMacaroon
+        };
     }
 
     [HttpPatch("{projectId:guid}/environment")]

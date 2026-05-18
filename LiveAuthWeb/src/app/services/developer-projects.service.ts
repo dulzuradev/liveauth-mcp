@@ -212,8 +212,8 @@ export class DeveloperProjectsService {
     );
   }
 
-  updateProjectSettings(projectId: string, body: UpdateProjectSettingsRequest): Observable<void> {
-    return this.http.put<void>(
+  updateProjectSettings(projectId: string, body: UpdateProjectSettingsRequest): Observable<ProjectSettingsResponse | null> {
+    return this.http.put<ProjectSettingsResponse | null>(
       `${this.baseUrl}/api/dev/projects/${projectId}/settings`,
       body,
       this.devAuth.authHeaders()

@@ -785,19 +785,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
 
     this.devService.getProjectSettings(p.projectId).subscribe({
       next: (res: ProjectSettingsResponse) => {
-        this.projectForm = {
-          allowedDomains: (res.allowedDomains || []).join('\n'),
-          webhookUrl: res.webhookUrl ?? '',
-          satsPerLogin: res.satsPerLogin,
-          maxAuthsPerIpPerHour: res.maxAuthsPerIpPerHour,
-          mcpSatsPerCall: res.mcpSatsPerCall ?? 1,
-          mcpInvoiceCallCredits: res.mcpInvoiceCallCredits ?? 10,
-          mcpMaxSatsPerDay: res.mcpMaxSatsPerDay ?? 10000,
-          mcpMaxCallsPerMinute: res.mcpMaxCallsPerMinute ?? 60,
-          useCustomNode: res.useCustomNode ?? false,
-          lndBaseUrl: res.lndBaseUrl ?? '',
-          lndMacaroon: res.lndMacaroon ? '••••••••' : ''  // Masked
-        };
+        this.applyProjectSettings(res);
       },
       error: (err) => {
         this.error = this.extractErrorMessage(err)  || 'Failed to load project settings.';
@@ -911,14 +899,50 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
 
     this.devService.updateProjectSettings(this.selectedProject.projectId, payload)
       .subscribe({
-        next: () => {
+        next: (res) => {
           this.savingSettings = false;
+          if (res) {
+            this.applyProjectSettings(res);
+          } else {
+            this.devService.getProjectSettings(this.selectedProject!.projectId).subscribe({
+              next: (settings) => this.applyProjectSettings(settings),
+              error: (err) => {
+                this.error = this.extractErrorMessage(err) || 'Settings saved, but failed to reload them.';
+              }
+            });
+          }
         },
         error: (err) => {
           this.savingSettings = false;
           this.error = this.extractErrorMessage(err)  || 'Failed to save project settings.';
         }
       });
+  }
+
+  private applyProjectSettings(res: ProjectSettingsResponse): void {
+    const hasMcpSettings =
+      res.mcpSatsPerCall != null &&
+      res.mcpInvoiceCallCredits != null &&
+      res.mcpMaxSatsPerDay != null &&
+      res.mcpMaxCallsPerMinute != null;
+
+    this.projectForm = {
+      allowedDomains: (res.allowedDomains || []).join('\n'),
+      webhookUrl: res.webhookUrl ?? '',
+      satsPerLogin: res.satsPerLogin,
+      maxAuthsPerIpPerHour: res.maxAuthsPerIpPerHour,
+      mcpSatsPerCall: res.mcpSatsPerCall ?? this.projectForm.mcpSatsPerCall ?? 1,
+      mcpInvoiceCallCredits: res.mcpInvoiceCallCredits ?? this.projectForm.mcpInvoiceCallCredits ?? 10,
+      mcpMaxSatsPerDay: res.mcpMaxSatsPerDay ?? this.projectForm.mcpMaxSatsPerDay ?? 10000,
+      mcpMaxCallsPerMinute: res.mcpMaxCallsPerMinute ?? this.projectForm.mcpMaxCallsPerMinute ?? 60,
+      useCustomNode: res.useCustomNode ?? false,
+      lndBaseUrl: res.lndBaseUrl ?? '',
+      lndMacaroon: res.lndMacaroon ? '••••••••' : ''
+    };
+
+    if (!hasMcpSettings) {
+      this.error = 'The API did not return MCP gate settings. Restart or redeploy the backend so the new settings fields are available.';
+    }
   }
 
   // Utility to ensure date pipe gets a proper Date in local time
