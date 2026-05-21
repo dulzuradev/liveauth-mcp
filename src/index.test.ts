@@ -146,6 +146,65 @@ describe('LiveAuth MCP SDK helpers', () => {
     expect(result).toEqual({ text: 'hello', satsUsed: 1 });
   });
 
+  it('routes server gate charges to the tool charge endpoint when toolId is configured', async () => {
+    const fakeFetch = vi.fn(async () =>
+      jsonResponse({
+        status: 'ok',
+        callsUsed: 2,
+        satsUsed: 10,
+        grossSats: 5,
+        platformFeeSats: 1,
+        netSats: 4,
+        feeBasisPoints: 500,
+        revenueEventId: 'event-1',
+      })
+    );
+
+    const gate = createMcpGate({
+      publicKey: 'la_pk_test',
+      baseUrl: API_BASE,
+      toolId: 'tool-123',
+      defaultCostSats: 5,
+      fetch: fakeFetch,
+    });
+
+    const result = await gate.invoke(
+      'jwt-test',
+      { url: 'https://example.com' },
+      async (_input, context) => context.liveAuth.charge,
+      {},
+      {
+        validateFirst: false,
+        costSats: 5,
+        toolMethodName: 'web_fetch',
+        idempotencyKey: 'call-123',
+        agentId: 'agent-123',
+        metadata: { urlHost: 'example.com' },
+      }
+    );
+
+    expect(fakeFetch).toHaveBeenCalledWith(
+      `${API_BASE}/api/mcp/tools/tool-123/charge`,
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'X-LW-Public': 'la_pk_test' }),
+        body: JSON.stringify({
+          callCostSats: 5,
+          toolMethodName: 'web_fetch',
+          idempotencyKey: 'call-123',
+          agentId: 'agent-123',
+          metadata: { urlHost: 'example.com' },
+        }),
+      })
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      revenueEventId: 'event-1',
+      platformFeeSats: 1,
+      netSats: 4,
+    });
+  });
+
   it('solves PoW with the backend publicKey:challengeHex:nonce payload', async () => {
     const solution = await solvePow({
       projectPublicKey: 'la_pk_test',

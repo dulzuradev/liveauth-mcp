@@ -12,6 +12,7 @@ import type {
 export class LiveAuthMcpServerGate {
   readonly publicKey: string;
   readonly baseUrl: string;
+  readonly toolId?: string;
   readonly defaultCostSats: number;
 
   private readonly fetchImpl: NonNullable<LiveAuthMcpServerGateConfig['fetch']>;
@@ -23,6 +24,7 @@ export class LiveAuthMcpServerGate {
 
     this.publicKey = config.publicKey;
     this.baseUrl = cleanBaseUrl(config.baseUrl);
+    this.toolId = config.toolId;
     this.defaultCostSats = config.defaultCostSats ?? 1;
     this.fetchImpl = requireFetch(config.fetch);
   }
@@ -46,15 +48,33 @@ export class LiveAuthMcpServerGate {
     }
   }
 
-  async charge(jwt: string, callCostSats = this.defaultCostSats): Promise<McpChargeResult> {
+  async charge(
+    jwt: string,
+    callCostSats = this.defaultCostSats,
+    options: GateToolOptions = {}
+  ): Promise<McpChargeResult> {
     if (!jwt) {
       throw new UnauthorizedError('Missing LiveAuth MCP JWT');
     }
 
-    const response = await requestJson<McpChargeResponse>(this.fetchImpl, `${this.baseUrl}/api/mcp/charge`, {
+    const endpoint = this.toolId
+      ? `${this.baseUrl}/api/mcp/tools/${encodeURIComponent(this.toolId)}/charge`
+      : `${this.baseUrl}/api/mcp/charge`;
+
+    const body = this.toolId
+      ? {
+          callCostSats,
+          ...(options.toolMethodName ? { toolMethodName: options.toolMethodName } : {}),
+          ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
+          ...(options.agentId ? { agentId: options.agentId } : {}),
+          ...(options.metadata ? { metadata: options.metadata } : {}),
+        }
+      : { callCostSats };
+
+    const response = await requestJson<McpChargeResponse>(this.fetchImpl, endpoint, {
       method: 'POST',
       headers: projectHeaders(this.publicKey, jwt),
-      body: JSON.stringify({ callCostSats })
+      body: JSON.stringify(body)
     });
 
     return { ...response, ok: response.status === 'ok' };
@@ -68,7 +88,7 @@ export class LiveAuthMcpServerGate {
     options: GateToolOptions = {}
   ): Promise<TResult> {
     const usage = options.validateFirst === false ? undefined : await this.validateSession(jwt);
-    const charge = await this.charge(jwt, options.costSats ?? this.defaultCostSats);
+    const charge = await this.charge(jwt, options.costSats ?? this.defaultCostSats, options);
 
     if (!charge.ok) {
       throw new BudgetExceededError('LiveAuth MCP budget denied this tool call', charge);

@@ -68,6 +68,7 @@ This MCP server allows AI agents (Claude, GPT, AutoGPT, etc.) to:
 - Solve challenges to prove computational work
 - Receive JWT tokens for authenticated API access
 - Meter API usage with sats per call
+- Wrap paid MCP tools so calls are attributed to a LiveAuth tool and recorded as revenue events
 
 ## Installation
 
@@ -140,6 +141,84 @@ const result = await gate.invoke(
 ```
 
 `gate.invoke(...)` validates the JWT, charges the configured sats cost, and passes `context.liveAuth` into your handler. The older `gate.gateTool(...)` name is still supported.
+
+### Paid Tool Attribution
+
+If your MCP server has a registered LiveAuth tool ID, pass `toolId` when creating the gate. Charges then go to:
+
+```text
+POST /api/mcp/tools/{toolId}/charge
+```
+
+instead of the legacy generic endpoint:
+
+```text
+POST /api/mcp/charge
+```
+
+Tool charges preserve the same session budget checks, but also record an immutable revenue event with gross sats, LiveAuth platform fee, developer net sats, tool method name, paying project/session/token, metadata, and idempotency key.
+
+```ts
+import { createMcpGate } from '@liveauth-labs/mcp-server';
+
+const gate = createMcpGate({
+  publicKey: process.env.LIVEAUTH_PUBLIC_KEY!,
+  baseUrl: process.env.LIVEAUTH_API_URL ?? 'https://api.liveauth.app',
+  toolId: process.env.LIVEAUTH_TOOL_ID!,
+  defaultCostSats: 5,
+});
+
+const result = await gate.invoke(
+  jwtFromYourTransport,
+  { url: 'https://example.com' },
+  async (input, context) => {
+    const page = await fetch(input.url).then(r => r.text());
+
+    return {
+      text: page,
+      revenueEventId: context.liveAuth.charge.revenueEventId,
+      netSats: context.liveAuth.charge.netSats,
+    };
+  },
+  { requestId: 'req_123' },
+  {
+    costSats: 5,
+    toolMethodName: 'web_fetch',
+    idempotencyKey: 'req_123',
+    agentId: 'agent_abc',
+    metadata: {
+      urlHost: new URL('https://example.com').hostname,
+    },
+  }
+);
+```
+
+When `toolId` is set, `GateToolOptions` supports:
+
+| Option | Purpose |
+|--------|---------|
+| `costSats` | Sats to charge for this call. |
+| `toolMethodName` | Method within the tool, such as `web_fetch` or `search`. |
+| `idempotencyKey` | Retry-safe key. Reusing it for the same tool returns the original revenue event instead of double charging. |
+| `agentId` | Optional caller/agent identifier for reporting. |
+| `metadata` | Small JSON object for audit context. Do not store private tool output here. |
+
+Tool charge responses include the normal budget counters plus revenue accounting:
+
+```json
+{
+  "status": "ok",
+  "callsUsed": 3,
+  "satsUsed": 15,
+  "grossSats": 5,
+  "platformFeeSats": 1,
+  "netSats": 4,
+  "feeBasisPoints": 500,
+  "revenueEventId": "event-guid"
+}
+```
+
+If no `toolId` is configured, the SDK keeps using `/api/mcp/charge` for backward-compatible usage metering.
 
 ## Configuration
 
@@ -239,7 +318,7 @@ Submit the solved proof-of-work challenge to receive a JWT authentication token.
 
 ### `liveauth_mcp_charge`
 
-Meter API usage after making an authenticated call. Call this with the cost in sats for each API request.
+Meter API usage after making an authenticated call. The bundled MCP server calls the generic `/api/mcp/charge` endpoint; this updates the session budget counters but does not create a tool revenue event. For paid MCP tool revenue attribution, use the SDK `createMcpGate({ toolId })` flow above.
 
 **Parameters:**
 - `callCostSats` (number): Cost of the API call in sats
@@ -258,7 +337,8 @@ If budget is exceeded:
 {
   "status": "deny",
   "callsUsed": 100,
-  "satsUsed": 1000
+  "satsUsed": 1000,
+  "reason": "budget_exceeded"
 }
 ```
 
@@ -346,7 +426,8 @@ Refresh the JWT token without re-authenticating. Use the refreshToken returned f
    - Find a nonce where hash < targetHex
 3. Call `liveauth_mcp_confirm` with the solution to receive a JWT
 4. Use the JWT in `Authorization: Bearer <token>` header for API requests
-5. After each API call, call `liveauth_mcp_charge` with the call cost in sats
+5. After each generic API call, call `liveauth_mcp_charge` with the call cost in sats
+6. For monetized MCP tools, wrap handlers with `createMcpGate({ toolId })` so each call creates a revenue event
 
 ### Lightning Authentication
 
@@ -355,7 +436,7 @@ Refresh the JWT token without re-authenticating. Use the refreshToken returned f
 3. Pay the invoice using your Lightning node/wallet
 4. Poll `liveauth_mcp_status` with the quoteId until paymentStatus is "paid"
 5. Call `liveauth_mcp_confirm` with just the quoteId to receive the JWT
-6. Use the JWT and call `liveauth_mcp_charge` as above
+6. Use the JWT with either generic `liveauth_mcp_charge` metering or SDK paid-tool attribution
 
 ## Authentication Flow
 
@@ -369,6 +450,17 @@ Refresh the JWT token without re-authenticating. Use the refreshToken returned f
 │ 4. API calls   │     │                 │     │                 │
 │ 5. Charge      │     │ /api/mcp/charge │     │ Meter usage    │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+Paid tool servers use the same JWT but charge through the attributed endpoint:
+
+```text
+Agent calls MCP tool
+→ Tool server calls POST /api/mcp/tools/{toolId}/charge
+→ LiveAuth validates JWT and budget
+→ LiveAuth records gross / platform fee / net revenue
+→ Tool handler runs and returns the result
+```
 
 ## x402 Compatibility
 
