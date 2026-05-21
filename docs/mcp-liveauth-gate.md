@@ -1,172 +1,339 @@
-# LiveAuth Gate (MCP Pay‑Per‑Call) — Spec v0
+# LiveAuth MCP Gate
 
-## Goal
-Make LiveAuth a **sats-denominated toll booth** for AI agent tool usage (MCP), using **PoW-first** with optional **Lightning pay-per-call**, plus enforceable budgets.
+LiveAuth MCP Gate lets an MCP server require a short-lived LiveAuth JWT, meter each call in sats, and optionally attribute calls to a registered MCP tool revenue ledger.
 
-**Paid unit:** MCP tool invocation (“agent action”).
+The current implementation has two charge modes:
 
-## Design principles
-- **PoW-first**: always offer PoW; Lightning unlocks higher limits / better UX.
-- **Idempotent debits**: every charge call must be safe to retry.
-- **Replay-proof**: tokens are short-lived, audience-bound, project-bound.
-- **Budget enforcement**: hard caps per project / per agent key.
+- **Generic session metering:** `POST /api/mcp/charge`
+- **Paid tool revenue attribution:** `POST /api/mcp/tools/{toolId}/charge`
 
-## Terminology
-- **Quote**: a short-lived offer to obtain access (PoW challenge or LN invoice).
-- **Session JWT**: short-lived token authorizing a caller to invoke MCP tools.
-- **Charge**: per-tool-call debit + allow/deny decision.
+The generic endpoint is backward-compatible and updates session budget counters. The tool endpoint performs the same JWT and budget checks, then records an immutable revenue event with gross sats, LiveAuth platform fee, net sats, method name, session/token attribution, and idempotency key.
 
-## Phase 1 API (backend)
+---
 
-### 1) POST `/mcp/start`
-Initiate access for a caller.
+## Authentication Flow
 
-**Request**
+### 1. Start a Session
+
+```http
+POST /api/mcp/start
+X-LW-Public: la_pk_your_public_key
+Content-Type: application/json
+```
+
+Request:
+
 ```json
 {
-  "projectPublicKey": "...",
-  "tool": "optional-tool-name",
-  "mode": "auto|pow|ln" 
+  "forceLightning": false,
+  "forceL402": false
 }
 ```
 
-**Response (PoW path)**
+Response for proof-of-work:
+
 ```json
 {
-  "quoteId": "uuid",
-  "method": "pow",
-  "costSats": 1,
-  "pow": {
-    "challengeHex": "...",
-    "targetHex": "...",
-    "difficultyBits": 22,
-    "expiresAtUnix": 123
+  "quoteId": "session-guid",
+  "powChallenge": {
+    "projectPublicKey": "la_pk_your_public_key",
+    "challengeHex": "abc123",
+    "targetHex": "0000ffff...",
+    "difficultyBits": 18,
+    "expiresAtUnix": 1745032800,
+    "signature": "signed-challenge"
   },
-  "expiresAtUnix": 123
+  "invoice": null,
+  "authHint": null
 }
 ```
 
-**Response (Lightning path)**
+Set `forceLightning: true` to request a Lightning invoice. Set `forceL402: true` to start a session that will be confirmed with an L402 macaroon.
+
+### 2. Confirm the Session
+
+```http
+POST /api/mcp/confirm
+X-LW-Public: la_pk_your_public_key
+Content-Type: application/json
+```
+
+Proof-of-work request:
+
 ```json
 {
-  "quoteId": "uuid",
-  "method": "ln",
-  "costSats": 5,
-  "ln": {
-    "invoiceBolt11": "...",
-    "paymentHash": "...",
-    "expiresAtUnix": 123
-  },
-  "expiresAtUnix": 123
+  "quoteId": "session-guid",
+  "challengeHex": "abc123",
+  "nonce": 42,
+  "hashHex": "0000...",
+  "difficultyBits": 18,
+  "expiresAtUnix": 1745032800,
+  "sig": "signed-challenge"
 }
 ```
 
-**Notes**
-- `mode=auto` chooses LN if caller requests it and project allows / pricing requires.
-- `costSats` is the *per-call* cost used later by `/mcp/charge` (or embedded into JWT claims).
+L402 request:
 
-### 2) POST `/mcp/confirm`
-Confirm PoW solution or LN payment to mint a short-lived session JWT.
-
-**Request (PoW)**
 ```json
 {
-  "quoteId": "uuid",
-  "pow": {
-    "nonce": 123,
-    "hashHex": "...",
-    "sig": "optional-if-needed"
+  "quoteId": "session-guid",
+  "macaroon": "l402-macaroon"
+}
+```
+
+Response:
+
+```json
+{
+  "jwt": "eyJhbG...",
+  "expiresIn": 600,
+  "remainingBudgetSats": 10000,
+  "paymentStatus": "paid",
+  "refreshToken": "refresh-token"
+}
+```
+
+### 3. Refresh or Inspect Usage
+
+```http
+POST /api/mcp/refresh
+GET  /api/mcp/usage
+GET  /api/mcp/status/{quoteId}
+```
+
+`/api/mcp/usage` returns counters for the active token:
+
+```json
+{
+  "status": "active",
+  "callsUsed": 5,
+  "satsUsed": 15,
+  "maxSatsPerDay": 10000,
+  "remainingBudgetSats": 9985,
+  "maxCallsPerMinute": 60,
+  "expiresAt": "2026-02-17T12:00:00Z",
+  "dayWindowStart": "2026-02-17T00:00:00Z"
+}
+```
+
+---
+
+## Generic Charge Endpoint
+
+Use the generic endpoint when you only need session budget metering.
+
+```http
+POST /api/mcp/charge
+Authorization: Bearer <mcp-jwt>
+X-LW-Public: la_pk_your_public_key
+Content-Type: application/json
+```
+
+Request:
+
+```json
+{
+  "callCostSats": 1
+}
+```
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "callsUsed": 6,
+  "satsUsed": 16
+}
+```
+
+Denied response:
+
+```json
+{
+  "status": "deny",
+  "callsUsed": 6,
+  "satsUsed": 16,
+  "reason": "budget_exceeded"
+}
+```
+
+---
+
+## Paid Tool Charge Endpoint
+
+Use the tool endpoint when an MCP tool call should create revenue attribution.
+
+```http
+POST /api/mcp/tools/{toolId}/charge
+Authorization: Bearer <mcp-jwt>
+X-LW-Public: la_pk_your_public_key
+Content-Type: application/json
+```
+
+Request:
+
+```json
+{
+  "toolMethodName": "web_fetch",
+  "callCostSats": 5,
+  "idempotencyKey": "request-or-call-id",
+  "agentId": "optional-agent-id",
+  "metadata": {
+    "urlHost": "example.com"
   }
 }
 ```
 
-**Request (LN)**
+Validation:
+
+- Tool exists and has not been removed.
+- Tool status is `Active`.
+- JWT contains a valid `projectId` and `jti`.
+- MCP gate token is active and not expired.
+- Paying project is active.
+- `callCostSats` is positive and within the tool's min/max bounds.
+- Session budget or L402 balance is sufficient.
+- If `idempotencyKey` was already charged for this tool, LiveAuth returns the original revenue event instead of double charging.
+
+Response:
+
 ```json
 {
-  "quoteId": "uuid"
+  "status": "ok",
+  "callsUsed": 3,
+  "satsUsed": 15,
+  "grossSats": 5,
+  "platformFeeSats": 1,
+  "netSats": 4,
+  "feeBasisPoints": 500,
+  "revenueEventId": "event-guid"
 }
 ```
 
-**Response**
+Denied response:
+
 ```json
 {
-  "jwt": "...",
-  "expiresIn": 300,
-  "remaining": {
-    "satsToday": 1000,
-    "callsThisMinute": 50
+  "status": "deny",
+  "callsUsed": 3,
+  "satsUsed": 15,
+  "reason": "budget_exceeded"
+}
+```
+
+Paused or inactive tools return:
+
+```json
+{
+  "status": "deny",
+  "callsUsed": 3,
+  "satsUsed": 15,
+  "reason": "tool_inactive"
+}
+```
+
+---
+
+## Revenue Ledger
+
+Tool charges write `McpToolRevenueEvent` records. Events are append-only; reversals should be represented by a new event rather than changing the charged event.
+
+Recorded fields include:
+
+| Field | Meaning |
+|-------|---------|
+| `McpToolId` | Registered tool being charged. |
+| `McpGateTokenId` | Token that authorized the charge. |
+| `McpGateSessionId` | Session that produced the token. |
+| `PayingProjectId` | Project paying for the call. |
+| `AgentId` | Optional caller identity from the charge request. |
+| `ToolMethodName` | Method or action, such as `web_fetch`. |
+| `GrossSats` | Total sats charged. |
+| `PlatformFeeSats` | LiveAuth fee. |
+| `NetSats` | Gross minus platform fee. |
+| `FeeBasisPoints` | Fee rate used for this event. |
+| `IdempotencyKey` | Retry-safe key unique per tool when present. |
+| `RequestId` | LiveAuth request trace identifier. |
+| `MetadataJson` | Small audit metadata. Do not store fetched content or private output here. |
+
+Current v1 fee model:
+
+```text
+platformFeeSats = max(1, floor(grossSats * 500 / 10000))
+netSats = grossSats - platformFeeSats
+```
+
+For example, a 5 sat call records a 1 sat platform fee and 4 sats net.
+
+---
+
+## Tool Model
+
+Registered MCP tools are stored as `McpTool` records with:
+
+- Name, slug, description, category, links, and manifest JSON.
+- Status: `Draft`, `Active`, `Paused`, or `Removed`.
+- Visibility: `Private`, `Unlisted`, or `Public`.
+- Default, minimum, and maximum call cost.
+- Optional developer and project ownership.
+
+The backend currently seeds a first-party `LiveAuth Web Fetch MCP` tool. Developer-facing CRUD and marketplace registration are not available in this first slice yet.
+
+---
+
+## SDK Integration
+
+Install the MCP package:
+
+```bash
+npm install @liveauth-labs/mcp-server
+```
+
+Wrap a paid tool handler:
+
+```ts
+import { createMcpGate } from '@liveauth-labs/mcp-server';
+
+const gate = createMcpGate({
+  publicKey: process.env.LIVEAUTH_PUBLIC_KEY!,
+  baseUrl: process.env.LIVEAUTH_API_URL ?? 'https://api.liveauth.app',
+  toolId: process.env.LIVEAUTH_TOOL_ID!,
+  defaultCostSats: 5,
+});
+
+const result = await gate.invoke(
+  jwtFromMcpRequest,
+  { url: 'https://example.com' },
+  async (input, context) => {
+    const text = await fetch(input.url).then(r => r.text());
+    return {
+      text,
+      charge: context.liveAuth.charge
+    };
+  },
+  { requestId: 'req_123' },
+  {
+    costSats: 5,
+    toolMethodName: 'web_fetch',
+    idempotencyKey: 'req_123',
+    agentId: 'agent_abc',
+    metadata: {
+      urlHost: 'example.com'
+    }
   }
-}
+);
 ```
 
-**Notes**
-- LN confirm checks invoice status for the quote’s payment hash.
-- JWT claims should include: projectId/publicKey, method, issuedAt, expiresAt, costSats, and optionally an agentKeyId.
+When `toolId` is omitted, the SDK keeps using `/api/mcp/charge` for backward-compatible metering.
 
-### 3) POST `/mcp/charge`
-Debit one tool call (idempotent) and return allow/deny.
+---
 
-**Request**
-```json
-{
-  "idempotencyKey": "uuid-or-hash",
-  "tool": "tool-name",
-  "costSats": 1
-}
-```
+## Security Checklist
 
-**Auth**
-- `Authorization: Bearer <jwt>`
-
-**Response (allow)**
-```json
-{ "ok": true }
-```
-
-**Response (deny)**
-```json
-{ "ok": false, "reason": "budget_exceeded|rate_limited|expired|invalid" }
-```
-
-## Phase 1 data model (DB)
-
-### Table: `ProjectMcpSettings`
-- `ProjectId` (PK/FK)
-- `SatsPerCall` (int)
-- `AllowPowFallback` (bool)
-- `MaxSatsPerDay` (int)
-- `MaxCallsPerMinute` (int)
-- `CreatedAt`, `UpdatedAt`
-
-### Table: `McpQuotes`
-- `Id` (UUID)
-- `ProjectId` (FK)
-- `Method` (pow|ln)
-- `CostSats`
-- `Status` (pending|confirmed|expired|failed)
-- `PaymentHash` (nullable)
-- `PowChallengeId`/fields (nullable) (or reuse existing PoW tables)
-- `ExpiresAt`
-- `CreatedAt`
-
-### Table: `McpCharges`
-- `Id` (UUID)
-- `ProjectId` (FK)
-- `IdempotencyKey` (unique per project)
-- `Tool` (text)
-- `CostSats`
-- `CreatedAt`
-
-## Abuse / security checklist
-- JWT audience binding to `mcp`.
-- Short TTL (e.g. 5 min) + refresh via new quote.
-- Idempotency unique constraint: `(ProjectId, IdempotencyKey)`.
-- Budget checks must be atomic.
-- Tie charges to a project + optionally agent identity.
-
-## Reference MCP integration
-Provide a tiny wrapper that:
-1. calls `/mcp/start`
-2. solves PoW or pays invoice
-3. calls `/mcp/confirm` to obtain JWT
-4. wraps each tool call with `/mcp/charge`
+- Require `Authorization: Bearer <mcp-jwt>` for charge and usage calls.
+- Send `X-LW-Public` for project context.
+- Use short JWT lifetimes and refresh tokens.
+- Always set an `idempotencyKey` for paid tool calls.
+- Store only minimal metadata, such as host, content type, status, request ID, and client.
+- Do not store fetched content, prompts, completions, credentials, or private tool output in revenue metadata.

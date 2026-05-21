@@ -29,3 +29,11 @@ sequenceDiagram
     LND->>API: PAID
     API->>MCP: Payment confirmed
     MCP->>Agent: JWT Token
+
+    Note over Agent,API: Paid tool charge
+    Agent->>MCP: Invoke paid MCP tool with JWT
+    MCP->>API: POST /api/mcp/tools/{toolId}/charge
+    API->>API: Validate JWT, budget, idempotency
+    API->>API: Record gross / fee / net revenue
+    API->>MCP: ok + revenueEventId
+    MCP->>Agent: Tool result

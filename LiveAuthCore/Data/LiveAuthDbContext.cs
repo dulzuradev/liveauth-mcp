@@ -46,6 +46,8 @@ public class LiveAuthDbContext : DbContext
     // MCP LiveAuth Gate
     public DbSet<McpGateSession> McpGateSessions => Set<McpGateSession>();
     public DbSet<McpGateToken> McpGateTokens => Set<McpGateToken>();
+    public DbSet<McpTool> McpTools => Set<McpTool>();
+    public DbSet<McpToolRevenueEvent> McpToolRevenueEvents => Set<McpToolRevenueEvent>();
     public DbSet<L402Purchase> L402Purchases => Set<L402Purchase>();
     public DbSet<L402Bundle> L402Bundles => Set<L402Bundle>();
     public DbSet<L402Macaroon> L402Macaroons => Set<L402Macaroon>();
@@ -229,5 +231,23 @@ public class LiveAuthDbContext : DbContext
         
         modelBuilder.Entity<L402Macaroon>()
             .HasIndex(m => m.BundleId);
+
+        modelBuilder.Entity<McpTool>()
+            .HasIndex(t => t.Slug)
+            .IsUnique();
+
+        modelBuilder.Entity<McpToolRevenueEvent>()
+            .HasIndex(e => new { e.McpToolId, e.CreatedAt });
+
+        modelBuilder.Entity<McpToolRevenueEvent>()
+            .HasIndex(e => new { e.PayingProjectId, e.CreatedAt });
+
+        modelBuilder.Entity<McpToolRevenueEvent>()
+            .HasIndex(e => e.McpGateTokenId);
+
+        modelBuilder.Entity<McpToolRevenueEvent>()
+            .HasIndex(e => new { e.McpToolId, e.IdempotencyKey })
+            .IsUnique()
+            .HasFilter("\"IdempotencyKey\" IS NOT NULL");
     }
 }

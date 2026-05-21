@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Data.Entities.Mcp;
@@ -592,59 +593,120 @@ public class McpGateController : ControllerBase
     {
         if (req.CallCostSats <= 0) return BadRequest("callCostSats must be positive");
 
-        var projectIdStr = User.FindFirst("projectId")?.Value;
-        var jti = User.FindFirst("jti")?.Value;
+        var resolved = await TryGetChargeContextAsync(ct);
+        if (resolved.Error != null)
+            return resolved.Error;
 
-        if (string.IsNullOrWhiteSpace(projectIdStr) || string.IsNullOrWhiteSpace(jti))
-            return Unauthorized("Missing projectId/jti");
-
-        if (!Guid.TryParse(projectIdStr, out var projectId))
-            return Unauthorized("Invalid projectId");
-
-        var gateToken = await _db.McpGateTokens
-            .Where(t => t.ProjectId == projectId && t.JwtId == jti && t.Status == "active")
-            .FirstOrDefaultAsync(ct);
-
-        if (gateToken == null) return Unauthorized("Unknown token");
-        if (gateToken.ExpiresAt < DateTime.UtcNow) return Unauthorized("Token expired");
-
-        // Get project for L402 balance check
-        var project = await _db.Projects
-            .Where(p => p.Id == gateToken.ProjectId && p.IsActive)
-            .FirstOrDefaultAsync(ct);
-
-        if (project == null) return Forbid("Project not active");
-
-        // Reset day window if needed
-        if (gateToken.DayWindowStart.Date != DateTime.UtcNow.Date)
-        {
-            gateToken.DayWindowStart = DateTime.UtcNow.Date;
-            gateToken.SatsUsed = 0;
-            gateToken.CallsUsed = 0;
-        }
-
-        // Check L402 balance first - charge from balance if available
-        if (project.L402BalanceSats >= req.CallCostSats)
-        {
-            project.L402BalanceSats -= req.CallCostSats;
-            gateToken.CallsUsed += 1;
-            gateToken.SatsUsed += req.CallCostSats;
-            await _db.SaveChangesAsync(ct);
-            return Ok(new McpChargeResponse("ok", gateToken.CallsUsed, gateToken.SatsUsed));
-        }
-
-        // Fall back to session budget
-        if (gateToken.SatsUsed + req.CallCostSats > gateToken.MaxSatsPerDay)
-        {
-            return Ok(new McpChargeResponse("deny", gateToken.CallsUsed, gateToken.SatsUsed));
-        }
-
-        gateToken.CallsUsed += 1;
-        gateToken.SatsUsed += req.CallCostSats;
-
+        var budgetResult = ApplyBudgetCharge(resolved.Context!.GateToken, resolved.Context.Project, req.CallCostSats);
+        if (budgetResult.Status != "ok")
+            return Ok(budgetResult);
+        
         await _db.SaveChangesAsync(ct);
 
-        return Ok(new McpChargeResponse("ok", gateToken.CallsUsed, gateToken.SatsUsed));
+        return Ok(budgetResult);
+    }
+
+    [HttpPost("tools/{toolId:guid}/charge")]
+    [Authorize]
+    public async Task<IActionResult> ChargeTool(Guid toolId, [FromBody] McpChargeRequest req, CancellationToken ct)
+    {
+        if (req.CallCostSats <= 0) return BadRequest("callCostSats must be positive");
+
+        var tool = await _db.McpTools
+            .Where(t => t.Id == toolId && t.RemovedAt == null)
+            .FirstOrDefaultAsync(ct);
+
+        if (tool == null)
+            return NotFound("Unknown MCP tool");
+
+        var resolved = await TryGetChargeContextAsync(ct);
+        if (resolved.Error != null)
+            return resolved.Error;
+
+        var gateToken = resolved.Context!.GateToken;
+        var project = resolved.Context.Project;
+
+        if (!string.Equals(tool.Status, "Active", StringComparison.OrdinalIgnoreCase))
+        {
+            return Ok(new McpChargeResponse(
+                "deny",
+                gateToken.CallsUsed,
+                gateToken.SatsUsed,
+                Reason: "tool_inactive"));
+        }
+
+        if (req.CallCostSats < tool.MinCostSats)
+            return BadRequest($"callCostSats must be at least {tool.MinCostSats} for this tool");
+
+        if (tool.MaxCostSats > 0 && req.CallCostSats > tool.MaxCostSats)
+            return BadRequest($"callCostSats must be no more than {tool.MaxCostSats} for this tool");
+
+        var idempotencyKey = string.IsNullOrWhiteSpace(req.IdempotencyKey)
+            ? null
+            : req.IdempotencyKey.Trim();
+
+        if (idempotencyKey != null)
+        {
+            var existing = await _db.McpToolRevenueEvents
+                .Where(e => e.McpToolId == tool.Id && e.IdempotencyKey == idempotencyKey)
+                .FirstOrDefaultAsync(ct);
+
+            if (existing != null)
+            {
+                return Ok(new McpChargeResponse(
+                    "ok",
+                    gateToken.CallsUsed,
+                    gateToken.SatsUsed,
+                    existing.GrossSats,
+                    existing.PlatformFeeSats,
+                    existing.NetSats,
+                    existing.FeeBasisPoints,
+                    existing.Id));
+            }
+        }
+
+        var budgetResult = ApplyBudgetCharge(gateToken, project, req.CallCostSats);
+        if (budgetResult.Status != "ok")
+            return Ok(budgetResult);
+
+        var fee = CalculatePlatformFee(req.CallCostSats);
+        var metadataJson = req.Metadata.HasValue
+            ? JsonSerializer.Serialize(req.Metadata.Value)
+            : null;
+
+        var revenueEvent = new McpToolRevenueEvent
+        {
+            McpToolId = tool.Id,
+            McpGateTokenId = gateToken.Id,
+            McpGateSessionId = gateToken.SessionId,
+            PayingProjectId = project.Id,
+            AgentId = string.IsNullOrWhiteSpace(req.AgentId) ? null : req.AgentId.Trim(),
+            ToolMethodName = string.IsNullOrWhiteSpace(req.ToolMethodName)
+                ? tool.Slug
+                : req.ToolMethodName.Trim(),
+            GrossSats = req.CallCostSats,
+            PlatformFeeSats = fee.PlatformFeeSats,
+            NetSats = fee.NetSats,
+            FeeBasisPoints = fee.FeeBasisPoints,
+            Status = "Charged",
+            IdempotencyKey = idempotencyKey,
+            RequestId = HttpContext.TraceIdentifier,
+            MetadataJson = metadataJson,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.McpToolRevenueEvents.Add(revenueEvent);
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new McpChargeResponse(
+            "ok",
+            gateToken.CallsUsed,
+            gateToken.SatsUsed,
+            revenueEvent.GrossSats,
+            revenueEvent.PlatformFeeSats,
+            revenueEvent.NetSats,
+            revenueEvent.FeeBasisPoints,
+            revenueEvent.Id));
     }
 
     [HttpGet("usage")]
@@ -700,9 +762,80 @@ public class McpGateController : ControllerBase
         );
     }
 
+    private async Task<(McpChargeContext? Context, IActionResult? Error)> TryGetChargeContextAsync(CancellationToken ct)
+    {
+        var projectIdStr = User.FindFirst("projectId")?.Value;
+        var jti = User.FindFirst("jti")?.Value;
+
+        if (string.IsNullOrWhiteSpace(projectIdStr) || string.IsNullOrWhiteSpace(jti))
+            return (null, Unauthorized("Missing projectId/jti"));
+
+        if (!Guid.TryParse(projectIdStr, out var projectId))
+            return (null, Unauthorized("Invalid projectId"));
+
+        var gateToken = await _db.McpGateTokens
+            .Where(t => t.ProjectId == projectId && t.JwtId == jti && t.Status == "active")
+            .FirstOrDefaultAsync(ct);
+
+        if (gateToken == null) return (null, Unauthorized("Unknown token"));
+        if (gateToken.ExpiresAt < DateTime.UtcNow) return (null, Unauthorized("Token expired"));
+
+        var project = await _db.Projects
+            .Where(p => p.Id == gateToken.ProjectId && p.IsActive)
+            .FirstOrDefaultAsync(ct);
+
+        if (project == null) return (null, Forbid("Project not active"));
+
+        if (gateToken.DayWindowStart.Date != DateTime.UtcNow.Date)
+        {
+            gateToken.DayWindowStart = DateTime.UtcNow.Date;
+            gateToken.SatsUsed = 0;
+            gateToken.CallsUsed = 0;
+        }
+
+        return (new McpChargeContext(gateToken, project), null);
+    }
+
+    private static McpChargeResponse ApplyBudgetCharge(McpGateToken gateToken, Project project, int callCostSats)
+    {
+        if (project.L402BalanceSats >= callCostSats)
+        {
+            project.L402BalanceSats -= callCostSats;
+            gateToken.CallsUsed += 1;
+            gateToken.SatsUsed += callCostSats;
+            return new McpChargeResponse("ok", gateToken.CallsUsed, gateToken.SatsUsed);
+        }
+
+        if (gateToken.SatsUsed + callCostSats > gateToken.MaxSatsPerDay)
+        {
+            return new McpChargeResponse(
+                "deny",
+                gateToken.CallsUsed,
+                gateToken.SatsUsed,
+                Reason: "budget_exceeded");
+        }
+
+        gateToken.CallsUsed += 1;
+        gateToken.SatsUsed += callCostSats;
+
+        return new McpChargeResponse("ok", gateToken.CallsUsed, gateToken.SatsUsed);
+    }
+
+    private static (int PlatformFeeSats, int NetSats, int FeeBasisPoints) CalculatePlatformFee(int grossSats)
+    {
+        const int feeBasisPoints = 500;
+        var platformFeeSats = grossSats > 0
+            ? Math.Max(1, grossSats * feeBasisPoints / 10_000)
+            : 0;
+
+        return (platformFeeSats, grossSats - platformFeeSats, feeBasisPoints);
+    }
+
     private readonly record struct McpProjectConfig(
         int SatsPerCall,
         int InvoiceCallCredits,
         long MaxSatsPerDay,
         int MaxCallsPerMinute);
+
+    private sealed record McpChargeContext(McpGateToken GateToken, Project Project);
 }

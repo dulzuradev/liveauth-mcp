@@ -148,13 +148,13 @@ See it in action at [docs.liveauth.app/demo.html](https://docs.liveauth.app/demo
 
 ---
 
-## L402 for AI Agents
+## MCP Tools for AI Agents
 
-For AI agent tool calls (MCP integration), use L402 bundle mode. Agents purchase call bundles upfront via Lightning, then invoke your tools at 0.2–0.5 sat/call. See the **Add L402 to MCP (5 min)** doc in the sidebar.
+For AI agent tool calls, use LiveAuth MCP sessions. Agents can authenticate with proof-of-work, Lightning, or an L402 bundle, then your MCP server can meter generic usage with `/api/mcp/charge` or record paid tool revenue with `/api/mcp/tools/{toolId}/charge`. See **Add LiveAuth to MCP Tools** and **MCP Gate Design** in the sidebar.
 
 ---
 
 ## Need Help?
 
-- **API Reference:** L402 Macaroon Spec, Add L402 to MCP (5 min), MCP Gate Design docs in the sidebar
+- **API Reference:** L402 Macaroon Spec, Add LiveAuth to MCP Tools, MCP Gate Design docs in the sidebar
 - **SDK Source:** [github.com/dulzuradev/liveauth-js](https://github.com/dulzuradev/liveauth-js)

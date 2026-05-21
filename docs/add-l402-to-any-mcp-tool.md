@@ -1,6 +1,6 @@
-# Add L402 to Any MCP Tool in 5 Minutes
+# Add LiveAuth to Any MCP Tool
 
-Monetize AI agent tool calls with Lightning payments. Agents purchase call bundles upfront, then invoke your tools at 0.2–0.5 sat/call.
+Monetize AI agent tool calls with LiveAuth MCP sessions. Agents can authenticate with proof-of-work, a Lightning-backed session, or an L402 bundle. Your tool server charges each call through LiveAuth and, when configured with a registered tool ID, LiveAuth records a revenue event with gross sats, platform fee, and net sats.
 
 ---
 
@@ -9,19 +9,69 @@ Monetize AI agent tool calls with Lightning payments. Agents purchase call bundl
 ```
 Agent                    LiveAuth                    Your MCP Tool
   │                           │                            │
-  │  1. POST /bundle/invoice ──►  (creates Lightning invoice)  │
-  │  ◄─ bolt11                 │                            │
-  │  2. pays invoice           │                            │
-  │  3. POST /bundle/claim ──►  │                            │
-  │  ◄─ macaroon               │                            │
-  │  4. POST /mcp/start ────────►  (presents macaroon)       │
-  │  ◄─ JWT + remaining        │                            │
-  │  5. invoke tools ──────────►  (JWT auth, no extra payment) │
+  │  1. start/confirm session ─►  (PoW, Lightning, or L402)  │
+  │  ◄─ MCP JWT                 │                            │
+  │  2. invoke MCP tool ────────────────────────────────────► │
+  │                           ◄── POST /api/mcp/tools/{id}/charge │
+  │                           ──► ok + revenueEventId         │
+  │  ◄──────────────────────────  tool result                 │
 ```
 
 ---
 
-## Step 1: Purchase a Call Bundle
+## Step 1: Obtain an MCP JWT
+
+The simplest path is proof-of-work:
+
+```bash
+curl -X POST https://api.liveauth.app/api/mcp/start \
+  -H "Content-Type: application/json" \
+  -H "X-LW-Public: la_pk_your_public_key" \
+  -d '{}'
+```
+
+The response includes a `quoteId` and `powChallenge`. Solve the challenge, then confirm:
+
+```bash
+curl -X POST https://api.liveauth.app/api/mcp/confirm \
+  -H "Content-Type: application/json" \
+  -H "X-LW-Public: la_pk_your_public_key" \
+  -d '{
+    "quoteId": "uuid",
+    "challengeHex": "abc123",
+    "nonce": 42,
+    "hashHex": "0000...",
+    "difficultyBits": 18,
+    "expiresAtUnix": 1745032800,
+    "sig": "signed-challenge"
+  }'
+```
+
+Response:
+
+```json
+{
+  "jwt": "eyJhbG...",
+  "expiresIn": 600,
+  "remainingBudgetSats": 10000,
+  "refreshToken": "refresh-token"
+}
+```
+
+You can also force a Lightning invoice:
+
+```bash
+curl -X POST https://api.liveauth.app/api/mcp/start \
+  -H "Content-Type: application/json" \
+  -H "X-LW-Public: la_pk_your_public_key" \
+  -d '{"forceLightning": true}'
+```
+
+Or use L402 bundle mode as shown below.
+
+---
+
+## Optional: Purchase an L402 Call Bundle
 
 ```bash
 # Choose a tier: starter (100 calls), growth (1k), scale (10k), enterprise (100k)
@@ -64,7 +114,7 @@ curl -X POST https://api.liveauth.app/api/public/l402/bundle/claim \
 
 ---
 
-## Step 2: Authenticate Your MCP Session
+## Optional: Authenticate With an L402 Bundle
 
 ```bash
 # Start MCP session with L402 bundle mode
@@ -77,7 +127,7 @@ curl -X POST https://api.liveauth.app/api/mcp/start \
 **Response:**
 ```json
 {
-  "sessionId": "uuid",
+  "quoteId": "uuid",
   "authHint": "l402_bundle"
 }
 ```
@@ -89,7 +139,7 @@ curl -X POST https://api.liveauth.app/api/mcp/confirm \
   -H "Content-Type: application/json" \
   -H "X-LW-Public: la_pk_your_public_key" \
   -d '{
-    "sessionId": "uuid",
+    "quoteId": "uuid",
     "macaroon": "eyJraWQiOiJsYSIsImFpZCI6ImFnZW50Ii..."
   }'
 ```
@@ -99,25 +149,112 @@ curl -X POST https://api.liveauth.app/api/mcp/confirm \
 {
   "jwt": "eyJhbG...",
   "expiresIn": 600,
-  "remainingCalls": 99,
+  "remainingBudgetSats": 99,
   "paymentStatus": "l402_paid"
 }
 ```
 
 ---
 
-## Step 3: Use the JWT for MCP Tool Calls
+## Step 2: Charge a Paid MCP Tool Call
+
+For usage metering only, call the generic endpoint:
 
 ```bash
-# Use the JWT to call MCP endpoints
-curl -H "Authorization: Bearer eyJhbG..." \
-     https://api.liveauth.app/api/mcp/charge \
-  -d '{"tool": "my-tool", "costSats": 1}'
+curl -X POST https://api.liveauth.app/api/mcp/charge \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbG..." \
+  -H "X-LW-Public: la_pk_your_public_key" \
+  -d '{"callCostSats": 1}'
 ```
 
-Each MCP tool invocation costs 1 sat (or as configured per project). The bundle tracks remaining calls automatically.
+For monetized tools, use the tool-attributed endpoint:
+
+```bash
+curl -X POST https://api.liveauth.app/api/mcp/tools/<tool-guid>/charge \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbG..." \
+  -H "X-LW-Public: la_pk_your_public_key" \
+  -d '{
+    "toolMethodName": "web_fetch",
+    "callCostSats": 5,
+    "idempotencyKey": "request-or-call-id",
+    "agentId": "optional-agent-id",
+    "metadata": {
+      "urlHost": "example.com"
+    }
+  }'
+```
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "callsUsed": 3,
+  "satsUsed": 15,
+  "grossSats": 5,
+  "platformFeeSats": 1,
+  "netSats": 4,
+  "feeBasisPoints": 500,
+  "revenueEventId": "event-guid"
+}
+```
+
+If the same `idempotencyKey` is retried for the same tool, LiveAuth returns the original charge instead of double charging. If the session budget is exhausted, the response is:
+
+```json
+{
+  "status": "deny",
+  "callsUsed": 3,
+  "satsUsed": 15,
+  "reason": "budget_exceeded"
+}
+```
+
+The v1 platform fee is 500 basis points (5%), with a 1 sat minimum fee whenever gross sats are positive.
 
 ---
+
+## Step 3: Wrap a Tool Handler With the SDK
+
+```ts
+import { createMcpGate } from '@liveauth-labs/mcp-server';
+
+const gate = createMcpGate({
+  publicKey: process.env.LIVEAUTH_PUBLIC_KEY!,
+  baseUrl: process.env.LIVEAUTH_API_URL ?? 'https://api.liveauth.app',
+  toolId: process.env.LIVEAUTH_TOOL_ID!,
+  defaultCostSats: 5,
+});
+
+const output = await gate.invoke(
+  jwtFromMcpRequest,
+  { url: 'https://example.com' },
+  async (input, context) => {
+    const html = await fetch(input.url).then(r => r.text());
+    return {
+      html,
+      charge: context.liveAuth.charge
+    };
+  },
+  { requestId: 'req_123' },
+  {
+    costSats: 5,
+    toolMethodName: 'web_fetch',
+    idempotencyKey: 'req_123',
+    metadata: { urlHost: 'example.com' }
+  }
+);
+```
+
+When `toolId` is omitted, the SDK uses `/api/mcp/charge` for backward-compatible metering. When `toolId` is present, it uses `/api/mcp/tools/{toolId}/charge` and records revenue attribution.
+
+---
+
+## Current Tool Registration Status
+
+The backend can charge registered tools and seeds a first-party `LiveAuth Web Fetch MCP` tool. Developer-facing tool CRUD and public marketplace registration are not part of this first slice yet. Until those endpoints are added, tool IDs should be provisioned by LiveAuth or seeded in the backend.
 
 ## Check Bundle Status Anytime
 
@@ -211,6 +348,6 @@ console.log('Macaroon:', claim.macaroon);
 
 ## See Also
 
-- [L402 Macaroon Spec](../L402-MACAROON-SPEC.md) — detailed macaroon format
-- [MCP LiveAuth Gate](../mcp-liveauth-gate.md) — full MCP gate design
+- [L402 Macaroon Spec](L402-MACAROON-SPEC.md) — detailed macaroon format
+- [MCP LiveAuth Gate](mcp-liveauth-gate.md) — full MCP gate design
 - [LiveAuth Dashboard](https://liveauth.app) — get API keys, view usage

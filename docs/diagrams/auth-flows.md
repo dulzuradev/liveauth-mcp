@@ -41,15 +41,28 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Agent as AI Agent
+    participant Tool as MCP Tool Server
+    participant API as LiveAuth API
+    participant DB as Revenue Ledger
+
+    Agent->>Tool: Invoke tool with MCP JWT
+    Tool->>API: POST /api/mcp/tools/{toolId}/charge
+    API->>API: Validate JWT, token, project, budget
+    API->>DB: Append McpToolRevenueEvent
+    API->>Tool: ok + callsUsed + satsUsed + revenueEventId
+    Tool->>Agent: Tool result
+    
+    Note over Tool,API: Generic metering can still call /api/mcp/charge without revenue attribution.
+```
+
+## Generic Charge Flow
+
+```mermaid
+sequenceDiagram
+    participant Agent as AI Agent
     participant MCP as MCP Server
     participant API as LiveAuth API
 
-    Agent->>MCP: Make API call (with JWT)
-    MCP->>API: Authenticated request
-    API->>API: Verify JWT
-    API->>MCP: Response
-    MCP->>Agent: API Response
-    
     Agent->>MCP: liveauth_mcp_charge(callCostSats)
     MCP->>API: POST /api/mcp/charge
     API->>API: Deduct from budget

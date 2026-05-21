@@ -67,8 +67,10 @@ The MCP server exposes tools:
 ```
 liveauth_mcp_start     → get PoW challenge or Lightning invoice
 liveauth_mcp_confirm  → submit proof, get JWT
-liveauth_mcp_charge   → meter usage (sats per call)
+liveauth_mcp_charge   → meter generic usage (sats per call)
 ```
+
+For paid MCP tools that need revenue attribution, import the SDK and configure `createMcpGate({ toolId })`. That routes charges to `/api/mcp/tools/{toolId}/charge` and records gross sats, LiveAuth platform fee, net sats, and a revenue event ID.
 
 ## How It Works
 
@@ -78,7 +80,8 @@ liveauth_mcp_charge   → meter usage (sats per call)
 │             │     │              │     │    API      │
 │ 1. Start   │     │ /api/mcp    │     │ PoW/LN     │
 │ 2. Prove   │     │ /confirm    │     │ JWT        │
-│ 3. Call    │     │ /charge     │     │ Meter      │
+│ 3. Charge  │     │ /charge     │     │ Meter      │
+│ 4. Paid    │     │ /tools/{id} │     │ Revenue    │
 └─────────────┘     └──────────────┘     └─────────────┘
 ```
 

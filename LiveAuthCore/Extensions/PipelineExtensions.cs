@@ -20,6 +20,12 @@ public static class PipelineExtensions
         
         await db.Database.EnsureCreatedAsync();
 
+        if (!db.Database.IsRelational())
+        {
+            await SeedFirstPartyMcpToolsAsync(db, app.Configuration);
+            return;
+        }
+
         // Create MCP/custom tables for existing databases
         var connection = db.Database.GetDbConnection();
         await connection.OpenAsync();
@@ -30,6 +36,8 @@ public static class PipelineExtensions
 
         // Run column migrations separately (ALTER TABLE is not idempotent in SQLite)
         await RunColumnMigrationsAsync(connection);
+
+        await SeedFirstPartyMcpToolsAsync(db, app.Configuration);
     }
 
     private static async Task RunColumnMigrationsAsync(System.Data.Common.DbConnection connection)
@@ -99,6 +107,79 @@ public static class PipelineExtensions
                 SignatureB64 TEXT NOT NULL
             )"
         );
+
+        await EnsureTableAsync(connection, "McpTools", @"
+            CREATE TABLE McpTools (
+                Id TEXT NOT NULL PRIMARY KEY,
+                DeveloperId TEXT,
+                ProjectId TEXT,
+                Name TEXT NOT NULL,
+                Slug TEXT NOT NULL,
+                Description TEXT NOT NULL,
+                Category TEXT,
+                IconUrl TEXT,
+                WebsiteUrl TEXT,
+                DocsUrl TEXT,
+                ManifestJson TEXT,
+                Status TEXT NOT NULL,
+                Visibility TEXT NOT NULL,
+                DefaultCostSats INTEGER NOT NULL,
+                MinCostSats INTEGER NOT NULL,
+                MaxCostSats INTEGER NOT NULL,
+                WebhookUrl TEXT,
+                CreatedAt TEXT NOT NULL,
+                UpdatedAt TEXT NOT NULL,
+                RemovedAt TEXT
+            )"
+        );
+
+        await EnsureTableAsync(connection, "McpToolRevenueEvents", @"
+            CREATE TABLE McpToolRevenueEvents (
+                Id TEXT NOT NULL PRIMARY KEY,
+                McpToolId TEXT NOT NULL,
+                McpGateTokenId TEXT,
+                McpGateSessionId TEXT,
+                PayingProjectId TEXT,
+                AgentId TEXT,
+                ToolMethodName TEXT NOT NULL,
+                GrossSats INTEGER NOT NULL,
+                PlatformFeeSats INTEGER NOT NULL,
+                NetSats INTEGER NOT NULL,
+                FeeBasisPoints INTEGER NOT NULL,
+                Status TEXT NOT NULL,
+                IdempotencyKey TEXT,
+                RequestId TEXT,
+                MetadataJson TEXT,
+                CreatedAt TEXT NOT NULL,
+                ReversalOfEventId TEXT
+            )"
+        );
+
+        await EnsureIndexAsync(connection, "IX_McpTools_Slug", @"
+            CREATE UNIQUE INDEX IX_McpTools_Slug
+            ON McpTools (Slug)"
+        );
+
+        await EnsureIndexAsync(connection, "IX_McpToolRevenueEvents_McpToolId_CreatedAt", @"
+            CREATE INDEX IX_McpToolRevenueEvents_McpToolId_CreatedAt
+            ON McpToolRevenueEvents (McpToolId, CreatedAt)"
+        );
+
+        await EnsureIndexAsync(connection, "IX_McpToolRevenueEvents_PayingProjectId_CreatedAt", @"
+            CREATE INDEX IX_McpToolRevenueEvents_PayingProjectId_CreatedAt
+            ON McpToolRevenueEvents (PayingProjectId, CreatedAt)"
+        );
+
+        await EnsureIndexAsync(connection, "IX_McpToolRevenueEvents_McpGateTokenId", @"
+            CREATE INDEX IX_McpToolRevenueEvents_McpGateTokenId
+            ON McpToolRevenueEvents (McpGateTokenId)"
+        );
+
+        await EnsureIndexAsync(connection, "IX_McpToolRevenueEvents_McpToolId_IdempotencyKey", @"
+            CREATE UNIQUE INDEX IX_McpToolRevenueEvents_McpToolId_IdempotencyKey
+            ON McpToolRevenueEvents (McpToolId, IdempotencyKey)
+            WHERE IdempotencyKey IS NOT NULL"
+        );
     }
 
     private static async Task EnsureTableAsync(System.Data.Common.DbConnection connection, string tableName, string createSql)
@@ -112,6 +193,51 @@ public static class PipelineExtensions
             create.CommandText = createSql;
             await create.ExecuteNonQueryAsync();
         }
+    }
+
+    private static async Task EnsureIndexAsync(System.Data.Common.DbConnection connection, string indexName, string createSql)
+    {
+        using var check = connection.CreateCommand();
+        check.CommandText = $"SELECT name FROM sqlite_master WHERE type='index' AND name='{indexName}'";
+        var result = await check.ExecuteScalarAsync();
+        if (result != null)
+            return;
+
+        using var create = connection.CreateCommand();
+        create.CommandText = createSql;
+        await create.ExecuteNonQueryAsync();
+    }
+
+    private static async Task SeedFirstPartyMcpToolsAsync(LiveAuthDbContext db, IConfiguration configuration)
+    {
+        const string webFetchSlug = "liveauth-web-fetch";
+
+        if (await db.McpTools.AnyAsync(t => t.Slug == webFetchSlug))
+            return;
+
+        Guid? projectId = null;
+        var configuredProjectId = configuration["LiveAuth:WebFetchToolProjectId"] ?? configuration["LiveAuth:DemoProjectId"];
+        if (Guid.TryParse(configuredProjectId, out var parsedProjectId))
+            projectId = parsedProjectId;
+
+        db.McpTools.Add(new LiveAuthCore.Data.Entities.Mcp.McpTool
+        {
+            Id = Guid.Parse("00000000-0000-0000-0000-000000000005"),
+            ProjectId = projectId,
+            Name = "LiveAuth Web Fetch MCP",
+            Slug = webFetchSlug,
+            Description = "First-party paid MCP web fetch tool for demonstrating LiveAuth tool monetization.",
+            Category = "web",
+            Status = "Active",
+            Visibility = "Unlisted",
+            DefaultCostSats = 5,
+            MinCostSats = 1,
+            MaxCostSats = 0,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync();
     }
 
     /// <summary>

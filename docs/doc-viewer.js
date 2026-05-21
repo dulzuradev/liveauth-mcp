@@ -5,7 +5,7 @@
   const MARKDOWN_FILES = [
     { path: 'GETTING-STARTED.md',           title: 'Getting Started',        icon: 'rocket_launch' },
     { path: 'L402-MACAROON-SPEC.md',       title: 'L402 Macaroon Spec',     icon: 'vpn_key' },
-    { path: 'add-l402-to-any-mcp-tool.md', title: 'Add L402 to MCP (5 min)', icon: 'bolt' },
+    { path: 'add-l402-to-any-mcp-tool.md', title: 'Add LiveAuth to MCP Tools', icon: 'bolt' },
     { path: 'mcp-liveauth-gate.md',        title: 'MCP Gate Design',        icon: 'hub' },
     { path: 'demo.html',                   title: 'Live Demo',              icon: 'play_arrow' },
   ];
