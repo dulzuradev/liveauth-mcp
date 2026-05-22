@@ -7,6 +7,7 @@ using System.Text;
 using FluentAssertions;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
+using LiveAuthCore.Data.Entities.Mcp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Xunit;
@@ -104,6 +105,74 @@ public class DeveloperMcpToolsControllerTests : IClassFixture<LiveAuthWebApplica
         getDeleted.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task PaidStarterKitFlow_RegistersToolChargesCallAndShowsRevenue()
+    {
+        var seed = await SeedDeveloperProjectAsync();
+        Authorize(seed.DeveloperId);
+
+        var create = await _client.PostAsJsonAsync("/api/dev/mcp-tools", new
+        {
+            projectId = seed.ProjectId,
+            name = "Acceptance Paid Tool",
+            slug = $"acceptance-{Guid.NewGuid():N}",
+            description = "End-to-end paid MCP acceptance tool",
+            visibility = "Unlisted",
+            status = "Active",
+            defaultCostSats = 7,
+            minCostSats = 1,
+            maxCostSats = 20
+        });
+
+        create.StatusCode.Should().Be(HttpStatusCode.Created);
+        var tool = (await create.Content.ReadFromJsonAsync<McpToolResponse>())!;
+
+        var jwtId = Guid.NewGuid().ToString("N");
+        await SeedMcpSessionAsync(seed.ProjectId, jwtId);
+
+        var charge = new HttpRequestMessage(HttpMethod.Post, $"/api/mcp/tools/{tool.Id}/charge")
+        {
+            Content = JsonContent.Create(new
+            {
+                toolMethodName = "acceptance_paid_tool",
+                callCostSats = 7,
+                idempotencyKey = $"acceptance-{Guid.NewGuid():N}",
+                metadata = new { operation = "acceptance" }
+            })
+        };
+        charge.Headers.Authorization = new AuthenticationHeaderValue("Bearer", CreateMcpJwt(seed.ProjectId, jwtId));
+
+        var chargeResponse = await _client.SendAsync(charge);
+
+        chargeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var chargeBody = await chargeResponse.Content.ReadFromJsonAsync<McpChargeResponse>();
+        chargeBody.Should().NotBeNull();
+        chargeBody!.Status.Should().Be("ok");
+        chargeBody.GrossSats.Should().Be(7);
+        chargeBody.PlatformFeeSats.Should().Be(1);
+        chargeBody.NetSats.Should().Be(6);
+        chargeBody.RevenueEventId.Should().NotBeNull();
+
+        Authorize(seed.DeveloperId);
+        var summary = await _client.GetFromJsonAsync<McpRevenueSummaryResponse>(
+            $"/api/dev/mcp-tools/{tool.Id}/revenue?windowHours=24");
+
+        summary.Should().NotBeNull();
+        summary!.Calls.Should().Be(1);
+        summary.GrossSats.Should().Be(7);
+        summary.PlatformFeeSats.Should().Be(1);
+        summary.NetSats.Should().Be(6);
+
+        var events = await _client.GetFromJsonAsync<McpRevenueEventsResponse>(
+            $"/api/dev/mcp-tools/{tool.Id}/revenue/events?limit=10");
+
+        events.Should().NotBeNull();
+        events!.Events.Should().ContainSingle(e =>
+            e.Id == chargeBody.RevenueEventId &&
+            e.ToolMethodName == "acceptance_paid_tool" &&
+            e.GrossSats == 7);
+    }
+
     private async Task<(Guid DeveloperId, Guid ProjectId)> SeedDeveloperProjectAsync()
     {
         var developerId = Guid.NewGuid();
@@ -134,6 +203,40 @@ public class DeveloperMcpToolsControllerTests : IClassFixture<LiveAuthWebApplica
         return (developerId, projectId);
     }
 
+    private async Task SeedMcpSessionAsync(Guid projectId, string jwtId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        var sessionId = Guid.NewGuid();
+
+        db.McpGateSessions.Add(new McpGateSession
+        {
+            Id = sessionId,
+            ProjectId = projectId,
+            SatsPerCallAtStart = 7,
+            Status = "confirmed",
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(10)
+        });
+
+        db.McpGateTokens.Add(new McpGateToken
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = projectId,
+            SessionId = sessionId,
+            JwtId = jwtId,
+            IssuedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+            MaxSatsPerDay = 100,
+            MaxCallsPerMinute = 60,
+            DayWindowStart = DateTime.UtcNow.Date,
+            Status = "active",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+    }
+
     private void Authorize(Guid developerId)
     {
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateJwt(developerId));
@@ -157,6 +260,25 @@ public class DeveloperMcpToolsControllerTests : IClassFixture<LiveAuthWebApplica
         return new JwtSecurityTokenHandler().CreateEncodedJwt(descriptor);
     }
 
+    private static string CreateMcpJwt(Guid projectId, string jwtId)
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestJwtKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var descriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(new[]
+            {
+                new Claim("projectId", projectId.ToString()),
+                new Claim("jti", jwtId),
+                new Claim(ClaimTypes.Role, "McpClient")
+            }),
+            Expires = DateTime.UtcNow.AddMinutes(10),
+            SigningCredentials = credentials
+        };
+
+        return new JwtSecurityTokenHandler().CreateEncodedJwt(descriptor);
+    }
+
     private sealed record McpToolResponse(
         Guid Id,
         Guid? DeveloperId,
@@ -169,4 +291,32 @@ public class DeveloperMcpToolsControllerTests : IClassFixture<LiveAuthWebApplica
         int DefaultCostSats,
         int MinCostSats,
         int MaxCostSats);
+
+    private sealed record McpChargeResponse(
+        string Status,
+        long CallsUsed,
+        long SatsUsed,
+        int? GrossSats,
+        int? PlatformFeeSats,
+        int? NetSats,
+        Guid? RevenueEventId);
+
+    private sealed record McpRevenueSummaryResponse(
+        Guid ToolId,
+        int WindowHours,
+        long Calls,
+        long GrossSats,
+        long PlatformFeeSats,
+        long NetSats);
+
+    private sealed record McpRevenueEventsResponse(
+        Guid ToolId,
+        IReadOnlyList<McpRevenueEventResponse> Events);
+
+    private sealed record McpRevenueEventResponse(
+        Guid Id,
+        string ToolMethodName,
+        int GrossSats,
+        int PlatformFeeSats,
+        int NetSats);
 }
