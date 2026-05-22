@@ -459,6 +459,143 @@
   </div>
 
   <!-- ============================================
+       MCP TOOL REVENUE
+       ============================================ -->
+  <div class="mcp-revenue-section" *ngIf="loggedIn && mcpTools && mcpTools.length > 0">
+    <div class="section-divider">
+      <h2 class="gradient-text">MCP Tool Revenue</h2>
+    </div>
+
+    <div class="mcp-revenue-shell">
+      <div class="mcp-tool-panel mcp-settings-panel">
+        <div class="panel-title-row">
+          <div>
+            <h4>Tools</h4>
+            <span>{{ mcpTools.length }} visible</span>
+          </div>
+          <button
+            pButton
+            class="p-button-text p-button-sm"
+            icon="pi pi-refresh"
+            pTooltip="Refresh revenue"
+            (click)="loadMcpTools()"
+            [loading]="loadingMcpTools">
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="mcp-tool-row"
+          *ngFor="let tool of mcpTools"
+          [class.selected]="tool.id === selectedMcpToolId"
+          (click)="selectMcpTool(tool)">
+          <span>
+            <strong>{{ tool.name }}</strong>
+            <small>{{ tool.slug }}</small>
+          </span>
+          <p-tag
+            [value]="getMcpToolScopeLabel(tool)"
+            [severity]="tool.projectId ? 'info' : 'warn'">
+          </p-tag>
+        </button>
+      </div>
+
+      <div class="mcp-revenue-panel mcp-settings-panel">
+        <div class="mcp-revenue-header">
+          <div>
+            <h3>{{ selectedMcpTool?.name || 'MCP Tool' }}</h3>
+            <p>{{ selectedMcpTool?.description || 'Revenue attribution for paid MCP calls.' }}</p>
+          </div>
+
+          <div class="mcp-range-buttons">
+            <button pButton class="p-button-text p-button-sm"
+                    [ngClass]="{ 'p-button-secondary': mcpRevenueRange === '1h' }"
+                    (click)="onMcpRevenueRangeChange('1h')">1h</button>
+            <button pButton class="p-button-text p-button-sm"
+                    [ngClass]="{ 'p-button-secondary': mcpRevenueRange === '24h' }"
+                    (click)="onMcpRevenueRangeChange('24h')">24h</button>
+            <button pButton class="p-button-text p-button-sm"
+                    [ngClass]="{ 'p-button-secondary': mcpRevenueRange === '7d' }"
+                    (click)="onMcpRevenueRangeChange('7d')">7d</button>
+          </div>
+        </div>
+
+        <div class="mcp-revenue-meta" *ngIf="selectedMcpTool">
+          <p-tag
+            [value]="selectedMcpTool.status"
+            [severity]="getMcpToolStatusSeverity(selectedMcpTool.status)">
+          </p-tag>
+          <span>{{ selectedMcpTool.defaultCostSats | number }} sats default</span>
+          <span>{{ mcpWindowLabel }}</span>
+        </div>
+
+        <div class="usage-stats mcp-stats" *ngIf="mcpRevenue">
+          <div class="stat">
+            <div class="stat-value">{{ mcpRevenue.calls | number }}</div>
+            <div class="stat-label">Calls</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">{{ mcpRevenue.grossSats | number }}</div>
+            <div class="stat-label">Gross Sats</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">{{ mcpRevenue.platformFeeSats | number }}</div>
+            <div class="stat-label">Platform Fee</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">{{ mcpRevenue.netSats | number }}</div>
+            <div class="stat-label">Net Sats</div>
+          </div>
+        </div>
+
+        <div class="mcp-empty-state" *ngIf="loadingMcpRevenue">
+          Loading MCP revenue...
+        </div>
+
+        <div class="mcp-events-table" *ngIf="mcpRevenueEvents && mcpRevenueEvents.length > 0">
+          <p-table [value]="mcpRevenueEvents" [paginator]="true" [rows]="5">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Time</th>
+                <th>Method</th>
+                <th>Gross</th>
+                <th>Fee</th>
+                <th>Net</th>
+                <th>Status</th>
+                <th>Metadata</th>
+              </tr>
+            </ng-template>
+            <ng-template let-event pTemplate="body">
+              <tr>
+                <td>{{ event.createdAt | localTime }}</td>
+                <td><code>{{ event.toolMethodName }}</code></td>
+                <td>{{ event.grossSats | number }}</td>
+                <td>{{ event.platformFeeSats | number }}</td>
+                <td>{{ event.netSats | number }}</td>
+                <td>
+                  <p-tag
+                    [value]="event.status"
+                    [severity]="event.status === 'Charged' ? 'success' : 'warn'">
+                  </p-tag>
+                </td>
+                <td>
+                  <span class="metadata-label" [title]="event.metadataJson || ''">
+                    {{ getMcpRevenueMetadataLabel(event) }}
+                  </span>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+
+        <div class="mcp-empty-state" *ngIf="mcpRevenueEvents && mcpRevenueEvents.length === 0 && !loadingMcpRevenue">
+          No revenue events recorded yet.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
        CREATE PROJECT SECTION (logged in, has projects)
        ============================================ -->
   <div class="create-project-section" *ngIf="loggedIn && projects.length > 0">

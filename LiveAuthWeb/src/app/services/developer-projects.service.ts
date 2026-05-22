@@ -151,6 +151,65 @@ export interface CreateSubscriptionInvoiceResponse {
   expiresAtUnix: number;
 }
 
+export interface McpToolDto {
+  id: string;
+  developerId?: string | null;
+  projectId?: string | null;
+  name: string;
+  slug: string;
+  description: string;
+  category?: string | null;
+  status: string;
+  visibility: string;
+  defaultCostSats: number;
+  minCostSats: number;
+  maxCostSats: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface McpToolListResponse {
+  tools: McpToolDto[];
+}
+
+export interface McpToolRevenueSummaryResponse {
+  toolId: string;
+  toolName: string;
+  toolStatus: string;
+  windowHours: number;
+  calls: number;
+  grossSats: number;
+  platformFeeSats: number;
+  netSats: number;
+  averageGrossSatsPerCall: number;
+}
+
+export interface McpToolRevenueEventDto {
+  id: string;
+  mcpToolId: string;
+  mcpGateTokenId?: string | null;
+  mcpGateSessionId?: string | null;
+  payingProjectId?: string | null;
+  agentId?: string | null;
+  toolMethodName: string;
+  grossSats: number;
+  platformFeeSats: number;
+  netSats: number;
+  feeBasisPoints: number;
+  status: string;
+  idempotencyKey?: string | null;
+  requestId?: string | null;
+  metadataJson?: string | null;
+  createdAt: string;
+  reversalOfEventId?: string | null;
+}
+
+export interface McpToolRevenueEventsResponse {
+  toolId: string;
+  limit: number;
+  events: McpToolRevenueEventDto[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class DeveloperProjectsService {
     private baseUrl = BASE_API_URL;
@@ -356,6 +415,46 @@ export class DeveloperProjectsService {
       `${this.baseUrl}/api/dev/billing/subscribe`,
       req,
       this.devAuth.authHeaders()
+    );
+  }
+
+  listMcpTools(): Observable<McpToolListResponse> {
+    return this.http.get<McpToolListResponse>(
+      `${this.baseUrl}/api/dev/mcp-tools`,
+      this.devAuth.authHeaders()
+    );
+  }
+
+  getMcpToolRevenue(
+    toolId: string,
+    range: '1h' | '24h' | '7d'
+  ): Observable<McpToolRevenueSummaryResponse> {
+    const params = new HttpParams().set(
+      'windowHours',
+      this.mapRangeToWindowHours(range).toString()
+    );
+
+    return this.http.get<McpToolRevenueSummaryResponse>(
+      `${this.baseUrl}/api/dev/mcp-tools/${toolId}/revenue`,
+      {
+        params,
+        ...this.devAuth.authHeaders()
+      }
+    );
+  }
+
+  getMcpToolRevenueEvents(
+    toolId: string,
+    limit: number = 50
+  ): Observable<McpToolRevenueEventsResponse> {
+    const params = new HttpParams().set('limit', limit.toString());
+
+    return this.http.get<McpToolRevenueEventsResponse>(
+      `${this.baseUrl}/api/dev/mcp-tools/${toolId}/revenue/events`,
+      {
+        params,
+        ...this.devAuth.authHeaders()
+      }
     );
   }
 }

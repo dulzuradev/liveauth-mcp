@@ -3,12 +3,11 @@ namespace LiveAuthCore.Tests;
 using LiveAuthCore.Data;
 using LiveAuthCore.Tests.Mocks;
 using LiveAuthCore.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -73,10 +72,12 @@ public class LiveAuthWebApplicationFactory : WebApplicationFactory<Program>
             if (descriptor != null)
                 services.Remove(descriptor);
 
-            // Add in-memory database
+            // Add in-memory database. Keep one database name for this factory instance
+            // so test setup scopes and the TestServer app see the same seeded data.
+            var databaseName = $"LiveAuthTestDb_{Guid.NewGuid():N}";
             services.AddDbContext<LiveAuthDbContext>(options =>
             {
-                options.UseInMemoryDatabase($"LiveAuthTestDb_{Guid.NewGuid():N}");
+                options.UseInMemoryDatabase(databaseName);
             });
 
             // Remove real Lightning service and add mock
@@ -85,19 +86,18 @@ public class LiveAuthWebApplicationFactory : WebApplicationFactory<Program>
             
             services.AddSingleton<LightningService, MockLightningService>();
 
-            // Configure JWT authentication for testing
-            services.AddAuthentication("Bearer")
-                .AddJwtBearer("Bearer", options =>
+            // Configure the app's existing Bearer scheme for test-issued JWTs.
+            services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    options.TokenValidationParameters = new TokenValidationParameters
-                    {
-                        ValidateIssuer = false,
-                        ValidateAudience = false,
-                        ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestJwtKey))
-                    };
-                });
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestJwtKey))
+                };
+            });
             
             services.AddAuthorization();
 

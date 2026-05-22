@@ -268,6 +268,20 @@ For example, a 5 sat call records a 1 sat platform fee and 4 sats net.
 
 ---
 
+## Revenue Visibility
+
+Developer JWTs can query read-only MCP tool revenue through the developer API:
+
+```http
+GET /api/dev/mcp-tools
+GET /api/dev/mcp-tools/{toolId}/revenue?windowHours=24
+GET /api/dev/mcp-tools/{toolId}/revenue/events?limit=50
+```
+
+The dashboard uses these endpoints to show visible tools, gross sats, LiveAuth platform fees, developer net sats, call count, and recent revenue events. Non-admin developers only see tools they own directly or through one of their projects; admins can see first-party tools such as LiveAuth Web Fetch MCP.
+
+---
+
 ## Tool Model
 
 Registered MCP tools are stored as `McpTool` records with:

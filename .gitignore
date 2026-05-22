@@ -6,3 +6,4 @@ obj/
 LiveAuthCore/Services/liveAuth_key
 LiveAuthCore/Services/liveAuth_key.pub
 examples/liveauth-mcp-server/node_modules
+examples/paid-web-fetch-mcp/node_modules

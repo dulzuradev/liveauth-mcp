@@ -27,7 +27,10 @@ import {
   ProjectApiKeyDto,
   CreateApiKeyResponse,
   WebhookEventDto,
-  ProjectUsageResponse
+  ProjectUsageResponse,
+  McpToolDto,
+  McpToolRevenueEventDto,
+  McpToolRevenueSummaryResponse
 } from '../../../services/developer-projects.service';
 
 import {
@@ -193,6 +196,15 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   webhooks: WebhookEventDto[] | null = null;
   loadingWebhooks = false;
 
+  // MCP tool revenue dashboard
+  mcpTools: McpToolDto[] | null = null;
+  selectedMcpToolId = '';
+  mcpRevenue: McpToolRevenueSummaryResponse | null = null;
+  mcpRevenueEvents: McpToolRevenueEventDto[] | null = null;
+  mcpRevenueRange: '1h' | '24h' | '7d' = '24h';
+  loadingMcpTools = false;
+  loadingMcpRevenue = false;
+
   // Tabs
   _projectDialogTab: 'overview' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' = 'overview';
   timeRange: '1h' | '24h' | '7d' = '24h';
@@ -202,6 +214,17 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
       case '1h':  return 1;
       case '7d':  return 24 * 7;
       default:    return 24;
+    }
+  }
+
+  get mcpWindowLabel(): string {
+    switch (this.mcpRevenueRange) {
+      case '1h':
+        return 'Last 1 hour';
+      case '7d':
+        return 'Last 7 days';
+      default:
+        return 'Last 24 hours';
     }
   }
 
@@ -478,6 +501,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
         this.devAuth.clearToken();
         this.loggedIn = false;
         this.projects = [];
+        this.resetMcpRevenueState();
         this.loginSession = undefined;
         this.stopPolling();
         this.stopCountdown();
@@ -487,6 +511,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
         this.devAuth.clearToken();
         this.loggedIn = false;
         this.projects = [];
+        this.resetMcpRevenueState();
         this.loginSession = undefined;
         this.stopPolling();
         this.stopCountdown();
@@ -613,6 +638,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
         this.projects = res.projects ?? [];
         this.selectedProject = this.projects.find(p => p.projectId == this.selectedProject?.projectId) ?? null;
         this.loading = false;
+        this.loadMcpTools();
         // Mark onboarding complete if user has projects
         if (this.projects.length > 0) {
           this.hasCompletedOnboarding = true;
@@ -623,6 +649,119 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
         this.error = this.extractErrorMessage(err) || 'Failed to load projects.';
       }
     });
+  }
+
+  private resetMcpRevenueState(): void {
+    this.mcpTools = null;
+    this.selectedMcpToolId = '';
+    this.mcpRevenue = null;
+    this.mcpRevenueEvents = null;
+    this.loadingMcpTools = false;
+    this.loadingMcpRevenue = false;
+  }
+
+  loadMcpTools(): void {
+    this.loadingMcpTools = true;
+
+    this.devService.listMcpTools().subscribe({
+      next: (res) => {
+        this.mcpTools = res.tools ?? [];
+        this.loadingMcpTools = false;
+
+        if (!this.mcpTools.length) {
+          this.selectedMcpToolId = '';
+          this.mcpRevenue = null;
+          this.mcpRevenueEvents = null;
+          return;
+        }
+
+        const selectedStillVisible = this.mcpTools.some(t => t.id === this.selectedMcpToolId);
+        if (!selectedStillVisible) {
+          this.selectedMcpToolId = this.mcpTools[0].id;
+        }
+
+        this.loadMcpRevenue();
+      },
+      error: (err) => {
+        this.loadingMcpTools = false;
+        this.mcpTools = [];
+        console.warn('Failed to load MCP tools:', err);
+      }
+    });
+  }
+
+  selectMcpTool(tool: McpToolDto): void {
+    if (this.selectedMcpToolId === tool.id) return;
+    this.selectedMcpToolId = tool.id;
+    this.loadMcpRevenue();
+  }
+
+  onMcpRevenueRangeChange(range: '1h' | '24h' | '7d'): void {
+    this.mcpRevenueRange = range;
+    this.loadMcpRevenue();
+  }
+
+  private loadMcpRevenue(): void {
+    if (!this.selectedMcpToolId) return;
+
+    this.loadingMcpRevenue = true;
+    this.error = undefined;
+
+    this.devService.getMcpToolRevenue(this.selectedMcpToolId, this.mcpRevenueRange).subscribe({
+      next: (res) => {
+        this.mcpRevenue = res;
+        this.loadingMcpRevenue = false;
+      },
+      error: (err) => {
+        this.loadingMcpRevenue = false;
+        this.mcpRevenue = null;
+        this.error = this.extractErrorMessage(err) || 'Failed to load MCP tool revenue.';
+      }
+    });
+
+    this.devService.getMcpToolRevenueEvents(this.selectedMcpToolId, 50).subscribe({
+      next: (res) => {
+        this.mcpRevenueEvents = res.events ?? [];
+      },
+      error: (err) => {
+        this.mcpRevenueEvents = [];
+        console.warn('Failed to load MCP revenue events:', err);
+      }
+    });
+  }
+
+  get selectedMcpTool(): McpToolDto | null {
+    return this.mcpTools?.find(t => t.id === this.selectedMcpToolId) ?? null;
+  }
+
+  getMcpToolScopeLabel(tool: McpToolDto): string {
+    if (tool.projectId) return 'Project tool';
+    if (tool.developerId) return 'Developer tool';
+    return 'First-party';
+  }
+
+  getMcpToolStatusSeverity(status: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
+    switch ((status || '').toLowerCase()) {
+      case 'active':
+        return 'success';
+      case 'paused':
+        return 'warn';
+      case 'removed':
+        return 'danger';
+      default:
+        return 'info';
+    }
+  }
+
+  getMcpRevenueMetadataLabel(event: McpToolRevenueEventDto): string {
+    if (!event.metadataJson) return '—';
+
+    try {
+      const metadata = JSON.parse(event.metadataJson);
+      return metadata.urlHost || metadata.host || metadata.url || event.metadataJson;
+    } catch {
+      return event.metadataJson;
+    }
   }
 
   createProject() {

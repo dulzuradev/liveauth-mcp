@@ -575,6 +575,58 @@
   min-width: 90px;
 }
 
+.mcp-revenue-shell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.mcp-tool-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mcp-tool-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.mcp-tool-row:hover,
+.mcp-tool-row.selected {
+  border-color: rgba(242, 169, 0, 0.45);
+}
+
+.mcp-tool-row small {
+  display: block;
+  color: var(--text-muted);
+}
+
+.mcp-revenue-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.mcp-revenue-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+  color: var(--text-muted);
+}
+
 /* ============================================
    Empty State
    ============================================ */
@@ -1182,6 +1234,14 @@
     grid-template-columns: repeat(2, 1fr);
   }
 
+  .mcp-revenue-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .mcp-revenue-header {
+    flex-direction: column;
+  }
+
   .dashboard-stats {
     grid-template-columns: 1fr;
   }
@@ -1241,6 +1301,7 @@
   .usage-stats.mcp-stats {
     grid-template-columns: 1fr;
   }
+
 }
 
 /* Usage Tab Styles */
