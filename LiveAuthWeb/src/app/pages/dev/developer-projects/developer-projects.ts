@@ -30,7 +30,8 @@ import {
   ProjectUsageResponse,
   McpToolDto,
   McpToolRevenueEventDto,
-  McpToolRevenueSummaryResponse
+  McpToolRevenueSummaryResponse,
+  CreateMcpToolRequest
 } from '../../../services/developer-projects.service';
 
 import {
@@ -63,6 +64,22 @@ export interface ProjectSettingsForm {
   useCustomNode: boolean;
   lndBaseUrl: string;
   lndMacaroon: string;
+}
+
+export interface McpToolForm {
+  projectId: string;
+  name: string;
+  slug: string;
+  description: string;
+  category: string;
+  visibility: 'Private' | 'Unlisted' | 'Public';
+  status: 'Draft' | 'Active' | 'Paused';
+  defaultCostSats: number | null;
+  minCostSats: number | null;
+  maxCostSats: number | null;
+  websiteUrl: string;
+  docsUrl: string;
+  webhookUrl: string;
 }
 
 @Component({
@@ -204,6 +221,11 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   mcpRevenueRange: '1h' | '24h' | '7d' = '24h';
   loadingMcpTools = false;
   loadingMcpRevenue = false;
+  showMcpToolDialog = false;
+  editingMcpTool: McpToolDto | null = null;
+  savingMcpTool = false;
+  copiedMcpSnippet = false;
+  mcpToolForm: McpToolForm = this.createEmptyMcpToolForm();
 
   // Tabs
   _projectDialogTab: 'overview' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' = 'overview';
@@ -732,6 +754,162 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
 
   get selectedMcpTool(): McpToolDto | null {
     return this.mcpTools?.find(t => t.id === this.selectedMcpToolId) ?? null;
+  }
+
+  get mcpToolIntegrationSnippet(): string {
+    const tool = this.selectedMcpTool;
+    const project = this.projects.find(p => p.projectId === tool?.projectId) ?? this.projects[0];
+    const publicKey = project?.publicKey || 'la_pk_your_project_public_key';
+    const toolId = tool?.id || 'your-tool-id';
+    const methodName = (tool?.slug || 'my_tool').replace(/-/g, '_');
+    const cost = tool?.defaultCostSats || 1;
+
+    return `import { createMcpGate } from '@liveauth-labs/mcp-server';
+
+const gate = createMcpGate({
+  publicKey: process.env.LIVEAUTH_PUBLIC_KEY ?? '${publicKey}',
+  baseUrl: process.env.LIVEAUTH_API_URL ?? 'https://api.liveauth.app',
+  toolId: process.env.LIVEAUTH_TOOL_ID ?? '${toolId}',
+  defaultCostSats: ${cost},
+});
+
+const result = await gate.invoke(
+  liveAuthJwt,
+  input,
+  async (args) => runYourTool(args),
+  { requestId },
+  {
+    costSats: ${cost},
+    toolMethodName: '${methodName}',
+    idempotencyKey: requestId,
+    metadata: { operation: '${methodName}' },
+  }
+);`;
+  }
+
+  openCreateMcpToolDialog(): void {
+    this.editingMcpTool = null;
+    this.mcpToolForm = this.createEmptyMcpToolForm();
+    this.showMcpToolDialog = true;
+  }
+
+  openEditMcpToolDialog(tool: McpToolDto): void {
+    if (!tool.developerId) return;
+
+    this.editingMcpTool = tool;
+    this.mcpToolForm = {
+      projectId: tool.projectId ?? '',
+      name: tool.name,
+      slug: tool.slug,
+      description: tool.description ?? '',
+      category: tool.category ?? '',
+      visibility: (tool.visibility as McpToolForm['visibility']) || 'Private',
+      status: (tool.status === 'Removed' ? 'Paused' : tool.status as McpToolForm['status']) || 'Draft',
+      defaultCostSats: tool.defaultCostSats,
+      minCostSats: tool.minCostSats,
+      maxCostSats: tool.maxCostSats,
+      websiteUrl: tool.websiteUrl ?? '',
+      docsUrl: tool.docsUrl ?? '',
+      webhookUrl: tool.webhookUrl ?? ''
+    };
+    this.showMcpToolDialog = true;
+  }
+
+  saveMcpTool(): void {
+    this.error = undefined;
+    const req = this.buildMcpToolRequest();
+    if (!req) return;
+
+    this.savingMcpTool = true;
+    const request$ = this.editingMcpTool
+      ? this.devService.updateMcpTool(this.editingMcpTool.id, req)
+      : this.devService.createMcpTool(req as CreateMcpToolRequest);
+
+    request$.subscribe({
+      next: (tool) => {
+        this.savingMcpTool = false;
+        this.showMcpToolDialog = false;
+        this.selectedMcpToolId = tool.id;
+        this.loadMcpTools();
+      },
+      error: (err) => {
+        this.savingMcpTool = false;
+        this.error = this.extractErrorMessage(err) || 'Failed to save MCP tool.';
+      }
+    });
+  }
+
+  deleteMcpTool(tool: McpToolDto): void {
+    if (!tool.developerId) return;
+    if (!confirm(`Delete "${tool.name}"? Existing revenue events will remain visible in the ledger.`)) return;
+
+    this.devService.deleteMcpTool(tool.id).subscribe({
+      next: () => {
+        this.selectedMcpToolId = '';
+        this.loadMcpTools();
+      },
+      error: (err) => {
+        this.error = this.extractErrorMessage(err) || 'Failed to delete MCP tool.';
+      }
+    });
+  }
+
+  copyMcpIntegrationSnippet(): void {
+    navigator.clipboard.writeText(this.mcpToolIntegrationSnippet);
+    this.copiedMcpSnippet = true;
+    setTimeout(() => (this.copiedMcpSnippet = false), 1500);
+  }
+
+  private createEmptyMcpToolForm(): McpToolForm {
+    return {
+      projectId: '',
+      name: '',
+      slug: '',
+      description: '',
+      category: '',
+      visibility: 'Private',
+      status: 'Draft',
+      defaultCostSats: 1,
+      minCostSats: 1,
+      maxCostSats: 100,
+      websiteUrl: '',
+      docsUrl: '',
+      webhookUrl: ''
+    };
+  }
+
+  private buildMcpToolRequest(): CreateMcpToolRequest | null {
+    const name = this.mcpToolForm.name.trim();
+    if (!name) {
+      this.error = 'Tool name is required.';
+      return null;
+    }
+
+    const minCostSats = Number(this.mcpToolForm.minCostSats ?? 1);
+    const defaultCostSats = Number(this.mcpToolForm.defaultCostSats ?? minCostSats);
+    const maxCostSats = Number(this.mcpToolForm.maxCostSats ?? defaultCostSats);
+
+    if (minCostSats < 1 || defaultCostSats < minCostSats || maxCostSats < defaultCostSats) {
+      this.error = 'Cost bounds must satisfy 1 <= min <= default <= max.';
+      return null;
+    }
+
+    return {
+      clearProject: this.editingMcpTool ? !this.mcpToolForm.projectId : null,
+      projectId: this.mcpToolForm.projectId || null,
+      name,
+      slug: this.mcpToolForm.slug.trim() || null,
+      description: this.mcpToolForm.description.trim() || null,
+      category: this.mcpToolForm.category.trim() || null,
+      visibility: this.mcpToolForm.visibility,
+      status: this.mcpToolForm.status,
+      defaultCostSats,
+      minCostSats,
+      maxCostSats,
+      websiteUrl: this.mcpToolForm.websiteUrl.trim() || null,
+      docsUrl: this.mcpToolForm.docsUrl.trim() || null,
+      webhookUrl: this.mcpToolForm.webhookUrl.trim() || null
+    };
   }
 
   getMcpToolScopeLabel(tool: McpToolDto): string {

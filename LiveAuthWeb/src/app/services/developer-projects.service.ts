@@ -164,6 +164,9 @@ export interface McpToolDto {
   defaultCostSats: number;
   minCostSats: number;
   maxCostSats: number;
+  websiteUrl?: string | null;
+  docsUrl?: string | null;
+  webhookUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -208,6 +211,27 @@ export interface McpToolRevenueEventsResponse {
   toolId: string;
   limit: number;
   events: McpToolRevenueEventDto[];
+}
+
+export interface CreateMcpToolRequest {
+  projectId?: string | null;
+  clearProject?: boolean | null;
+  name: string;
+  slug?: string | null;
+  description?: string | null;
+  category?: string | null;
+  visibility?: string | null;
+  status?: string | null;
+  defaultCostSats: number;
+  minCostSats: number;
+  maxCostSats: number;
+  websiteUrl?: string | null;
+  docsUrl?: string | null;
+  webhookUrl?: string | null;
+}
+
+export interface UpdateMcpToolRequest extends Partial<CreateMcpToolRequest> {
+  clearProject?: boolean | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -421,6 +445,29 @@ export class DeveloperProjectsService {
   listMcpTools(): Observable<McpToolListResponse> {
     return this.http.get<McpToolListResponse>(
       `${this.baseUrl}/api/dev/mcp-tools`,
+      this.devAuth.authHeaders()
+    );
+  }
+
+  createMcpTool(req: CreateMcpToolRequest): Observable<McpToolDto> {
+    return this.http.post<McpToolDto>(
+      `${this.baseUrl}/api/dev/mcp-tools`,
+      req,
+      this.devAuth.authHeaders()
+    );
+  }
+
+  updateMcpTool(toolId: string, req: UpdateMcpToolRequest): Observable<McpToolDto> {
+    return this.http.patch<McpToolDto>(
+      `${this.baseUrl}/api/dev/mcp-tools/${toolId}`,
+      req,
+      this.devAuth.authHeaders()
+    );
+  }
+
+  deleteMcpTool(toolId: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.baseUrl}/api/dev/mcp-tools/${toolId}`,
       this.devAuth.authHeaders()
     );
   }

@@ -17,8 +17,44 @@ public record McpToolDto(
     int DefaultCostSats,
     int MinCostSats,
     int MaxCostSats,
+    string? WebsiteUrl,
+    string? DocsUrl,
+    string? WebhookUrl,
     DateTime CreatedAt,
     DateTime UpdatedAt
+);
+
+public record CreateMcpToolRequest(
+    Guid? ProjectId,
+    string Name,
+    string? Slug,
+    string? Description,
+    string? Category,
+    string? Visibility,
+    string? Status,
+    int DefaultCostSats,
+    int MinCostSats,
+    int MaxCostSats,
+    string? WebsiteUrl,
+    string? DocsUrl,
+    string? WebhookUrl
+);
+
+public record UpdateMcpToolRequest(
+    Guid? ProjectId,
+    bool? ClearProject,
+    string? Name,
+    string? Slug,
+    string? Description,
+    string? Category,
+    string? Visibility,
+    string? Status,
+    int? DefaultCostSats,
+    int? MinCostSats,
+    int? MaxCostSats,
+    string? WebsiteUrl,
+    string? DocsUrl,
+    string? WebhookUrl
 );
 
 public record McpToolRevenueSummaryResponse(

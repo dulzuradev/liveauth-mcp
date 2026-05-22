@@ -156,7 +156,42 @@ curl -X POST https://api.liveauth.app/api/mcp/confirm \
 
 ---
 
-## Step 2: Charge a Paid MCP Tool Call
+## Step 2: Register Your MCP Tool
+
+In the developer dashboard, open **MCP Tool Revenue**, choose **Register MCP tool**, then set:
+
+- Tool name and slug.
+- Optional project association.
+- Status: `Draft`, `Active`, or `Paused`.
+- Visibility: `Private`, `Unlisted`, or `Public`.
+- Minimum, default, and maximum sats per call.
+
+The dashboard returns a tool ID and an integration snippet. Use that tool ID as `LIVEAUTH_TOOL_ID`.
+
+You can also register through the developer API:
+
+```bash
+curl -X POST https://api.liveauth.app/api/dev/mcp-tools \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <developer-jwt>" \
+  -d '{
+    "projectId": "optional-project-guid",
+    "name": "Paid Research Tool",
+    "slug": "paid-research-tool",
+    "description": "Searches a paid corpus for agent workflows.",
+    "visibility": "Private",
+    "status": "Draft",
+    "defaultCostSats": 5,
+    "minCostSats": 1,
+    "maxCostSats": 25
+  }'
+```
+
+Tool slugs are globally unique. Deleted tools are soft-deleted so historical revenue events remain auditable.
+
+---
+
+## Step 3: Charge a Paid MCP Tool Call
 
 For usage metering only, call the generic endpoint:
 
@@ -216,7 +251,7 @@ The v1 platform fee is 500 basis points (5%), with a 1 sat minimum fee whenever 
 
 ---
 
-## Step 3: Wrap a Tool Handler With the SDK
+## Step 4: Wrap a Tool Handler With the SDK
 
 ```ts
 import { createMcpGate } from '@liveauth-labs/mcp-server';
@@ -252,9 +287,18 @@ When `toolId` is omitted, the SDK uses `/api/mcp/charge` for backward-compatible
 
 ---
 
-## Current Tool Registration Status
+## View Tool Revenue
 
-The backend can charge registered tools and seeds a first-party `LiveAuth Web Fetch MCP` tool. Developer-facing tool CRUD and public marketplace registration are not part of this first slice yet. Until those endpoints are added, tool IDs should be provisioned by LiveAuth or seeded in the backend.
+Use the dashboard **MCP Tool Revenue** section or call:
+
+```http
+GET /api/dev/mcp-tools/{toolId}/revenue?windowHours=24
+GET /api/dev/mcp-tools/{toolId}/revenue/events?limit=50
+```
+
+The revenue view shows call count, gross sats, LiveAuth platform fee, net sats, and recent event metadata. Keep metadata small and audit-oriented; do not store fetched content, prompts, completions, credentials, or private tool output there.
+
+---
 
 ## Check Bundle Status Anytime
 

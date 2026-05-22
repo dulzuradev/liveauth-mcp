@@ -461,7 +461,7 @@
   <!-- ============================================
        MCP TOOL REVENUE
        ============================================ -->
-  <div class="mcp-revenue-section" *ngIf="loggedIn && mcpTools && mcpTools.length > 0">
+  <div class="mcp-revenue-section" *ngIf="loggedIn && mcpTools">
     <div class="section-divider">
       <h2 class="gradient-text">MCP Tool Revenue</h2>
     </div>
@@ -473,14 +473,27 @@
             <h4>Tools</h4>
             <span>{{ mcpTools.length }} visible</span>
           </div>
-          <button
-            pButton
-            class="p-button-text p-button-sm"
-            icon="pi pi-refresh"
-            pTooltip="Refresh revenue"
-            (click)="loadMcpTools()"
-            [loading]="loadingMcpTools">
-          </button>
+          <div class="flex gap-2">
+            <button
+              pButton
+              class="p-button-text p-button-sm"
+              icon="pi pi-plus"
+              pTooltip="Register MCP tool"
+              (click)="openCreateMcpToolDialog()">
+            </button>
+            <button
+              pButton
+              class="p-button-text p-button-sm"
+              icon="pi pi-refresh"
+              pTooltip="Refresh revenue"
+              (click)="loadMcpTools()"
+              [loading]="loadingMcpTools">
+            </button>
+          </div>
+        </div>
+
+        <div class="mcp-empty-state" *ngIf="mcpTools.length === 0 && !loadingMcpTools">
+          Register a tool to start tracking paid MCP revenue.
         </div>
 
         <button
@@ -500,14 +513,26 @@
         </button>
       </div>
 
-      <div class="mcp-revenue-panel mcp-settings-panel">
+      <div class="mcp-revenue-panel mcp-settings-panel" *ngIf="selectedMcpTool">
         <div class="mcp-revenue-header">
           <div>
-            <h3>{{ selectedMcpTool?.name || 'MCP Tool' }}</h3>
-            <p>{{ selectedMcpTool?.description || 'Revenue attribution for paid MCP calls.' }}</p>
+            <h3>{{ selectedMcpTool.name || 'MCP Tool' }}</h3>
+            <p>{{ selectedMcpTool.description || 'Revenue attribution for paid MCP calls.' }}</p>
           </div>
 
           <div class="mcp-range-buttons">
+            <button pButton class="p-button-text p-button-sm"
+                    icon="pi pi-pencil"
+                    pTooltip="Edit tool"
+                    [disabled]="!selectedMcpTool.developerId"
+                    (click)="selectedMcpTool && openEditMcpToolDialog(selectedMcpTool)">
+            </button>
+            <button pButton class="p-button-text p-button-danger p-button-sm"
+                    icon="pi pi-trash"
+                    pTooltip="Delete tool"
+                    [disabled]="!selectedMcpTool.developerId"
+                    (click)="selectedMcpTool && deleteMcpTool(selectedMcpTool)">
+            </button>
             <button pButton class="p-button-text p-button-sm"
                     [ngClass]="{ 'p-button-secondary': mcpRevenueRange === '1h' }"
                     (click)="onMcpRevenueRangeChange('1h')">1h</button>
@@ -590,6 +615,22 @@
 
         <div class="mcp-empty-state" *ngIf="mcpRevenueEvents && mcpRevenueEvents.length === 0 && !loadingMcpRevenue">
           No revenue events recorded yet.
+        </div>
+
+        <div class="mcp-settings-panel mt-3">
+          <div class="panel-title-row">
+            <div>
+              <h4>Integration Snippet</h4>
+              <span>Use this tool ID with the LiveAuth MCP SDK</span>
+            </div>
+            <button pButton class="p-button-text p-button-sm"
+                    icon="pi pi-copy"
+                    pTooltip="Copy snippet"
+                    (click)="copyMcpIntegrationSnippet()">
+            </button>
+          </div>
+          <div class="code-block mt-2">{{ mcpToolIntegrationSnippet }}</div>
+          <p *ngIf="copiedMcpSnippet" class="text-sm mt-2">Copied.</p>
         </div>
       </div>
     </div>
@@ -732,6 +773,85 @@
 
   <!-- LOGIN MODAL -->
   <!-- SECRET KEY DIALOG (after project creation) -->
+  <p-dialog
+    [(visible)]="showMcpToolDialog"
+    [modal]="true"
+    [style]="{ width: '720px' }"
+    [header]="editingMcpTool ? 'Edit MCP Tool' : 'Register MCP Tool'">
+
+    <div class="grid">
+      <div class="col-12 md:col-6">
+        <label>Name</label>
+        <input [(ngModel)]="mcpToolForm.name" pInputText class="w-full" placeholder="Web search tool"/>
+      </div>
+      <div class="col-12 md:col-6">
+        <label>Slug</label>
+        <input [(ngModel)]="mcpToolForm.slug" pInputText class="w-full" placeholder="web-search"/>
+      </div>
+      <div class="col-12">
+        <label>Description</label>
+        <textarea [(ngModel)]="mcpToolForm.description" pInputTextarea rows="3" class="w-full"></textarea>
+      </div>
+      <div class="col-12 md:col-4">
+        <label>Project</label>
+        <select [(ngModel)]="mcpToolForm.projectId" class="p-inputtext p-component w-full">
+          <option value="">Developer account</option>
+          <option *ngFor="let project of projects" [value]="project.projectId">{{ project.name }}</option>
+        </select>
+      </div>
+      <div class="col-12 md:col-4">
+        <label>Status</label>
+        <select [(ngModel)]="mcpToolForm.status" class="p-inputtext p-component w-full">
+          <option value="Draft">Draft</option>
+          <option value="Active">Active</option>
+          <option value="Paused">Paused</option>
+        </select>
+      </div>
+      <div class="col-12 md:col-4">
+        <label>Visibility</label>
+        <select [(ngModel)]="mcpToolForm.visibility" class="p-inputtext p-component w-full">
+          <option value="Private">Private</option>
+          <option value="Unlisted">Unlisted</option>
+          <option value="Public">Public</option>
+        </select>
+      </div>
+      <div class="col-12 md:col-4">
+        <label>Min Cost</label>
+        <input type="number" [(ngModel)]="mcpToolForm.minCostSats" pInputText class="w-full"/>
+      </div>
+      <div class="col-12 md:col-4">
+        <label>Default Cost</label>
+        <input type="number" [(ngModel)]="mcpToolForm.defaultCostSats" pInputText class="w-full"/>
+      </div>
+      <div class="col-12 md:col-4">
+        <label>Max Cost</label>
+        <input type="number" [(ngModel)]="mcpToolForm.maxCostSats" pInputText class="w-full"/>
+      </div>
+      <div class="col-12 md:col-4">
+        <label>Category</label>
+        <input [(ngModel)]="mcpToolForm.category" pInputText class="w-full" placeholder="research"/>
+      </div>
+      <div class="col-12 md:col-4">
+        <label>Website URL</label>
+        <input [(ngModel)]="mcpToolForm.websiteUrl" pInputText class="w-full"/>
+      </div>
+      <div class="col-12 md:col-4">
+        <label>Docs URL</label>
+        <input [(ngModel)]="mcpToolForm.docsUrl" pInputText class="w-full"/>
+      </div>
+      <div class="col-12">
+        <label>Webhook URL</label>
+        <input [(ngModel)]="mcpToolForm.webhookUrl" pInputText class="w-full"/>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <button pButton label="Cancel" class="p-button-text" (click)="showMcpToolDialog = false"></button>
+      <button pButton label="Save Tool" icon="pi pi-save" class="btn-primary"
+              (click)="saveMcpTool()" [loading]="savingMcpTool"></button>
+    </ng-template>
+  </p-dialog>
+
   <p-dialog
     [(visible)]="showSecretDialog"
     [closable]="true"
