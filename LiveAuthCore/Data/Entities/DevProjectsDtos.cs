@@ -32,10 +32,10 @@ public sealed class UpdateProjectSettingsRequest
     
     public bool AllowDemoAuth { get; set; }
 
-    public int McpSatsPerCall { get; set; }
-    public int McpInvoiceCallCredits { get; set; }
-    public long McpMaxSatsPerDay { get; set; }
-    public int McpMaxCallsPerMinute { get; set; }
+    public int? McpSatsPerCall { get; set; }
+    public int? McpInvoiceCallCredits { get; set; }
+    public long? McpMaxSatsPerDay { get; set; }
+    public int? McpMaxCallsPerMinute { get; set; }
 
     // Custom LND node config
     public bool UseCustomNode { get; set; }

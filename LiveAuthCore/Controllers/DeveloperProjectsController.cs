@@ -160,7 +160,7 @@ public class DeveloperProjectsController : ControllerBase
         if (project == null) return NotFound("Project not found.");
 
         if (!IsAdmin() && project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         var (newSecret, newHash) = _keys.GenerateNewSecret();
         project.SecretKeyHash = newHash;
@@ -199,7 +199,7 @@ public class DeveloperProjectsController : ControllerBase
         }
 
         if (!IsAdmin() && project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         project.IsActive = request.Active;
 
@@ -217,7 +217,7 @@ public class DeveloperProjectsController : ControllerBase
         if (project == null) return NotFound("Project not found.");
 
         if (!IsAdmin() && project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         // Soft delete
         project.IsDeleted = true;
@@ -241,7 +241,7 @@ public class DeveloperProjectsController : ControllerBase
         if (project == null) return NotFound("Project not found.");
 
         if (!IsAdmin() && project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         return Ok(ToProjectSettingsResponse(project));
     }
@@ -259,7 +259,7 @@ public class DeveloperProjectsController : ControllerBase
         if (project == null) return NotFound("Project not found.");
 
         if (!IsAdmin() && project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         if (!TryNormalizeWebhookUrl(request.WebhookUrl, out var webhookUrl))
             return BadRequest("Webhook URL must be an absolute http or https URL.");
@@ -276,10 +276,15 @@ public class DeveloperProjectsController : ControllerBase
 
         project.AllowedDomains = cleanedDomains;
         project.AllowDemoAuth = request.AllowDemoAuth;
-        project.McpSatsPerCall = Math.Clamp(request.McpSatsPerCall, 1, 10_000);
-        project.McpInvoiceCallCredits = Math.Clamp(request.McpInvoiceCallCredits, 1, 10_000);
-        project.McpMaxSatsPerDay = Math.Clamp(request.McpMaxSatsPerDay, 1, 10_000_000);
-        project.McpMaxCallsPerMinute = Math.Clamp(request.McpMaxCallsPerMinute, 1, 10_000);
+
+        if (request.McpSatsPerCall.HasValue)
+            project.McpSatsPerCall = Math.Clamp(request.McpSatsPerCall.Value, 1, 10_000);
+        if (request.McpInvoiceCallCredits.HasValue)
+            project.McpInvoiceCallCredits = Math.Clamp(request.McpInvoiceCallCredits.Value, 1, 10_000);
+        if (request.McpMaxSatsPerDay.HasValue)
+            project.McpMaxSatsPerDay = Math.Clamp(request.McpMaxSatsPerDay.Value, 1, 10_000_000);
+        if (request.McpMaxCallsPerMinute.HasValue)
+            project.McpMaxCallsPerMinute = Math.Clamp(request.McpMaxCallsPerMinute.Value, 1, 10_000);
 
         // Custom LND node config
         project.UseCustomNode = request.UseCustomNode;
@@ -309,7 +314,7 @@ public class DeveloperProjectsController : ControllerBase
         if (project == null) return NotFound("Project not found.");
 
         if (!IsAdmin() && project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.BaseUrl))
             return BadRequest("BaseUrl is required.");
@@ -345,7 +350,7 @@ public class DeveloperProjectsController : ControllerBase
         var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return NotFound("Project not found.");
         if (!IsAdmin() && project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         windowHours = Math.Clamp(windowHours, 1, 24 * 7);
         var cutoff = DateTime.UtcNow.AddHours(-windowHours);
@@ -390,7 +395,7 @@ public class DeveloperProjectsController : ControllerBase
         var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return NotFound("Project not found.");
         if (!IsAdmin() && project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         limit = Math.Clamp(limit, 1, 500);
         windowHours = Math.Clamp(windowHours, 1, 24 * 7);
@@ -446,7 +451,7 @@ public class DeveloperProjectsController : ControllerBase
         if (project == null) return NotFound("Project not found.");
 
         if (!IsAdmin() && project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         if (string.IsNullOrWhiteSpace(project.WebhookUrl))
             return BadRequest("No webhook URL configured for this project.");
@@ -473,7 +478,7 @@ public class DeveloperProjectsController : ControllerBase
         if (project == null) return NotFound("Project not found.");
 
         if (!IsAdmin() && project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         var keys = await _db.ProjectApiKeys
             .Where(k => k.ProjectId == projectId)
@@ -500,7 +505,7 @@ public class DeveloperProjectsController : ControllerBase
         var project = await _db.Projects.SingleOrDefaultAsync(p => p.Id == projectId, ct);
         if (project == null) return NotFound("Project not found.");
         if (!IsAdmin() && project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         var (apiKey, secret) = await _keys.CreateApiKeyForProjectAsync(project, request.Label);
 
@@ -525,7 +530,7 @@ public class DeveloperProjectsController : ControllerBase
         if (key == null) return NotFound("API key not found.");
 
         if (!IsAdmin() && key.Project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         key.IsActive = false;
         await _db.SaveChangesAsync(ct);
@@ -545,7 +550,7 @@ public class DeveloperProjectsController : ControllerBase
         if (key == null) return NotFound("API key not found.");
 
         if (!IsAdmin() && key.Project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         var newLabel = request.Label?.Trim();
         if (string.IsNullOrWhiteSpace(newLabel))
@@ -566,7 +571,7 @@ public class DeveloperProjectsController : ControllerBase
         if (project == null) return NotFound("Project not found.");
 
         if (!IsAdmin() && project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         limit = Math.Clamp(limit, 1, 200);
 
@@ -602,7 +607,7 @@ public class DeveloperProjectsController : ControllerBase
         if (evt == null) return NotFound("Webhook event not found.");
 
         if (!IsAdmin() && evt.Project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         evt.Status = WebhookEventStatus.Pending;
         evt.NextAttemptAt = DateTime.UtcNow;
@@ -664,7 +669,7 @@ public class DeveloperProjectsController : ControllerBase
             return NotFound("Project not found.");
 
         if (!IsAdmin() && project.DeveloperId != devId)
-            return Forbid("Not your project.");
+            return Forbid();
 
         var env = (request.Environment ?? string.Empty).Trim().ToUpperInvariant();
         if (env != "TEST" && env != "LIVE")

@@ -1,11 +1,14 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using Xunit;
 
 namespace LiveAuthCore.Tests.Controllers;
@@ -16,6 +19,7 @@ namespace LiveAuthCore.Tests.Controllers;
 /// </summary>
 public class DeveloperProjectsControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
 {
+    private const string TestJwtKey = "test-jwt-signing-key-that-is-at-least-32-bytes-long";
     private readonly HttpClient _client;
     private readonly LiveAuthWebApplicationFactory _factory;
 
@@ -50,7 +54,7 @@ public class DeveloperProjectsControllerTests : IClassFixture<LiveAuthWebApplica
     }
 
     [Fact]
-    public async Task CreateProject_ValidRequest_ReturnsCreated()
+    public async Task CreateProject_ValidRequest_ReturnsOk()
     {
         // Arrange
         var (developer, token) = await SeedDeveloperWithToken();
@@ -66,11 +70,13 @@ public class DeveloperProjectsControllerTests : IClassFixture<LiveAuthWebApplica
         var response = await _client.PostAsJsonAsync("/api/dev/projects", request);
 
         // Assert
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         
-        var project = await response.Content.ReadFromJsonAsync<ProjectResponse>();
+        var project = await response.Content.ReadFromJsonAsync<CreateProjectApiResponse>();
         Assert.NotNull(project);
-        Assert.Equal("Test Project", project.Name);
+        Assert.NotEqual(Guid.Empty, project!.ProjectId);
+        Assert.False(string.IsNullOrWhiteSpace(project.PublicKey));
+        Assert.False(string.IsNullOrWhiteSpace(project.SecretKey));
     }
 
     [Fact]
@@ -131,7 +137,7 @@ public class DeveloperProjectsControllerTests : IClassFixture<LiveAuthWebApplica
     }
 
     [Fact]
-    public async Task UpdateProject_ValidRequest_ReturnsOk()
+    public async Task UpdateProjectSettings_ValidRequest_ReturnsOk()
     {
         // Arrange
         var (developer, token) = await SeedDeveloperWithToken();
@@ -140,20 +146,29 @@ public class DeveloperProjectsControllerTests : IClassFixture<LiveAuthWebApplica
 
         var updateRequest = new
         {
-            Name = "Updated Project Name",
-            Description = "Updated description",
-            WebhookUrl = "https://new-webhook.example.com"
+            AllowedDomains = new[] { "https://app.example.com" },
+            WebhookUrl = "https://new-webhook.example.com",
+            SatsPerLogin = 5,
+            MaxAuthsPerIpPerHour = 120,
+            AllowDemoAuth = true,
+            McpSatsPerCall = 3,
+            McpInvoiceCallCredits = 15,
+            McpMaxSatsPerDay = 2500,
+            McpMaxCallsPerMinute = 30,
+            UseCustomNode = false,
+            LndBaseUrl = (string?)null
         };
 
         // Act
-        var response = await _client.PutAsJsonAsync($"/api/dev/projects/{project.Id}", updateRequest);
+        var response = await _client.PutAsJsonAsync($"/api/dev/projects/{project.Id}/settings", updateRequest);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         
-        var updated = await response.Content.ReadFromJsonAsync<ProjectResponse>();
+        var updated = await response.Content.ReadFromJsonAsync<ProjectSettingsResponse>();
         Assert.NotNull(updated);
-        Assert.Equal("Updated Project Name", updated.Name);
+        Assert.Equal("https://new-webhook.example.com/", updated!.WebhookUrl);
+        Assert.Equal(3, updated.McpSatsPerCall);
     }
 
     [Fact]
@@ -175,7 +190,7 @@ public class DeveloperProjectsControllerTests : IClassFixture<LiveAuthWebApplica
     }
 
     [Fact]
-    public async Task GetProject_OtherDevelopersProject_ReturnsForbidden()
+    public async Task GetSettings_OtherDevelopersProject_ReturnsForbidden()
     {
         // Arrange
         var (dev1, token1) = await SeedDeveloperWithToken("dev1@test.com");
@@ -185,10 +200,67 @@ public class DeveloperProjectsControllerTests : IClassFixture<LiveAuthWebApplica
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token1); // But dev1 tries to access
 
         // Act
-        var response = await _client.GetAsync($"/api/dev/projects/{project.Id}");
+        var response = await _client.GetAsync($"/api/dev/projects/{project.Id}/settings");
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateSettings_WhenMcpFieldsOmitted_PreservesExistingMcpGateSettings()
+    {
+        // Arrange
+        var (developer, token) = await SeedDeveloperWithToken();
+        var project = await SeedProject(developer.Id);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var updateMcpSettings = new
+        {
+            AllowedDomains = new[] { "https://example.com" },
+            WebhookUrl = "https://hooks.example.com/liveauth",
+            SatsPerLogin = 5,
+            MaxAuthsPerIpPerHour = 120,
+            AllowDemoAuth = true,
+            McpSatsPerCall = 7,
+            McpInvoiceCallCredits = 25,
+            McpMaxSatsPerDay = 5000,
+            McpMaxCallsPerMinute = 45,
+            UseCustomNode = false,
+            LndBaseUrl = (string?)null
+        };
+
+        var partialSettingsUpdate = new
+        {
+            AllowedDomains = new[] { "https://app.example.com" },
+            WebhookUrl = "https://hooks.example.com/updated",
+            SatsPerLogin = 9,
+            MaxAuthsPerIpPerHour = 60,
+            AllowDemoAuth = false,
+            UseCustomNode = false,
+            LndBaseUrl = (string?)null
+        };
+
+        // Act
+        var firstResponse = await _client.PutAsJsonAsync($"/api/dev/projects/{project.Id}/settings", updateMcpSettings);
+        var secondResponse = await _client.PutAsJsonAsync($"/api/dev/projects/{project.Id}/settings", partialSettingsUpdate);
+        var getResponse = await _client.GetAsync($"/api/dev/projects/{project.Id}/settings");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+
+        var settingsJson = await getResponse.Content.ReadAsStringAsync();
+        Assert.Contains("\"mcpSatsPerCall\":7", settingsJson);
+
+        var settings = JsonSerializer.Deserialize<ProjectSettingsResponse>(
+            settingsJson,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(settings);
+        Assert.Equal(7, settings!.McpSatsPerCall);
+        Assert.Equal(25, settings.McpInvoiceCallCredits);
+        Assert.Equal(5000, settings.McpMaxSatsPerDay);
+        Assert.Equal(45, settings.McpMaxCallsPerMinute);
     }
 
     /// <summary>
@@ -209,11 +281,27 @@ public class DeveloperProjectsControllerTests : IClassFixture<LiveAuthWebApplica
         db.Developers.Add(developer);
         await db.SaveChangesAsync();
 
-        // Generate a simple JWT token (simplified - in real app, use your JWT service)
-        // For now, this is a placeholder - you'll need to implement actual token generation
-        var token = "test-jwt-token-" + developer.Id.ToString();
+        var token = CreateJwt(developer.Id);
 
         return (developer, token);
+    }
+
+    private static string CreateJwt(Guid developerId)
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestJwtKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var descriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(new[]
+            {
+                new Claim("userId", developerId.ToString()),
+                new Claim(JwtRegisteredClaimNames.Sub, developerId.ToString())
+            }),
+            Expires = DateTime.UtcNow.AddMinutes(10),
+            SigningCredentials = credentials
+        };
+
+        return new JwtSecurityTokenHandler().CreateEncodedJwt(descriptor);
     }
 
     /// <summary>
@@ -240,7 +328,7 @@ public class DeveloperProjectsControllerTests : IClassFixture<LiveAuthWebApplica
         return project;
     }
 
-    private record ProjectResponse(Guid Id, string Name, string? Description, string? WebhookUrl);
+    private record CreateProjectApiResponse(Guid ProjectId, string PublicKey, string SecretKey);
     private record WebhookEventsResponse(List<WebhookEventDto> Events);
     private record WebhookEventDto(Guid Id, string Type, DateTime CreatedAt);
 }

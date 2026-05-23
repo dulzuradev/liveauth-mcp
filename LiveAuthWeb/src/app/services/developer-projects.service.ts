@@ -72,7 +72,13 @@ export interface ProjectSettingsResponse {
   mcpMaxCallsPerMinute: number;
 }
 
-export interface UpdateProjectSettingsRequest extends ProjectSettingsResponse {}
+export interface UpdateProjectSettingsRequest extends Omit<ProjectSettingsResponse,
+  'mcpSatsPerCall' | 'mcpInvoiceCallCredits' | 'mcpMaxSatsPerDay' | 'mcpMaxCallsPerMinute'> {
+  mcpSatsPerCall?: number;
+  mcpInvoiceCallCredits?: number;
+  mcpMaxSatsPerDay?: number;
+  mcpMaxCallsPerMinute?: number;
+}
 
 // Analytics + logs
 
