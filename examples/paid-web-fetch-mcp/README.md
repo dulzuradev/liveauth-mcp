@@ -50,6 +50,68 @@ You can either set `LIVEAUTH_JWT` or pass `liveauthJwt` in tool input. The smoke
 npm start
 ```
 
+## Hosted HTTP Service
+
+Run the same paid Web Fetch tool as a hosted service:
+
+```bash
+npm run start:hosted
+```
+
+The hosted service exposes:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /healthz` | Readiness check with the configured tool ID. |
+| `GET /tools` | Tool definitions for `web_fetch` and `web_fetch_metadata`. |
+| `POST /tools/web_fetch` | Paid full-page fetch. |
+| `POST /tools/web_fetch_metadata` | Paid metadata-only fetch. |
+
+Hosted calls require a LiveAuth MCP JWT:
+
+```bash
+curl -X POST http://127.0.0.1:8787/tools/web_fetch_metadata \
+  -H "Authorization: Bearer $LIVEAUTH_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com",
+    "idempotencyKey": "request-or-call-id"
+  }'
+```
+
+Each hosted call uses the same `/api/mcp/tools/{toolId}/charge` revenue attribution as the stdio MCP server. The response includes the fetched result and the LiveAuth charge object, including `revenueEventId`.
+
+For MCP clients that still need stdio, run `server.mjs` as a thin adapter by setting `WEB_FETCH_HOSTED_URL`. In that mode the local MCP process forwards `web_fetch` and `web_fetch_metadata` calls to the hosted service instead of fetching directly:
+
+```json
+{
+  "mcpServers": {
+    "liveauth-web-fetch": {
+      "command": "node",
+      "args": ["/Users/scott/Repos/LiveAuth/examples/paid-web-fetch-mcp/server.mjs"],
+      "env": {
+        "WEB_FETCH_HOSTED_URL": "https://fetch.liveauth.app",
+        "LIVEAUTH_JWT": "eyJhbG..."
+      }
+    }
+  }
+}
+```
+
+For production/container deploys, build from the directory that contains both `LiveAuth` and `liveauth-mcp`:
+
+```bash
+cd /Users/scott/Repos
+docker build -f LiveAuth/examples/paid-web-fetch-mcp/Dockerfile \
+  -t liveauth-web-fetch-mcp .
+
+docker run --rm -p 8787:8787 \
+  -e LIVEAUTH_API_URL=https://api.liveauth.app \
+  -e LIVEAUTH_PUBLIC_KEY=la_pk_xxx \
+  -e LIVEAUTH_TOOL_ID=00000000-0000-0000-0000-000000000005 \
+  liveauth-web-fetch-mcp
+```
+
 Claude Desktop example:
 
 ```json
@@ -128,6 +190,21 @@ LIVEAUTH_TOOL_ID=00000000-0000-0000-0000-000000000005 \
 npm run smoke
 ```
 
+For hosted mode, start the service in one terminal:
+
+```bash
+npm run start:hosted
+```
+
+Then run:
+
+```bash
+LIVEAUTH_API_URL=http://127.0.0.1:5089 \
+LIVEAUTH_PUBLIC_KEY=la_pk_demo \
+WEB_FETCH_HOSTED_URL=http://127.0.0.1:8787 \
+npm run smoke:hosted
+```
+
 The smoke script:
 
 1. Starts an MCP session.
@@ -136,6 +213,8 @@ The smoke script:
 4. Starts this MCP server over stdio.
 5. Calls `web_fetch_metadata`.
 6. Prints the charge result, including `revenueEventId`.
+
+The hosted smoke follows the same auth flow, then calls `POST /tools/web_fetch_metadata`.
 
 ## Tests
 

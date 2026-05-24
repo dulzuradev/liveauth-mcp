@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { randomUUID } from 'node:crypto';
 import { config } from 'dotenv';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -8,90 +7,32 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
-import { createMcpGate } from '@liveauth-labs/mcp-server';
 import {
-  fetchWebMetadata,
-  fetchWebPage,
-  normalizeLimits,
-  validateHttpUrl,
+  createLiveAuthGate,
+  loadWebFetchConfig
+} from './runtime-config.mjs';
+import {
+  callHostedTool,
+  cleanBaseUrl
+} from './hosted-client.mjs';
+import { createWebFetchToolDefinitions } from './tool-definitions.mjs';
+import {
   WebFetchError
 } from './web-fetch.mjs';
+import {
+  resolveJwtFromArgs,
+  runWebFetch,
+  runWebFetchMetadata
+} from './web-fetch-runner.mjs';
 
 config();
 
-const LIVEAUTH_API_URL = process.env.LIVEAUTH_API_URL || 'https://api.liveauth.app';
-const LIVEAUTH_PUBLIC_KEY = process.env.LIVEAUTH_PUBLIC_KEY || process.env.LIVEAUTH_API_KEY || '';
-const LIVEAUTH_TOOL_ID = process.env.LIVEAUTH_TOOL_ID || '00000000-0000-0000-0000-000000000005';
-const WEB_FETCH_DEFAULT_COST_SATS = numberFromEnv('WEB_FETCH_DEFAULT_COST_SATS', 5);
-const WEB_FETCH_METADATA_COST_SATS = numberFromEnv('WEB_FETCH_METADATA_COST_SATS', 1);
-
-const limits = normalizeLimits({
-  defaultMaxBytes: numberFromEnv('WEB_FETCH_DEFAULT_MAX_BYTES', 200_000),
-  maxBytes: numberFromEnv('WEB_FETCH_MAX_BYTES', 500_000),
-  timeoutMs: numberFromEnv('WEB_FETCH_TIMEOUT_MS', 10_000),
-  maxRedirects: numberFromEnv('WEB_FETCH_MAX_REDIRECTS', 3),
-  userAgent: process.env.WEB_FETCH_USER_AGENT || undefined
-});
-
-if (!LIVEAUTH_PUBLIC_KEY) {
-  throw new Error('LIVEAUTH_PUBLIC_KEY is required');
-}
-
-const gate = createMcpGate({
-  publicKey: LIVEAUTH_PUBLIC_KEY,
-  baseUrl: LIVEAUTH_API_URL,
-  toolId: LIVEAUTH_TOOL_ID,
-  defaultCostSats: WEB_FETCH_DEFAULT_COST_SATS
-});
-
-const TOOLS = [
-  {
-    name: 'web_fetch',
-    description: 'Fetch a public http/https URL and return cleaned text plus metadata. Blocks private/local network targets.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        url: { type: 'string', description: 'Public http/https URL to fetch' },
-        maxBytes: {
-          type: 'number',
-          description: `Maximum response bytes to read, capped at ${limits.maxBytes}`
-        },
-        includeHtml: {
-          type: 'boolean',
-          description: 'Include raw HTML in addition to cleaned text'
-        },
-        liveauthJwt: {
-          type: 'string',
-          description: 'Optional LiveAuth MCP JWT. Defaults to LIVEAUTH_JWT env.'
-        },
-        idempotencyKey: {
-          type: 'string',
-          description: 'Optional retry-safe call ID. Defaults to a generated UUID.'
-        }
-      },
-      required: ['url']
-    }
-  },
-  {
-    name: 'web_fetch_metadata',
-    description: 'Fetch low-cost page metadata for a public http/https URL. Blocks private/local network targets.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        url: { type: 'string', description: 'Public http/https URL to inspect' },
-        liveauthJwt: {
-          type: 'string',
-          description: 'Optional LiveAuth MCP JWT. Defaults to LIVEAUTH_JWT env.'
-        },
-        idempotencyKey: {
-          type: 'string',
-          description: 'Optional retry-safe call ID. Defaults to a generated UUID.'
-        }
-      },
-      required: ['url']
-    }
-  }
-];
+const webFetchConfig = loadWebFetchConfig();
+const hostedUrl = process.env.WEB_FETCH_HOSTED_URL
+  ? cleanBaseUrl(process.env.WEB_FETCH_HOSTED_URL)
+  : '';
+const gate = hostedUrl ? null : createLiveAuthGate(webFetchConfig);
+const TOOLS = createWebFetchToolDefinitions(webFetchConfig.limits);
 
 const server = new Server(
   {
@@ -134,81 +75,53 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
 });
 
 async function handleWebFetch(args) {
-  const url = requireString(args.url, 'url');
-  const parsed = validateHttpUrl(url);
-  const jwt = resolveJwt(args);
-  const idempotencyKey = String(args.idempotencyKey || randomUUID());
-  const maxBytes = args.maxBytes ?? limits.defaultMaxBytes;
+  if (hostedUrl) {
+    return jsonToolResult(await callHostedTool({
+      baseUrl: hostedUrl,
+      toolName: 'web_fetch',
+      args,
+      jwt: resolveJwtFromArgs(args),
+      agentId: process.env.WEB_FETCH_AGENT_ID
+    }));
+  }
 
-  const result = await gate.invoke(
-    jwt,
-    { url, maxBytes, includeHtml: args.includeHtml === true },
-    async (input, context) => ({
-      ...await fetchWebPage(input.url, {
-        maxBytes: input.maxBytes,
-        includeHtml: input.includeHtml,
-        limits
-      }),
-      charge: context.liveAuth.charge
-    }),
-    {},
-    {
-      costSats: WEB_FETCH_DEFAULT_COST_SATS,
-      validateFirst: true,
-      toolMethodName: 'web_fetch',
-      idempotencyKey,
-      metadata: {
-        urlHost: parsed.hostname
-      }
-    }
-  );
+  const result = await runWebFetch(args, {
+    gate: requireGate(),
+    jwt: resolveJwtFromArgs(args),
+    limits: webFetchConfig.limits,
+    costs: webFetchConfig.costs
+  });
 
   return jsonToolResult(result);
 }
 
 async function handleWebFetchMetadata(args) {
-  const url = requireString(args.url, 'url');
-  const parsed = validateHttpUrl(url);
-  const jwt = resolveJwt(args);
-  const idempotencyKey = String(args.idempotencyKey || randomUUID());
+  if (hostedUrl) {
+    return jsonToolResult(await callHostedTool({
+      baseUrl: hostedUrl,
+      toolName: 'web_fetch_metadata',
+      args,
+      jwt: resolveJwtFromArgs(args),
+      agentId: process.env.WEB_FETCH_AGENT_ID
+    }));
+  }
 
-  const result = await gate.invoke(
-    jwt,
-    { url },
-    async (input, context) => ({
-      ...await fetchWebMetadata(input.url, { limits }),
-      charge: context.liveAuth.charge
-    }),
-    {},
-    {
-      costSats: WEB_FETCH_METADATA_COST_SATS,
-      validateFirst: true,
-      toolMethodName: 'web_fetch_metadata',
-      idempotencyKey,
-      metadata: {
-        urlHost: parsed.hostname
-      }
-    }
-  );
+  const result = await runWebFetchMetadata(args, {
+    gate: requireGate(),
+    jwt: resolveJwtFromArgs(args),
+    limits: webFetchConfig.limits,
+    costs: webFetchConfig.costs
+  });
 
   return jsonToolResult(result);
 }
 
-function resolveJwt(args) {
-  const jwt = args.liveauthJwt || process.env.LIVEAUTH_JWT;
-  if (!jwt || typeof jwt !== 'string') {
-    throw new Error('Missing LiveAuth MCP JWT. Set LIVEAUTH_JWT or pass liveauthJwt.');
+function requireGate() {
+  if (!gate) {
+    throw new Error('LiveAuth gate is not configured');
   }
 
-  return jwt;
-}
-
-function requireString(value, name) {
-  if (typeof value !== 'string' || !value.trim()) {
-    throw new Error(`${name} is required`);
-  }
-
-  return value.trim();
+  return gate;
 }
 
 function jsonToolResult(value) {
@@ -220,13 +133,6 @@ function jsonToolResult(value) {
       }
     ]
   };
-}
-
-function numberFromEnv(name, fallback) {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const value = Number(raw);
-  return Number.isFinite(value) ? value : fallback;
 }
 
 const transport = new StdioServerTransport();

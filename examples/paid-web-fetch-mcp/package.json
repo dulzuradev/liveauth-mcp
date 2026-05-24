@@ -6,8 +6,10 @@
   "main": "server.mjs",
   "scripts": {
     "start": "node server.mjs",
+    "start:hosted": "node hosted.mjs",
     "test": "node --test test/*.test.mjs",
-    "smoke": "node smoke.mjs"
+    "smoke": "node smoke.mjs",
+    "smoke:hosted": "node hosted-smoke.mjs"
   },
   "dependencies": {
     "@liveauth-labs/mcp-server": "file:../../../liveauth-mcp",

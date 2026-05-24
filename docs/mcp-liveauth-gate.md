@@ -300,6 +300,30 @@ The backend seeds a first-party `LiveAuth Web Fetch MCP` tool and allows develop
 
 ---
 
+## First-Party Hosted Web Fetch
+
+The reference implementation lives in `examples/paid-web-fetch-mcp`. It can run in two modes:
+
+- `npm start`: local stdio MCP server for clients such as Claude Desktop.
+- `npm run start:hosted`: hosted HTTP service for a production Web Fetch deployment.
+
+Hosted mode exposes:
+
+```text
+GET  /healthz
+GET  /tools
+POST /tools/web_fetch
+POST /tools/web_fetch_metadata
+```
+
+Hosted calls require `Authorization: Bearer <mcp-jwt>`. Each call charges the seeded first-party tool ID through `/api/mcp/tools/{toolId}/charge`, then returns the fetch result plus the LiveAuth charge object, including `revenueEventId`.
+
+For stdio-only MCP clients, run the example `server.mjs` with `WEB_FETCH_HOSTED_URL` set. The local MCP process becomes a thin adapter that forwards tool calls to the hosted service while preserving the same LiveAuth JWT and idempotency key.
+
+Developers can fork this example to build their own paid MCP tools: keep the LiveAuth gate and revenue attribution flow, replace the tool-specific handler.
+
+---
+
 ## SDK Integration
 
 Install the MCP package:
