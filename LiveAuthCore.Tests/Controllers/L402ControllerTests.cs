@@ -73,6 +73,39 @@ public class L402ControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
         bundle.AgentId.Should().Be("agent-1");
     }
 
+    [Fact]
+    public async Task BundleClaimAndStatus_RejectDifferentProjectPublicKey()
+    {
+        var wrongProject = await SeedProjectAsync("la_pk_wrong_l402_bundle");
+        var invoiceRequest = new HttpRequestMessage(HttpMethod.Post, "/api/public/l402/bundle/invoice")
+        {
+            Content = JsonContent.Create(new { tier = "starter", agentId = "agent-1" })
+        };
+        invoiceRequest.Headers.Add("X-LW-Public", "demo_pk_test");
+
+        var invoiceResponse = await _client.SendAsync(invoiceRequest);
+        invoiceResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var bundleInvoice = await invoiceResponse.Content.ReadFromJsonAsync<L402BundleInvoiceBody>();
+        bundleInvoice.Should().NotBeNull();
+
+        var claimRequest = new HttpRequestMessage(HttpMethod.Post, "/api/public/l402/bundle/claim")
+        {
+            Content = JsonContent.Create(new { paymentHash = bundleInvoice!.PaymentHash })
+        };
+        claimRequest.Headers.Add("X-LW-Public", wrongProject.PublicKey);
+
+        var claimResponse = await _client.SendAsync(claimRequest);
+
+        claimResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var statusRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/public/l402/bundle/status?bundleId={bundleInvoice.BundleId}");
+        statusRequest.Headers.Add("X-LW-Public", wrongProject.PublicKey);
+
+        var statusResponse = await _client.SendAsync(statusRequest);
+
+        statusResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
     private async Task<Project> SeedProjectAsync(string publicKey)
     {
         using var scope = _factory.Services.CreateScope();
@@ -110,5 +143,6 @@ public class L402ControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
         public string BundleId { get; set; } = string.Empty;
         public string Invoice { get; set; } = string.Empty;
         public string Bolt11 { get; set; } = string.Empty;
+        public string PaymentHash { get; set; } = string.Empty;
     }
 }

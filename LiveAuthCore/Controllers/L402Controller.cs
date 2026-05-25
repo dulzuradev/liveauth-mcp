@@ -223,16 +223,23 @@ public class L402Controller : ControllerBase
         if (string.IsNullOrWhiteSpace(req.PaymentHash))
             return BadRequest(new { error = "paymentHash is required" });
 
+        var project = await ResolveActiveProjectAsync(req.PublicKey, ct);
+        if (project == null)
+            return Unauthorized(new { error = "invalid_public_key", message = "A valid active project public key is required." });
+
         var bundle = await _db.L402Bundles
             .FirstOrDefaultAsync(b => b.PaymentHash == req.PaymentHash, ct);
 
         if (bundle == null)
             return NotFound(new { error = "Bundle not found for this payment hash" });
 
+        if (bundle.ProjectId != project.Id)
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "bundle_project_mismatch" });
+
         if (bundle.Status == "pending")
         {
             // Check if invoice is paid
-            var status = await _lightning.GetInvoiceStatusAsync(req.PaymentHash);
+            var status = await _lightning.GetInvoiceStatusAsync(req.PaymentHash, project);
             if (!status.IsPaid)
             {
                 return StatusCode(402, new
@@ -274,8 +281,13 @@ public class L402Controller : ControllerBase
     public async Task<IActionResult> GetBundleStatus(
         [FromQuery] string? bundleId,
         [FromQuery] string? paymentHash,
+        [FromQuery] string? publicKey,
         CancellationToken ct)
     {
+        var project = await ResolveActiveProjectAsync(publicKey, ct);
+        if (project == null)
+            return Unauthorized(new { error = "invalid_public_key", message = "A valid active project public key is required." });
+
         L402Bundle? bundle = null;
 
         if (!string.IsNullOrWhiteSpace(bundleId))
@@ -285,6 +297,9 @@ public class L402Controller : ControllerBase
 
         if (bundle == null)
             return NotFound(new { error = "Bundle not found" });
+
+        if (bundle.ProjectId != project.Id)
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "bundle_project_mismatch" });
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var isExpired = bundle.ExpiresAtUnix > 0 && bundle.ExpiresAtUnix < now;

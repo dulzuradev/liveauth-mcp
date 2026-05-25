@@ -62,6 +62,7 @@ public class CreateBundleInvoiceResponse
 public class ClaimBundleRequest
 {
     public string PaymentHash { get; set; } = string.Empty;
+    public string? PublicKey { get; set; } // Optional body fallback for X-LW-Public
 }
 
 public class ClaimBundleResponse
