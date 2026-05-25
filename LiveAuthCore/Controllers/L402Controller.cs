@@ -11,6 +11,7 @@ namespace LiveAuthCore.Controllers;
 [Route("api/public/l402")]
 public class L402Controller : ControllerBase
 {
+    private const string PublicKeyHeaderName = "X-LW-Public";
     private readonly L402Service _l402;
     private readonly LightningService _lightning;
     private readonly LiveAuthDbContext _db;
@@ -30,19 +31,28 @@ public class L402Controller : ControllerBase
     [HttpPost("invoice")]
     public async Task<IActionResult> CreateInvoice(
         [FromQuery] string? destination = null,
-        [FromQuery] int? amountSats = null)
+        [FromQuery] int? amountSats = null,
+        [FromQuery] string? publicKey = null,
+        CancellationToken ct = default)
     {
         try
         {
-            var response = await _l402.CreateInvoiceAsync(destination, amountSats);
+            var project = await ResolveActiveProjectAsync(publicKey, ct);
+            if (project == null)
+                return Unauthorized(new { error = "invalid_public_key", message = "A valid active project public key is required." });
+
+            var response = await _l402.CreateInvoiceAsync(destination, amountSats, project);
+            _l402.BindInvoiceToProject(response.PaymentHash, project.Id);
+
             return Ok(new
             {
                 paymentHash = response.PaymentHash,
                 bolt11 = response.Bolt11,
                 amountSats = response.AmountSats,
                 expiresAtUnix = response.ExpiresAtUnix,
-                // Hint: client pays invoice, then calls /validate with preimage
-                instructions = "Pay this invoice, then call /validate with your preimage (payment secret) to get an L402 token"
+                tokenScope = "time_scoped_bearer",
+                tokenScopeDescription = "Validated payments issue an L402 bearer token bound to this project and valid for the configured token TTL. Current v0.1 tokens are time-scoped, not single-use.",
+                instructions = "Pay this invoice, then call /validate with the paymentHash to get an L402 token."
             });
         }
         catch (Exception ex)
@@ -56,15 +66,25 @@ public class L402Controller : ControllerBase
     /// </summary>
     /// <param name="paymentHash">The payment hash (r_hash) from the invoice</param>
     [HttpPost("validate")]
-    public async Task<IActionResult> ValidatePayment([FromQuery] string paymentHash)
+    public async Task<IActionResult> ValidatePayment(
+        [FromQuery] string paymentHash,
+        [FromQuery] string? publicKey = null,
+        CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(paymentHash))
             return BadRequest(new { error = "paymentHash is required" });
 
         try
         {
+            var project = await ResolveActiveProjectAsync(publicKey, ct);
+            if (project == null)
+                return Unauthorized(new { error = "invalid_public_key", message = "A valid active project public key is required." });
+
+            if (!_l402.IsInvoiceBoundToProject(paymentHash, project.Id))
+                return StatusCode(StatusCodes.Status403Forbidden, new { error = "invoice_project_mismatch" });
+
             // Check if invoice is paid
-            var status = await _lightning.GetInvoiceStatusAsync(paymentHash);
+            var status = await _lightning.GetInvoiceStatusAsync(paymentHash, project);
             
             if (!status.IsPaid)
             {
@@ -87,7 +107,9 @@ public class L402Controller : ControllerBase
             {
                 token = token,
                 tokenType = "L402",
-                expiresInSeconds = 3600 // 1 hour
+                expiresInSeconds = 3600, // 1 hour
+                tokenScope = "time_scoped_bearer",
+                tokenScopeDescription = "This L402 token is bound to the project public key used for invoice creation and remains valid for the configured token TTL. Current v0.1 tokens are time-scoped, not single-use."
             });
         }
         catch (Exception ex)
@@ -100,12 +122,19 @@ public class L402Controller : ControllerBase
     /// Check if a token is valid (for debugging/health).
     /// </summary>
     [HttpGet("verify")]
-    public IActionResult VerifyToken([FromQuery] string token)
+    public async Task<IActionResult> VerifyToken(
+        [FromQuery] string token,
+        [FromQuery] string? publicKey = null,
+        CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(token))
             return BadRequest(new { error = "token is required" });
 
-        var isValid = _l402.IsTokenValid(token);
+        var project = await ResolveActiveProjectAsync(publicKey, ct);
+        if (project == null)
+            return Unauthorized(new { error = "invalid_public_key", message = "A valid active project public key is required." });
+
+        var isValid = _l402.IsTokenValid(token, project.Id);
         
         return Ok(new
         {
@@ -132,6 +161,10 @@ public class L402Controller : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Tier))
             return BadRequest(new { error = "Tier is required (starter, growth, scale, enterprise)" });
 
+        var project = await ResolveActiveProjectAsync(req.PublicKey, ct);
+        if (project == null)
+            return Unauthorized(new { error = "invalid_public_key", message = "A valid active project public key is required." });
+
         if (!L402BundleTiers.TryGetTier(req.Tier, out var tier))
             return BadRequest(new { error = $"Unknown tier '{req.Tier}'. Valid: starter, growth, scale, enterprise" });
 
@@ -141,13 +174,16 @@ public class L402Controller : ControllerBase
         var result = await _lightning.CreateLoginInvoiceAsync(
             email: req.AgentId ?? "bundle-purchase",
             amountSats: tier.PriceSats,
-            expiryMinutes: 10
+            expiryMinutes: 10,
+            project: project
         );
 
         var bundle = new L402Bundle
         {
             Id = Guid.NewGuid(),
             BundleId = bundleId,
+            ProjectId = project.Id,
+            DeveloperId = project.DeveloperId,
             Tier = tier.Name,
             TotalCalls = tier.TotalCalls,
             RemainingCalls = tier.TotalCalls,
@@ -166,6 +202,7 @@ public class L402Controller : ControllerBase
         {
             BundleId = bundleId,
             Invoice = result.Bolt11,
+            Bolt11 = result.Bolt11,
             PaymentHash = result.InvoiceId,
             AmountSats = tier.PriceSats,
             ExpiresAtUnix = result.ExpiresAtUnix,
@@ -264,5 +301,31 @@ public class L402Controller : ControllerBase
             IsExpired = isExpired,
             IsDepleted = isDepleted
         });
+    }
+
+    private async Task<Project?> ResolveActiveProjectAsync(string? publicKey, CancellationToken ct)
+    {
+        var key = publicKey;
+        if (string.IsNullOrWhiteSpace(key) &&
+            Request.Headers.TryGetValue(PublicKeyHeaderName, out var headerValues))
+        {
+            key = headerValues.FirstOrDefault();
+        }
+
+        if (string.IsNullOrWhiteSpace(key))
+            return null;
+
+        key = key.Trim();
+
+        var project = await _db.Projects
+            .FirstOrDefaultAsync(p => p.PublicKey == key && p.IsActive, ct);
+        if (project != null)
+            return project;
+
+        var apiKey = await _db.ProjectApiKeys
+            .Include(k => k.Project)
+            .FirstOrDefaultAsync(k => k.PublicKey == key && k.IsActive && k.Project.IsActive, ct);
+
+        return apiKey?.Project;
     }
 }

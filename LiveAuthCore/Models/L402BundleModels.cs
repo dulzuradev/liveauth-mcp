@@ -42,12 +42,14 @@ public class CreateBundleInvoiceRequest
 {
     public string Tier { get; set; } = "starter";
     public string? AgentId { get; set; }  // Optional agent identifier
+    public string? PublicKey { get; set; } // Optional body fallback for X-LW-Public
 }
 
 public class CreateBundleInvoiceResponse
 {
     public string BundleId { get; set; } = string.Empty;
     public string Invoice { get; set; } = string.Empty;
+    public string Bolt11 { get; set; } = string.Empty;
     public string PaymentHash { get; set; } = string.Empty;
     public int AmountSats { get; set; }
     public long ExpiresAtUnix { get; set; }

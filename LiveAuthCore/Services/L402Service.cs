@@ -32,7 +32,7 @@ public class L402Service
     /// <summary>
     /// Create an invoice for L402 payment.
     /// </summary>
-    public async Task<L402InvoiceResponse> CreateInvoiceAsync(string? destination, int? amountSats = null)
+    public async Task<L402InvoiceResponse> CreateInvoiceAsync(string? destination, int? amountSats = null, Project? project = null)
     {
         var sats = amountSats ?? DefaultSatsPerRequest;
         var memo = string.IsNullOrEmpty(destination) 
@@ -42,7 +42,8 @@ public class L402Service
         var result = await _lightning.CreateLoginInvoiceAsync(
             email: destination ?? "anonymous",
             amountSats: sats,
-            expiryMinutes: 10 // Invoice expires in 10 min, but token valid for 1hr once paid
+            expiryMinutes: 10, // Invoice expires in 10 min, but token valid for 1hr once paid
+            project: project
         );
 
         // Preimage is used as the L402 token - we derive a token hash for lookup
@@ -56,6 +57,23 @@ public class L402Service
             // Token will be derived from preimage once invoice is paid
             Token = null 
         };
+    }
+
+    public void BindInvoiceToProject(string paymentHash, Guid projectId)
+    {
+        if (string.IsNullOrWhiteSpace(paymentHash) || projectId == Guid.Empty)
+            return;
+
+        _cache.Set(GetInvoiceProjectCacheKey(paymentHash), projectId, TimeSpan.FromMinutes(10));
+    }
+
+    public bool IsInvoiceBoundToProject(string paymentHash, Guid projectId)
+    {
+        if (string.IsNullOrWhiteSpace(paymentHash) || projectId == Guid.Empty)
+            return false;
+
+        return _cache.TryGetValue(GetInvoiceProjectCacheKey(paymentHash), out Guid boundProjectId) &&
+               boundProjectId == projectId;
     }
 
     /// <summary>
@@ -137,6 +155,8 @@ public class L402Service
         var ttl = GetTokenTtl();
         _cache.Set($"l402_token:{token}", true, ttl);
         _cache.Set($"l402_payment:{paymentHashBase64}", token, ttl);
+        if (_cache.TryGetValue(GetInvoiceProjectCacheKey(paymentHashBase64), out Guid projectId))
+            _cache.Set(GetTokenProjectCacheKey(token), projectId, ttl);
         
         return token;
     }
@@ -209,6 +229,15 @@ public class L402Service
             return false;
 
         return _cache.TryGetValue($"l402_token:{token}", out _);
+    }
+
+    public bool IsTokenValid(string token, Guid projectId)
+    {
+        if (!IsTokenValid(token) || projectId == Guid.Empty)
+            return false;
+
+        return _cache.TryGetValue(GetTokenProjectCacheKey(token), out Guid boundProjectId) &&
+               boundProjectId == projectId;
     }
 
     /// <summary>
@@ -287,6 +316,12 @@ public class L402Service
         var ttlMinutes = _config.GetValue<int?>("L402:TokenTtlMinutes") ?? 60;
         return TimeSpan.FromMinutes(ttlMinutes);
     }
+
+    private static string GetInvoiceProjectCacheKey(string paymentHash)
+        => $"l402_invoice_project:{paymentHash}";
+
+    private static string GetTokenProjectCacheKey(string token)
+        => $"l402_token_project:{token}";
 
     /// <summary>
     /// Get configured price for an endpoint.
