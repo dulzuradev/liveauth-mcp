@@ -50,8 +50,8 @@ public class L402Controller : ControllerBase
                 bolt11 = response.Bolt11,
                 amountSats = response.AmountSats,
                 expiresAtUnix = response.ExpiresAtUnix,
-                tokenScope = "time_scoped_bearer",
-                tokenScopeDescription = "Validated payments issue an L402 bearer token bound to this project and valid for the configured token TTL. Current v0.1 tokens are time-scoped, not single-use.",
+                tokenScope = "allowance_scoped_bearer",
+                tokenScopeDescription = "Validated payments issue an L402 bearer token bound to this project and valid for the configured token TTL or call allowance, whichever is exhausted first.",
                 instructions = "Pay this invoice, then call /validate with the paymentHash to get an L402 token."
             });
         }
@@ -108,8 +108,9 @@ public class L402Controller : ControllerBase
                 token = token,
                 tokenType = "L402",
                 expiresInSeconds = 3600, // 1 hour
-                tokenScope = "time_scoped_bearer",
-                tokenScopeDescription = "This L402 token is bound to the project public key used for invoice creation and remains valid for the configured token TTL. Current v0.1 tokens are time-scoped, not single-use."
+                tokenScope = "allowance_scoped_bearer",
+                tokenScopeDescription = "This L402 token is bound to the project public key used for invoice creation and valid for the configured token TTL or call allowance, whichever is exhausted first.",
+                remainingCalls = 1
             });
         }
         catch (Exception ex)

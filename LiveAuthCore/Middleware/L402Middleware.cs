@@ -97,7 +97,7 @@ public class L402Middleware
         else
         {
             // L402: native validation
-            isValid = _l402.IsTokenValid(token);
+            isValid = _l402.TryConsumeToken(token);
         }
         
         if (!isValid)

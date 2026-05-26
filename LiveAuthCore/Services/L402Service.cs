@@ -17,8 +17,9 @@ public class L402Service
     private readonly IMemoryCache _cache;
     private readonly IConfiguration _config;
     
-    // Default: 1 sat per request, 1 hour TTL
+    // Default: 1 sat per request, 1 allowed call, 1 hour max TTL.
     private const int DefaultSatsPerRequest = 1;
+    private const int DefaultTokenCallAllowance = 1;
     private const int McpSatsPerRequest = 10;
     private static readonly TimeSpan DefaultTtl = TimeSpan.FromHours(1);
 
@@ -155,6 +156,7 @@ public class L402Service
         var ttl = GetTokenTtl();
         _cache.Set($"l402_token:{token}", true, ttl);
         _cache.Set($"l402_payment:{paymentHashBase64}", token, ttl);
+        _cache.Set(GetTokenAllowanceCacheKey(token), GetTokenCallAllowance(), ttl);
         if (_cache.TryGetValue(GetInvoiceProjectCacheKey(paymentHashBase64), out Guid projectId))
             _cache.Set(GetTokenProjectCacheKey(token), projectId, ttl);
         
@@ -228,7 +230,9 @@ public class L402Service
         if (string.IsNullOrEmpty(token))
             return false;
 
-        return _cache.TryGetValue($"l402_token:{token}", out _);
+        return _cache.TryGetValue($"l402_token:{token}", out _) &&
+               _cache.TryGetValue(GetTokenAllowanceCacheKey(token), out int remainingCalls) &&
+               remainingCalls > 0;
     }
 
     public bool IsTokenValid(string token, Guid projectId)
@@ -238,6 +242,40 @@ public class L402Service
 
         return _cache.TryGetValue(GetTokenProjectCacheKey(token), out Guid boundProjectId) &&
                boundProjectId == projectId;
+    }
+
+    public bool TryConsumeToken(string token)
+    {
+        if (string.IsNullOrEmpty(token))
+            return false;
+
+        if (!_cache.TryGetValue($"l402_token:{token}", out _) ||
+            !_cache.TryGetValue(GetTokenAllowanceCacheKey(token), out int remainingCalls) ||
+            remainingCalls <= 0)
+        {
+            return false;
+        }
+
+        remainingCalls -= 1;
+        if (remainingCalls <= 0)
+        {
+            _cache.Remove($"l402_token:{token}");
+            _cache.Remove(GetTokenAllowanceCacheKey(token));
+            _cache.Remove(GetTokenProjectCacheKey(token));
+            return true;
+        }
+
+        var ttl = GetTokenTtl();
+        _cache.Set(GetTokenAllowanceCacheKey(token), remainingCalls, ttl);
+        return true;
+    }
+
+    public bool TryConsumeToken(string token, Guid projectId)
+    {
+        if (!IsTokenValid(token, projectId))
+            return false;
+
+        return TryConsumeToken(token);
     }
 
     /// <summary>
@@ -317,11 +355,20 @@ public class L402Service
         return TimeSpan.FromMinutes(ttlMinutes);
     }
 
+    private int GetTokenCallAllowance()
+    {
+        var allowance = _config.GetValue<int?>("L402:TokenCallAllowance") ?? DefaultTokenCallAllowance;
+        return Math.Max(1, allowance);
+    }
+
     private static string GetInvoiceProjectCacheKey(string paymentHash)
         => $"l402_invoice_project:{paymentHash}";
 
     private static string GetTokenProjectCacheKey(string token)
         => $"l402_token_project:{token}";
+
+    private static string GetTokenAllowanceCacheKey(string token)
+        => $"l402_token_allowance:{token}";
 
     /// <summary>
     /// Get configured price for an endpoint.
