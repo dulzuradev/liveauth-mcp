@@ -1,31 +1,59 @@
-# Code Review Findings - 2026-05-06/07
+# Code Review Findings - 2026-05-26
 
-## Issues Found: 7
+## Issues Found: 3
 
-## Branch: feat/improvement-security-dx-2026
+## Branches & Changes
 
-## Changes:
-- `fix: security and correctness improvements across auth flows`
+### Branch: feat/improvement-concurrency-bundle-decrement
 
-## Summary:
+**Commit:** `3a1ffa5` - fix: atomic bundle decrement to prevent concurrent over-depletion
 
-**1. Security - Admin Password Timing Attack (AdminAuthController.cs)**
-The admin login used `hash != session.PasswordHash` for password comparison, which is vulnerable to timing attacks. An attacker could measure response times to gradually determine the correct password hash. Fixed by using `CryptographicOperations.FixedTimeEquals` for constant-time comparison.
+**Finding:** TOCTOU race condition in `L402Service.ValidateMacaroonAsync`
+- Multiple concurrent MCP requests could both read `RemainingCalls=1`, both decrement via EF, resulting in `RemainingCalls=-1` or over-depletion
+- The pre-check `if (bundle.RemainingCalls <= 0)` was a read-modify-write race
 
-**2. Security - PoW Verification Bit-Level Accuracy (AgentAuthController.cs)**
-The PoW verification was checking difficulty using hex characters (`difficultyBits / 4`), which is imprecise. A proper PoW should check at the bit level. Additionally, the original code was missing the `:` separator in the hash input (`challenge + nonce` instead of `challenge + ":" + nonce`). Fixed with proper bit-level target building and constant-time `IsLessThan` comparison.
+**Fix:** Replaced in-memory check + EF modification with single atomic SQL UPDATE:
+```sql
+UPDATE L402Bundles
+  SET "RemainingCalls" = "RemainingCalls" - 1,
+      "Status" = CASE WHEN "RemainingCalls" - 1 <= 0 THEN 'depleted' ELSE "Status" END
+  WHERE "BundleId" = {bid} AND "RemainingCalls" > 0
+```
+The WHERE clause guarantees no decrement if calls are exhausted. Also added `CancellationToken ct` parameter for consistency.
 
-**3. Security - L402 Token Validation Always Failed (L402Service.cs)**
-`ValidateTokenAsync` always returned `null` because the preimage→payment-hash mapping wasn't implemented. Tokens were never actually validated. Fixed by implementing preimage mapping storage at invoice creation time and proper validation that checks both the cached token and the preimage→payment-hash mapping.
+---
 
-**4. Correctness - NRE in DeveloperVerificationService (DeveloperVerificationService.cs)**
-`project.Plan.ToLowerInvariant()` would throw if `Plan` was null. Changed to `project.Plan?.ToLowerInvariant() ?? "free"`.
+### Branch: feat/improvement-dev-auth-error-responses
 
-**5. Correctness - Missing Resend Verification Flow (DeveloperAuthController.cs)**
-Users with expired verification tokens had no way to get a new email. Added `POST /api/dev/auth/resend-verification` endpoint that generates a new verification token and sends a new email, returning the same message whether or not an unverified account exists (to prevent email enumeration).
+**Commit:** `45e54a6` - fix: add error details to DevConfirmLoginResponse for DX improvement
 
-**6. Correctness - Frontend Resend Verification UI (verify-email component)**
-When email verification expired, users had no way to request a new verification email from the UI. Added resend verification button and route.
+**Finding:** `DevConfirmLoginResponse` returned only `{Verified, Token}` on all failure paths, making it impossible for clients to distinguish:
+- SESSION_NOT_FOUND: session doesn't exist
+- SESSION_EXPIRED: invoice expired before payment
+- EMAIL_IDENTITY_MISMATCH: email registered with a different Lightning identity (potential hijack attempt)
+- Payment still pending (no error returned at all)
 
-**7. Correctness - Payment Hash Normalization (L402Service.cs)**
-L402 tokens can come in different formats (raw hex, base64-encoded hex). Added `NormalizePaymentHash` to handle both, ensuring tokens are consistently validated regardless of encoding.
+**Fix:** Added optional `Error` (human message) and `ErrorCode` (machine-readable) fields to `DevConfirmLoginResponse`. All failure paths now return structured error codes. Also fixed GitHub OAuth callback leaking `ex.Message` in 500 responses.
+
+---
+
+### Branch: feat/improvement-l402-header-refactor
+
+**Commit:** `bf16077` - refactor: replace Console.WriteLine debug statements with ILogger in LightningService
+
+**Finding:** `LightningService.GetInvoiceStatusAsync` contained 6 `Console.WriteLine` debug statements that:
+- Pollute stdout in production
+- Leak internal state (payment hashes, LND URLs) to console
+- Cannot be filtered/aggregated via standard logging frameworks
+
+**Fix:** Replaced all `Console.WriteLine` with `ILogger.LogDebug` using structured logging (`{Property}` placeholders). Also added `ILogger<LightningService>` injection to the service constructor.
+
+---
+
+## Summary
+
+Three targeted improvements across correctness and DX:
+
+1. **Correctness (Security)**: Atomic bundle decrement prevents concurrent over-depletion via SQL atomicity, closing a revenue/leak vector.
+2. **DX**: Dev auth error responses now return structured error codes so clients can take appropriate action instead of retrying blindly.
+3. **Observability**: Debug output moved to structured ILogger; production logs remain clean while debug traces stay available via log level configuration.
