@@ -107,10 +107,10 @@ public class L402Controller : ControllerBase
             {
                 token = token,
                 tokenType = "L402",
-                expiresInSeconds = 3600, // 1 hour
+                expiresInSeconds = _l402.TokenTtlSeconds,
                 tokenScope = "allowance_scoped_bearer",
                 tokenScopeDescription = "This L402 token is bound to the project public key used for invoice creation and valid for the configured token TTL or call allowance, whichever is exhausted first.",
-                remainingCalls = 1
+                remainingCalls = _l402.GetRemainingTokenCalls(token)
             });
         }
         catch (Exception ex)

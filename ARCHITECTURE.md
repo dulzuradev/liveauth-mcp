@@ -206,8 +206,15 @@ The MCP server exposes 5 tools: `liveauth_mcp_start`, `liveauth_mcp_confirm`, `l
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/api/public/l402/invoice` | — | Create L402 invoice |
-| POST | `/api/public/l402/validate?paymentHash=` | — | Validate payment, get token |
+| POST | `/api/public/l402/validate?paymentHash=` | — | Validate payment, get allowance-scoped token |
 | GET | `/api/public/l402/verify?token=` | — | Check token validity |
+| POST | `/api/public/l402/bundle/invoice` | `X-LW-Public` | Create bundle purchase invoice |
+| POST | `/api/public/l402/bundle/claim` | `X-LW-Public` | Claim bundle macaroon after payment |
+| GET | `/api/public/l402/bundle/status` | `X-LW-Public` | Check bundle balance/status |
+
+Pay-per-call invoices and bundle invoices produce different credentials:
+- Pay-per-call `/invoice` + `/validate` returns an L402 bearer token. The token is project-bound and valid until its TTL or configured call allowance is exhausted. `L402:TokenCallAllowance` defaults to `1`.
+- Bundle `/bundle/invoice` + `/bundle/claim` returns a macaroon. The macaroon is consumed by the MCP bundle flow and decrements the bundle's persisted `RemainingCalls`; it does not increase pay-per-call token allowance.
 
 ### Agent Auth (`/api/agent/auth`)
 | Method | Path | Auth | Description |
@@ -275,7 +282,7 @@ PoW challenges are signed with HMAC-SHA256 by `PowChallengeSigner` using `PowHma
 MCP gate JWTs are short-lived (10 min) and scoped to `projectId + sessionId`. They carry `authType` claim: `mcp_pow`, `mcp_lightning`, or `mcp_l402`.
 
 ### L402 vs Lightning
-L402 is for **prepaid** bulk access (AI agents buying bundles). Lightning is for **per-session** payment (one-off logins). L402 macaroons survive beyond the MCP session lifecycle; Lightning invoices are single-use.
+L402 supports both single pay-per-call tokens and prepaid bundle macaroons. Pay-per-call tokens are short-lived, project-bound bearer tokens with a configured call allowance. Bundle macaroons are separate prepaid credentials for MCP bundle sessions and decrement bundle `RemainingCalls` in the database. Lightning remains the per-session payment option for one-off logins.
 
 ### Email / Resend
 Transaction emails (verification, password reset) sent via **Resend API** (HTTP, not SMTP). Configured via `Resend__ApiKey`, `Resend__FromEmail`, `Resend__FromName` in docker-compose.yml. Verification tokens expire after 24 hours.

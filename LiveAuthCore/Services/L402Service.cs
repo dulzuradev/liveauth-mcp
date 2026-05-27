@@ -31,6 +31,16 @@ public class L402Service
     }
 
     /// <summary>
+    /// Configured number of protected calls granted by a pay-per-call L402 token.
+    /// </summary>
+    public int TokenCallAllowance => GetTokenCallAllowance();
+
+    /// <summary>
+    /// Configured maximum lifetime, in seconds, for a pay-per-call L402 token.
+    /// </summary>
+    public int TokenTtlSeconds => (int)GetTokenTtl().TotalSeconds;
+
+    /// <summary>
     /// Create an invoice for L402 payment.
     /// </summary>
     public async Task<L402InvoiceResponse> CreateInvoiceAsync(string? destination, int? amountSats = null, Project? project = null)
@@ -276,6 +286,19 @@ public class L402Service
             return false;
 
         return TryConsumeToken(token);
+    }
+
+    /// <summary>
+    /// Return the remaining call allowance for an issued L402 token.
+    /// </summary>
+    public int GetRemainingTokenCalls(string token)
+    {
+        if (string.IsNullOrEmpty(token))
+            return 0;
+
+        return _cache.TryGetValue(GetTokenAllowanceCacheKey(token), out int remainingCalls)
+            ? Math.Max(0, remainingCalls)
+            : 0;
     }
 
     /// <summary>
