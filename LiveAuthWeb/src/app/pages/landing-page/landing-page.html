@@ -15,6 +15,7 @@
     <a href="#core">Core Auth</a>
     <a href="#mcp">MCP SDK</a>
     <a href="#l402">L402</a>
+    <a href="#early-access">Early Access</a>
     <a href="#pricing">Pricing</a>
     <a href="https://docs.liveauth.app" target="_blank">Docs</a>
   </nav>
@@ -25,9 +26,9 @@
     <a href="https://docs.liveauth.app/demo.html" class="demo-link" target="_blank" rel="noopener"><button mat-stroked-button class="ghost">
       Try Demo
     </button></a>
-    <button mat-raised-button class="primary" routerLink="/dev/projects">
-      Get API Keys
-    </button>
+    <a href="#early-access" class="nav-cta-link"><button mat-raised-button class="primary">
+      Join Early Access
+    </button></a>
   </div>
 </mat-toolbar>
 
@@ -40,26 +41,27 @@
     <div class="hero-copy">
       <mat-chip-set class="hero-chipset">
         <mat-chip selected color="accent">
-          <mat-icon>smart_toy</mat-icon>
-          Built for the Agent Economy
+          <mat-icon>payments</mat-icon>
+          Monetize MCP tools with Lightning payments
         </mat-chip>
       </mat-chip-set>
 
       <h1>
-        Authentication & Payments for AI Agents
-        <span class="glow">PoW, Lightning, and paid MCP calls in one flow.</span>
+        Monetize MCP tools with Lightning payments.
+        <span class="glow">Real invoices, MCP JWTs, and per-call charging.</span>
       </h1>
 
       <p class="hero-sub">
-        LiveAuth helps agent-facing APIs verify requests, return real Lightning invoices,
-        issue short-lived JWTs, and charge tool calls in sats.
+        LiveAuth helps tool developers add a pay-per-call path without accounts,
+        card checkout, or a hosted proxy. Agents pay a Lightning invoice and call
+        your protected MCP tool with a short-lived token.
       </p>
 
       <div class="hero-actions">
-        <button mat-raised-button class="primary big" routerLink="/dev/projects">
-          <mat-icon>build</mat-icon>
-          Get API Keys - Free
-        </button>
+        <a href="#early-access"><button mat-raised-button class="primary big">
+          <mat-icon>mail</mat-icon>
+          Join Early Access
+        </button></a>
         <a href="https://docs.liveauth.app/demo.html"><button mat-stroked-button class="ghost big">
           <mat-icon>play_arrow</mat-icon>
           View Demo
@@ -129,6 +131,70 @@
       </div>
     </div>
   </div>
+</section>
+
+<!-- ================= EARLY ACCESS ================= -->
+<section id="early-access" class="section lead-section">
+  <div class="lead-copy">
+    <h2>Get the MCP payments demo</h2>
+    <p class="section-sub">
+      Share the tool you want to charge for. I will follow up with the smallest working
+      Lightning flow: invoice, token, protected call, and per-call usage.
+    </p>
+  </div>
+
+  <form class="lead-form" (submit)="$event.preventDefault(); submitWaitlist()">
+    <label>
+      <span>Email</span>
+      <input
+        name="email"
+        type="email"
+        autocomplete="email"
+        required
+        [(ngModel)]="waitlist.email"
+        [disabled]="waitlistSubmitting"
+        placeholder="you@example.com">
+    </label>
+
+    <label>
+      <span>Use case</span>
+      <textarea
+        name="useCase"
+        rows="4"
+        required
+        [(ngModel)]="waitlist.useCase"
+        [disabled]="waitlistSubmitting"
+        placeholder="I run an MCP server for web search and want to charge 1 sat per call."></textarea>
+    </label>
+
+    <label>
+      <span>GitHub or Twitter</span>
+      <input
+        name="githubOrTwitter"
+        type="text"
+        autocomplete="off"
+        [(ngModel)]="waitlist.githubOrTwitter"
+        [disabled]="waitlistSubmitting"
+        placeholder="@handle or github.com/name">
+    </label>
+
+    <button
+      mat-raised-button
+      class="primary lead-submit"
+      type="submit"
+      [disabled]="waitlistSubmitting">
+      <mat-icon>bolt</mat-icon>
+      {{ waitlistSubmitting ? 'Joining...' : 'Request Early Access' }}
+    </button>
+
+    <p
+      class="lead-message"
+      [class.success]="waitlistStatus === 'success'"
+      [class.error]="waitlistStatus === 'error'"
+      *ngIf="waitlistMessage">
+      {{ waitlistMessage }}
+    </p>
+  </form>
 </section>
 
 <!-- ================= PRODUCTS OVERVIEW ================= -->

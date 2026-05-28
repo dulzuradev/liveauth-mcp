@@ -51,6 +51,7 @@ public class LiveAuthDbContext : DbContext
     public DbSet<L402Purchase> L402Purchases => Set<L402Purchase>();
     public DbSet<L402Bundle> L402Bundles => Set<L402Bundle>();
     public DbSet<L402Macaroon> L402Macaroons => Set<L402Macaroon>();
+    public DbSet<WaitlistLead> WaitlistLeads => Set<WaitlistLead>();
 
     // Nostr Agent Auth
     public DbSet<NostrAgentSession> NostrAgentSessions => Set<NostrAgentSession>();
@@ -249,5 +250,9 @@ public class LiveAuthDbContext : DbContext
             .HasIndex(e => new { e.McpToolId, e.IdempotencyKey })
             .IsUnique()
             .HasFilter("\"IdempotencyKey\" IS NOT NULL");
+
+        modelBuilder.Entity<WaitlistLead>()
+            .HasIndex(l => l.Email)
+            .IsUnique();
     }
 }
