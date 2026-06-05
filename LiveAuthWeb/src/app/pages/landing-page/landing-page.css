@@ -92,11 +92,6 @@
   align-items: center;
 }
 
-.nav-cta-link,
-.hero-actions a {
-  text-decoration: none;
-}
-
 /* Buttons */
 .primary {
   background: linear-gradient(135deg, var(--electric-blue), #0099cc) !important;
@@ -360,98 +355,6 @@
   background: rgba(0, 194, 255, 0.02);
   border-top: 1px solid rgba(0, 194, 255, 0.08);
   border-bottom: 1px solid rgba(0, 194, 255, 0.08);
-}
-
-/* =========================
-   Lead capture
-   ========================= */
-.lead-section {
-  display: grid;
-  gap: 22px;
-  align-items: start;
-  scroll-margin-top: 88px;
-}
-
-.lead-copy .section-sub {
-  margin-bottom: 0;
-}
-
-.lead-form {
-  display: grid;
-  gap: 14px;
-  width: 100%;
-  max-width: 620px;
-  margin: 0 auto;
-  padding: 20px;
-  border: 1px solid rgba(0, 194, 255, 0.22);
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.34);
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
-}
-
-.lead-form label {
-  display: grid;
-  gap: 7px;
-}
-
-.lead-form span {
-  color: #d8e5f5;
-  font-size: 0.9rem;
-  font-weight: 800;
-}
-
-.lead-form input,
-.lead-form textarea {
-  width: 100%;
-  border: 1px solid rgba(0, 194, 255, 0.24);
-  border-radius: 8px;
-  background: rgba(10, 15, 30, 0.92);
-  color: #f4f8ff;
-  font: inherit;
-  line-height: 1.45;
-  padding: 12px 13px;
-  outline: none;
-}
-
-.lead-form textarea {
-  resize: vertical;
-  min-height: 108px;
-}
-
-.lead-form input:focus,
-.lead-form textarea:focus {
-  border-color: rgba(0, 194, 255, 0.72);
-  box-shadow: 0 0 0 3px rgba(0, 194, 255, 0.12);
-}
-
-.lead-form input::placeholder,
-.lead-form textarea::placeholder {
-  color: #78869a;
-}
-
-.lead-submit {
-  justify-self: start;
-  min-height: 44px;
-}
-
-.lead-message {
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-weight: 700;
-  line-height: 1.45;
-}
-
-.lead-message.success {
-  color: #69f0ae;
-  background: rgba(105, 240, 174, 0.1);
-  border: 1px solid rgba(105, 240, 174, 0.24);
-}
-
-.lead-message.error {
-  color: #ffb4ab;
-  background: rgba(255, 82, 82, 0.1);
-  border: 1px solid rgba(255, 82, 82, 0.24);
 }
 
 /* =========================

@@ -1,9 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
-import { BASE_API_URL } from '../../config';
 
 // Angular Material
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -18,7 +15,6 @@ import { MatChipsModule } from '@angular/material/chips';
   imports: [
     CommonModule,
     RouterModule,
-    FormsModule,
     MatToolbarModule,
     MatButtonModule,
     MatCardModule,
@@ -29,18 +25,7 @@ import { MatChipsModule } from '@angular/material/chips';
   styleUrls: ['./landing-page.css']
 })
 export class LandingPageComponent {
-  constructor(private http: HttpClient) {}
-
   heroImageUrl = 'assets/images/liveauth_logo_4.png';
-  waitlist = {
-    email: '',
-    useCase: '',
-    githubOrTwitter: ''
-  };
-  waitlistSubmitting = false;
-  waitlistStatus: 'idle' | 'success' | 'error' = 'idle';
-  waitlistMessage = '';
-
   liveAuthSnippet = `import { LiveAuthMcpClient } from '@liveauth-labs/mcp-server/client';
 
 const liveauth = new LiveAuthMcpClient({
@@ -61,38 +46,5 @@ const gate = new LiveAuthMcpServerGate({
 });
 
 await gate.gateTool(jwt, args, runTool, context);`;
-
-  submitWaitlist() {
-    const payload = {
-      email: this.waitlist.email.trim(),
-      useCase: this.waitlist.useCase.trim(),
-      githubOrTwitter: this.waitlist.githubOrTwitter.trim() || null,
-      source: 'liveauth.app'
-    };
-
-    if (!payload.email || !payload.useCase) {
-      this.waitlistStatus = 'error';
-      this.waitlistMessage = 'Email and use case are required.';
-      return;
-    }
-
-    this.waitlistSubmitting = true;
-    this.waitlistStatus = 'idle';
-    this.waitlistMessage = '';
-
-    this.http.post(`${BASE_API_URL}/api/public/waitlist`, payload).subscribe({
-      next: () => {
-        this.waitlistSubmitting = false;
-        this.waitlistStatus = 'success';
-        this.waitlistMessage = 'Thanks. I will follow up with the smallest usable MCP payment demo.';
-        this.waitlist = { email: '', useCase: '', githubOrTwitter: '' };
-      },
-      error: () => {
-        this.waitlistSubmitting = false;
-        this.waitlistStatus = 'error';
-        this.waitlistMessage = 'Could not join right now. Email hello@liveauth.app and I will add you manually.';
-      }
-    });
-  }
 
 }

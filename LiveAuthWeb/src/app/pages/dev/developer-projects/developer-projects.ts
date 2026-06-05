@@ -361,6 +361,12 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   ngOnInit() {
     // Check for token in URL (from GitHub OAuth redirect)
     const urlParams = new URLSearchParams(window.location.search);
+    const authMode = urlParams.get('mode');
+    if (authMode === 'register' || authMode === 'login') {
+      this.selectedLoginTab = 'email';
+      this.emailMode = authMode === 'register' ? 'register' : 'login';
+    }
+
     const tokenFromUrl = urlParams.get('token');
     if (tokenFromUrl) {
       this.devAuth.saveToken(tokenFromUrl);

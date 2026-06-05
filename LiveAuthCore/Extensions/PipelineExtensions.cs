@@ -180,24 +180,6 @@ public static class PipelineExtensions
             ON McpToolRevenueEvents (McpToolId, IdempotencyKey)
             WHERE IdempotencyKey IS NOT NULL"
         );
-
-        await EnsureTableAsync(connection, "WaitlistLeads", @"
-            CREATE TABLE WaitlistLeads (
-                Id TEXT NOT NULL PRIMARY KEY,
-                Email TEXT NOT NULL,
-                UseCase TEXT NOT NULL,
-                GithubOrTwitter TEXT,
-                Source TEXT NOT NULL,
-                UserAgent TEXT,
-                CreatedAt TEXT NOT NULL,
-                UpdatedAt TEXT NOT NULL
-            )"
-        );
-
-        await EnsureIndexAsync(connection, "IX_WaitlistLeads_Email", @"
-            CREATE UNIQUE INDEX IX_WaitlistLeads_Email
-            ON WaitlistLeads (Email)"
-        );
     }
 
     private static async Task EnsureTableAsync(System.Data.Common.DbConnection connection, string tableName, string createSql)
