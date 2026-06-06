@@ -1,32 +1,29 @@
-<!-- ================= TOP NAV ================= -->
-<mat-toolbar class="la-toolbar" color="primary">
-  <div class="la-toolbar-left">
-    <mat-icon class="bolt">bolt</mat-icon>
-    <span class="brand">
-      LiveAuth
-      <span class="beta-badge">BETA</span>
-    </span>
-  </div>
+<mat-toolbar class="la-toolbar">
+  <a class="brand" routerLink="/" aria-label="LiveAuth home">
+    <mat-icon class="brand-icon">bolt</mat-icon>
+    <span>LiveAuth</span>
+  </a>
 
   <span class="spacer"></span>
 
-  <nav class="la-nav">
-    <a href="#products">Products</a>
-    <a href="#core">Core Auth</a>
-    <a href="#mcp">MCP SDK</a>
-    <a href="#l402">L402</a>
+  <nav class="la-nav" aria-label="Primary navigation">
+    <a href="#how">How it works</a>
+    <a href="#dashboard">Dashboard</a>
+    <a href="#docs">Docs</a>
     <a href="#pricing">Pricing</a>
-    <a href="https://docs.liveauth.app" target="_blank">Docs</a>
   </nav>
 
-  <span class="spacer"></span>
-
   <div class="la-toolbar-cta">
-    <a href="https://docs.liveauth.app/demo.html" class="demo-link" target="_blank" rel="noopener"><button mat-stroked-button class="ghost">
-      Try Demo
-    </button></a>
+    <a
+      mat-stroked-button
+      class="ghost"
+      href="https://docs.liveauth.app/demo.html"
+      target="_blank"
+      rel="noopener">
+      Demo
+    </a>
     <button
-      mat-raised-button
+      mat-flat-button
       class="primary"
       routerLink="/dev/projects"
       [queryParams]="{ mode: 'register' }">
@@ -35,846 +32,269 @@
   </div>
 </mat-toolbar>
 
-<!-- ================= HERO ================= -->
-<section class="hero">
-  <div class="hero-bg"></div>
+<main>
+  <section class="hero">
+    <img class="hero-art" [src]="heroImageUrl" alt="" aria-hidden="true">
+    <div class="hero-shade"></div>
 
-  <div class="hero-inner">
-    <!-- COPY -->
-    <div class="hero-copy">
-      <mat-chip-set class="hero-chipset">
-        <mat-chip selected color="accent">
-          <mat-icon>smart_toy</mat-icon>
-          Built for the Agent Economy
-        </mat-chip>
-      </mat-chip-set>
-
-      <h1>
-        Authentication & Payments for AI Agents
-        <span class="glow">PoW, Lightning, and paid MCP calls in one flow.</span>
-      </h1>
-
+    <div class="hero-content">
+      <p class="eyebrow">Proof-of-work auth and Lightning metering</p>
+      <h1>Gate logins and APIs without CAPTCHA theater.</h1>
       <p class="hero-sub">
-        LiveAuth helps agent-facing APIs verify requests, return real Lightning invoices,
-        issue short-lived JWTs, and charge tool calls in sats.
+        LiveAuth gives your admin team project keys, usage controls, and payment-aware
+        access gates for login forms, API endpoints, and MCP tools.
       </p>
 
       <div class="hero-actions">
         <button
-          mat-raised-button
+          mat-flat-button
           class="primary big"
           routerLink="/dev/projects"
           [queryParams]="{ mode: 'register' }">
           <mat-icon>person_add</mat-icon>
-          Create Account - Free
+          Create Account
         </button>
-        <a href="https://docs.liveauth.app/demo.html"><button mat-stroked-button class="ghost big">
-          <mat-icon>play_arrow</mat-icon>
-          View Demo
-        </button></a>
-      </div>
-
-      <!-- PRODUCT CARDS -->
-      <div class="product-cards">
-        <div class="product-card" routerLink="/dev/projects">
-          <mat-icon>verified_user</mat-icon>
-          <div class="product-card-title">Core Auth</div>
-          <div class="product-card-desc">PoW + Lightning verification</div>
-        </div>
-        <div class="product-card" routerLink="/dev/projects">
-          <mat-icon>smart_toy</mat-icon>
-          <div class="product-card-title">MCP SDK</div>
-          <div class="product-card-desc">Client auth + server charging</div>
-        </div>
-        <div class="product-card" routerLink="/dev/projects">
-          <mat-icon>payments</mat-icon>
-          <div class="product-card-title">L402</div>
-          <div class="product-card-desc">Per-request Lightning payments</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- VISUAL -->
-    <div class="hero-visual">
-      <div class="hero-card">
-        <div class="flow-card-header">
-          <div>
-            <div class="caption-title">Paid MCP call</div>
-            <div class="caption-sub">A real invoice, JWT, and per-call charge.</div>
-          </div>
-          <span class="flow-pill">v1 SDK</span>
-        </div>
-
-        <div class="flow-steps">
-          <div class="flow-step">
-            <mat-icon>qr_code_2</mat-icon>
-            <div>
-              <strong>1. Start session</strong>
-              <span>Client receives PoW challenge or BOLT11 invoice.</span>
-            </div>
-          </div>
-          <div class="flow-step">
-            <mat-icon>vpn_key</mat-icon>
-            <div>
-              <strong>2. Confirm payment</strong>
-              <span>LiveAuth returns an MCP JWT for the agent.</span>
-            </div>
-          </div>
-          <div class="flow-step">
-            <mat-icon>payments</mat-icon>
-            <div>
-              <strong>3. Charge tool call</strong>
-              <span>Server gate validates and deducts sats per call.</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="flow-status">
-          <span>status: ok</span>
-          <span>cost: 1 sat</span>
-          <span>budget: active</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= PRODUCTS OVERVIEW ================= -->
-<section id="products" class="section">
-  <h2>One Platform, Three Ways to Gate Access</h2>
-  <p class="section-sub">
-    Everything you need to build in the agent economy.
-  </p>
-
-  <div class="products-grid">
-    <mat-card class="product-block">
-      <div class="product-icon">
-        <mat-icon>verified_user</mat-icon>
-      </div>
-      <h3>Core Auth</h3>
-      <p>Proof-of-work verification that humans pass (instantly) and bots can't cheat affordably. Lightning fallback for premium users.</p>
-      <ul>
-        <li>~200ms for real devices</li>
-        <li>No cookies or fingerprinting</li>
-        <li>21 sat Lightning fallback</li>
-      </ul>
-      <a href="#core" class="product-link">Learn more →</a>
-    </mat-card>
-
-    <mat-card class="product-block">
-      <div class="product-icon">
-        <mat-icon>smart_toy</mat-icon>
-      </div>
-      <h3>MCP SDK</h3>
-      <p>Client and server helpers for paid MCP tools: start auth, show invoices, validate JWTs, and charge each call.</p>
-      <ul>
-        <li>Client auth helper</li>
-        <li>Server gate helper</li>
-        <li>JWT token generation</li>
-        <li>Metered tool access</li>
-      </ul>
-      <a href="#mcp" class="product-link">Learn more →</a>
-    </mat-card>
-
-    <mat-card class="product-block">
-      <div class="product-icon">
-        <mat-icon>payments</mat-icon>
-      </div>
-      <h3>L402 Payments</h3>
-      <p>Monetize your API with per-request Lightning payments. Agents pay as they go—no subscriptions required.</p>
-      <ul>
-        <li>1-10 sats per call</li>
-        <li>Automatic payment flow</li>
-        <li>Build agent economies</li>
-      </ul>
-      <a href="#l402" class="product-link">Learn more →</a>
-    </mat-card>
-  </div>
-</section>
-
-<!-- ================= CORE AUTH ================= -->
-<section id="core" class="section">
-  <h2>Core Auth: Bot Detection That Actually Works</h2>
-  <p class="section-sub">
-    Proof-of-work verification. Real humans pass instantly. Bots pay the economic cost.
-  </p>
-
-  <div class="feature-grid">
-    <mat-card class="feature">
-      <mat-icon>bolt</mat-icon>
-      <h3>~200ms Verification</h3>
-      <ul class="features-list">
-        <li>Cryptographic PoW challenge in browser</li>
-        <li>Real devices solve in 200-800ms</li>
-        <li>Bots consume CPU/battery cost</li>
-      </ul>
-    </mat-card>
-
-    <mat-card class="feature">
-      <mat-icon>flash_on</mat-icon>
-      <h3>Lightning Fallback</h3>
-      <ul class="features-list">
-        <li>21 sats (~0.3¢) payment option</li>
-        <li>Real economic cost to attackers</li>
-        <li>Most humans never see this</li>
-      </ul>
-    </mat-card>
-
-    <mat-card class="feature">
-      <mat-icon>security</mat-icon>
-      <h3>Privacy-First</h3>
-      <ul class="features-list">
-        <li>No cookies or fingerprinting</li>
-        <li>No behavioral tracking</li>
-        <li>JWT tokens, no user identity required</li>
-      </ul>
-    </mat-card>
-  </div>
-</section>
-
-<!-- ================= MCP SDK ================= -->
-<section id="mcp" class="section alt">
-  <h2>MCP SDK: Paid Tool Calls for AI Agents</h2>
-  <p class="section-sub">
-    Add LiveAuth to MCP clients and servers without routing your traffic through a hosted proxy.
-  </p>
-
-  <div class="feature-grid">
-    <mat-card class="feature">
-      <mat-icon>integration_instructions</mat-icon>
-      <h3>Client Auth Helper</h3>
-      <ul class="features-list">
-        <li>Starts PoW, Lightning, or L402 sessions</li>
-        <li>Displays real BOLT11 invoices for QR payment</li>
-        <li>Stores and refreshes MCP JWTs</li>
-      </ul>
-    </mat-card>
-
-    <mat-card class="feature">
-      <mat-icon>vpn_key</mat-icon>
-      <h3>Server Gate Helper</h3>
-      <ul class="features-list">
-        <li>Validates MCP JWTs through LiveAuth</li>
-        <li>Charges tool calls in sats</li>
-        <li>Works with stdio, HTTP, or custom transports</li>
-      </ul>
-    </mat-card>
-
-    <mat-card class="feature">
-      <mat-icon>speed</mat-icon>
-      <h3>Drop-in CLI Still Included</h3>
-      <ul class="features-list">
-        <li>npx @liveauth-labs/mcp-server</li>
-        <li>Claude Desktop compatible</li>
-        <li>Same backend charge and usage contract</li>
-      </ul>
-    </mat-card>
-  </div>
-
-  <mat-card class="snippet-card mcp-snippet-card">
-    <div class="snippet-header">
-      <mat-icon>terminal</mat-icon>
-      <div>
-        <div class="snippet-title">Client and server helpers</div>
-        <div class="snippet-sub">
-          The npm package now exposes import-safe SDK entrypoints, not just a stdio server.
-        </div>
-      </div>
-    </div>
-
-    <div class="snippet-split">
-      <pre class="snippet compact"><code class="language-ts" [textContent]="liveAuthSnippet"></code></pre>
-      <pre class="snippet compact"><code class="language-ts" [textContent]="serverGateSnippet"></code></pre>
-    </div>
-  </mat-card>
-</section>
-
-<!-- ================= L402 PAYMENTS ================= -->
-<section id="l402" class="section alt">
-  <h2>L402: Per-Request Lightning Payments</h2>
-  <p class="section-sub">
-    Monetize your API with satoshi-level precision. Agents pay as they go.
-  </p>
-
-  <div class="feature-grid">
-    <mat-card class="feature">
-      <mat-icon>monetization_on</mat-icon>
-      <h3>1-10 Sats per Call</h3>
-      <ul class="features-list">
-        <li>MCP tool calls: configurable sats</li>
-        <li>Standard endpoints: configurable sats</li>
-        <li>Configurable pricing</li>
-      </ul>
-    </mat-card>
-
-    <mat-card class="feature">
-      <mat-icon>autorenew</mat-icon>
-      <h3>Automatic Payment Flow</h3>
-      <ul class="features-list">
-        <li>402 Payment Required response</li>
-        <li>Client displays invoice or handles auth flow</li>
-        <li>Short-lived JWT after payment or PoW</li>
-      </ul>
-    </mat-card>
-
-    <mat-card class="feature">
-      <mat-icon>show_chart</mat-icon>
-      <h3>Build Agent Economies</h3>
-      <ul class="features-list">
-        <li>Pay-per-use API pricing</li>
-        <li>No subscriptions required</li>
-        <li>Real-time revenue tracking</li>
-      </ul>
-    </mat-card>
-  </div>
-</section>
-
-
-
-<!-- ================= PROBLEM SECTION ================= -->
-<section id="problem" class="section">
-  <h2>The Agent Economy Has an Authentication Problem</h2>
-  <p class="section-sub">
-    Traditional authentication was built for humans. AI agents need something different.
-  </p>
-
-  <div class="problem-grid">
-    <mat-card class="problem-card">
-      <div class="problem-icon">🚫</div>
-      <h3>CAPTCHAs Block Agents</h3>
-      <ul class="problem-list">
-        <li>Traditional auth assumes humans</li>
-        <li>Interactive flows break automation</li>
-        <li>Many APIs still require human-only checks</li>
-      </ul>
-      <div class="problem-stat">Agent-friendly auth needs non-interactive proof.</div>
-    </mat-card>
-
-    <mat-card class="problem-card">
-      <div class="problem-icon">💳</div>
-      <h3>Payments Don't Work</h3>
-      <ul class="problem-list">
-        <li>Credit cards require human input</li>
-        <li>Sub-cent transactions impossible</li>
-        <li>Slow settlement kills real-time use cases</li>
-      </ul>
-      <div class="problem-stat">Pay-per-call pricing requires micropayments</div>
-    </mat-card>
-
-    <mat-card class="problem-card">
-      <div class="problem-icon">🔐</div>
-      <h3>Trust is Broken</h3>
-      <ul class="problem-list">
-        <li>API keys leaked = massive fraud</li>
-        <li>No proof of payment/verification</li>
-        <li>Agents can't trust other agents</li>
-      </ul>
-      <div class="problem-stat">Long-lived secrets are brittle in automated systems.</div>
-    </mat-card>
-  </div>
-</section>
-
-<!-- ================= SOLUTION SECTION ================= -->
-<section id="solution" class="section alt">
-  <h2>LiveAuth: Built for Agents, Powered by Bitcoin</h2>
-  <p class="section-sub">
-    Seamless, bot-friendly verification with Lightning Network micropayments.
-  </p>
-
-  <div class="feature-grid">
-    <mat-card class="feature">
-      <mat-icon>bolt</mat-icon>
-      <h3>Bot-Friendly by Design</h3>
-      <ul class="features-list">
-        <li>No CAPTCHAs, no human interaction</li>
-        <li>Proof-of-Work challenges agents can solve</li>
-        <li>Stateless JWT tokens for portability</li>
-      </ul>
-    </mat-card>
-
-    <mat-card class="feature">
-      <mat-icon>flash_on</mat-icon>
-      <h3>Lightning Micropayments</h3>
-      <ul class="features-list">
-        <li>Sub-cent transactions, instant settlement</li>
-        <li>Pay-per-API-call pricing</li>
-        <li>No credit cards, no custodial risk</li>
-      </ul>
-    </mat-card>
-
-    <mat-card class="feature">
-      <mat-icon>verified</mat-icon>
-      <h3>Cryptographic Trust</h3>
-      <ul class="features-list">
-        <li>JWT tokens represent confirmed work or payment</li>
-        <li>Portable across any marketplace</li>
-        <li>Fewer long-lived secrets in agent code</li>
-      </ul>
-    </mat-card>
-
-    <mat-card class="feature">
-      <mat-icon>devices</mat-icon>
-      <h3>Universal Compatibility</h3>
-      <ul class="features-list">
-        <li>Works with any API or platform</li>
-        <li>Works alongside OAuth and API keys</li>
-        <li>Stateless tokens for simple integrations</li>
-      </ul>
-    </mat-card>
-  </div>
-</section>
-
-<!-- ================= HOW IT WORKS ================= -->
-<section id="how" class="section">
-  <h2>How It Works</h2>
-  <p class="section-sub">
-    Three steps. Agents solve cryptographic challenges or pay via Lightning.
-  </p>
-
-  <div class="steps">
-    <div class="step">
-      <mat-icon>receipt_long</mat-icon>
-      <h3>1. Agent Requests Access</h3>
-      <p>Your AI agent hits a protected API endpoint. No login screen, no CAPTCHA.</p>
-      <div class="step-meta">&lt;200 ms</div>
-    </div>
-
-    <div class="step">
-      <mat-icon>qr_code_2</mat-icon>
-      <h3>2. Choose Your Path</h3>
-      <p>
-        <strong>Free Route:</strong> Solve a Proof-of-Work challenge (computational proof)<br>
-        <strong>Paid Route:</strong> Pay a small Lightning invoice and receive a JWT
-      </p>
-      <div class="step-meta">&lt;1 sec</div>
-    </div>
-
-    <div class="step">
-      <mat-icon>verified</mat-icon>
-      <h3>3. Get Verified</h3>
-      <p>
-        Receive a signed JWT token. Use it anywhere. Trust established.
-      </p>
-      <div class="step-meta">Immediate</div>
-    </div>
-  </div>
-
-  <!-- CODE SNIPPET -->
-  <mat-card class="snippet-card liveauth-quickstart">
-    <div class="snippet-header">
-      <mat-icon>code</mat-icon>
-      <div>
-        <div class="snippet-title">Require a paid MCP invoice</div>
-        <div class="snippet-sub">
-          Start a Lightning-backed MCP session, display the invoice QR, then confirm the JWT.
-        </div>
-      </div>
-    </div>
-
-    <pre class="snippet">
-      <code
-        class="language-ts"
-        [textContent]="liveAuthSnippet">
-      </code>
-    </pre>
-
-    <div class="snippet-footer">
-      <div class="snippet-actions">
         <a
-          mat-raised-button
-          class="primary"
-          href="https://docs.liveauth.app"
+          mat-stroked-button
+          class="ghost big"
+          href="https://docs.liveauth.app/GETTING-STARTED.md"
           target="_blank"
           rel="noopener">
-          <mat-icon>description</mat-icon>
-          View Full Docs
+          <mat-icon>article</mat-icon>
+          Read Quickstart
         </a>
+      </div>
 
-        <a href="https://docs.liveauth.app/demo.html"><button mat-stroked-button class="ghost">
-          <mat-icon>play_arrow</mat-icon>
-          Try Live Demo
-        </button></a>
+      <div class="hero-points" aria-label="LiveAuth highlights">
+        <span>No tracking scripts</span>
+        <span>Project-scoped API keys</span>
+        <span>Free tier included</span>
       </div>
     </div>
-  </mat-card>
-</section>
+  </section>
 
-<!-- ================= USE CASES ================= -->
-<section class="section alt">
-  <h2>Powering the Next Generation of Autonomous Systems</h2>
-  <p class="section-sub">
-    From agent marketplaces to micropayment APIs—LiveAuth enables real agent economies.
-  </p>
+  <section id="how" class="section intro-band">
+    <div class="section-heading">
+      <p class="eyebrow">What LiveAuth does</p>
+      <h2>One gate for three common admin jobs.</h2>
+    </div>
 
-  <div class="usecases">
-    <div class="usecase">
-      <mat-icon>api</mat-icon>
+    <div class="capability-grid">
+      <article class="capability">
+        <mat-icon>login</mat-icon>
+        <h3>Protect login forms</h3>
+        <p>
+          Add proof-of-work to expensive or suspicious sign-in flows. Real users pass
+          quietly; automated abuse gets priced or slowed down.
+        </p>
+      </article>
+
+      <article class="capability">
+        <mat-icon>api</mat-icon>
+        <h3>Gate API endpoints</h3>
+        <p>
+          Issue short-lived JWTs after proof-of-work or Lightning payment, then verify
+          those tokens at the edge of your API.
+        </p>
+      </article>
+
+      <article class="capability">
+        <mat-icon>payments</mat-icon>
+        <h3>Meter tool calls</h3>
+        <p>
+          Charge paid MCP or API calls in sats, keep a revenue ledger, and tune usage
+          limits from the dashboard.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section workflow">
+    <div class="section-heading compact">
+      <p class="eyebrow">Setup</p>
+      <h2>Ship the first protected route in minutes.</h2>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <span class="step-number">1</span>
+        <h3>Create a project</h3>
+        <p>Get a public key, secret key, allowed domains, billing limits, and webhook settings.</p>
+      </div>
+      <div class="step">
+        <span class="step-number">2</span>
+        <h3>Add the gate</h3>
+        <p>Call LiveAuth before sensitive login or API work, then verify the returned JWT.</p>
+      </div>
+      <div class="step">
+        <span class="step-number">3</span>
+        <h3>Watch usage</h3>
+        <p>Review attempts, paid calls, API keys, MCP revenue, and project settings in one place.</p>
+      </div>
+    </div>
+
+    <div class="code-panel">
       <div>
-        <h3>Agent-to-API Access</h3>
-        <p><strong>Problem:</strong> APIs use CAPTCHAs that block agents</p>
-        <p><strong>Solution:</strong> PoW challenges replace human verification</p>
-        <p class="usecase-example">Example: An agent calls a paid search API without a browser login.</p>
+        <p class="eyebrow">Example</p>
+        <h3>Start with one protected endpoint.</h3>
       </div>
+      <pre><code [textContent]="apiSnippet"></code></pre>
     </div>
+  </section>
 
-    <div class="usecase">
-      <mat-icon>store</mat-icon>
-      <div>
-        <h3>Agent Marketplaces</h3>
-        <p><strong>Problem:</strong> No trust layer for agent-to-agent transactions</p>
-        <p><strong>Solution:</strong> JWT tokens prove payment/verification</p>
-        <p class="usecase-example">Example: A marketplace accepts only agents with paid, active sessions.</p>
-      </div>
-    </div>
-
-    <div class="usecase">
-      <mat-icon>attach_money</mat-icon>
-      <div>
-        <h3>Micropayment APIs</h3>
-        <p><strong>Problem:</strong> Credit cards can't process sub-cent transactions</p>
-        <p><strong>Solution:</strong> Lightning enables instant, tiny payments</p>
-        <p class="usecase-example">Example: Charge 1-10 sats per API call instead of monthly subscriptions.</p>
-      </div>
-    </div>
-
-    <div class="usecase">
-      <mat-icon>speed</mat-icon>
-      <div>
-        <h3>Enterprise Rate Limiting</h3>
-        <p><strong>Problem:</strong> Rogue agents rack up massive API bills</p>
-        <p><strong>Solution:</strong> PoW makes spam computationally expensive</p>
-        <p class="usecase-example">Example: "Self-regulating cost control without manual intervention"</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= COMPARISON TABLE ================= -->
-<section id="comparison" class="section">
-  <h2>LiveAuth vs Traditional Auth for Agents</h2>
-  <p class="section-sub">
-    See how LiveAuth compares to OAuth, API keys, and other payment protocols.
-  </p>
-
-  <div class="comparison-table-wrapper">
-    <table class="comparison-table">
-      <thead>
-        <tr>
-          <th>Feature</th>
-          <th class="highlight-col">LiveAuth</th>
-          <th>OAuth/API Keys</th>
-          <th>Skyfire/x402</th>
-          <th>Google AP2</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="feature-label">Bot-Friendly</td>
-          <td class="highlight-col"><span class="check">✅</span> PoW challenge</td>
-          <td><span class="cross">❌</span> Assumes human</td>
-          <td><span class="warning">⚠️</span> Partial</td>
-          <td><span class="warning">⚠️</span> Partial</td>
-        </tr>
-        <tr>
-          <td class="feature-label">Micropayments</td>
-          <td class="highlight-col"><span class="check">✅</span> Lightning (BTC)</td>
-          <td><span class="cross">❌</span> No payments</td>
-          <td><span class="check">✅</span> Stablecoins</td>
-          <td><span class="warning">⚠️</span> Card networks</td>
-        </tr>
-        <tr>
-          <td class="feature-label">No Custody Risk</td>
-          <td class="highlight-col"><span class="check">✅</span> Non-custodial</td>
-          <td>N/A</td>
-          <td><span class="cross">❌</span> Custodial</td>
-          <td><span class="cross">❌</span> Centralized</td>
-        </tr>
-        <tr>
-          <td class="feature-label">Stateless</td>
-          <td class="highlight-col"><span class="check">✅</span> JWT tokens</td>
-          <td><span class="cross">❌</span> Sessions</td>
-          <td><span class="warning">⚠️</span> Varies</td>
-          <td><span class="cross">❌</span> Complex</td>
-        </tr>
-        <tr>
-          <td class="feature-label">Works Today</td>
-          <td class="highlight-col"><span class="check">✅</span> Live API</td>
-          <td><span class="check">✅</span> Yes</td>
-          <td><span class="check">✅</span> Yes</td>
-          <td><span class="cross">❌</span> Draft protocol</td>
-        </tr>
-        <tr>
-          <td class="feature-label">Bitcoin-Native</td>
-          <td class="highlight-col"><span class="check">✅</span> Lightning only</td>
-          <td>N/A</td>
-          <td><span class="cross">❌</span> Stables/ETH</td>
-          <td><span class="cross">❌</span> Fiat rails</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<!-- ================= TECHNICAL DETAILS ================= -->
-<section class="section alt">
-  <h2>How LiveAuth Works Under the Hood</h2>
-  <p class="section-sub">
-    Built on proven cryptographic primitives and Bitcoin's Lightning Network.
-  </p>
-
-  <div class="technical-grid">
-    <mat-card class="technical-card">
-      <h3>Proof-of-Work Authentication</h3>
-      <ul class="features-list">
-        <li>SHA-256 hash challenges (adjustable difficulty)</li>
-        <li>Client-side solving (no server computation)</li>
-        <li>Replay protection via DB unique constraints</li>
-        <li>Configurable difficulty: 5-30 bits</li>
-      </ul>
-    </mat-card>
-
-    <mat-card class="technical-card">
-      <h3>Lightning Network Integration</h3>
-      <ul class="features-list">
-        <li>Direct LND integration (no middleman)</li>
-        <li>Invoice generation on-demand</li>
-        <li>Instant verification on payment</li>
-        <li>Fallback from PoW to Lightning seamless</li>
-      </ul>
-    </mat-card>
-  </div>
-
-  <mat-card class="security-card">
-    <h3>Security Features</h3>
-    <div class="security-features">
-      <span class="security-badge">✅ Rate limiting (10/min/IP, 100/min/project)</span>
-      <span class="security-badge">✅ Replay attack prevention</span>
-      <span class="security-badge">✅ JWT expiration (configurable TTL)</span>
-      <span class="security-badge">✅ Project-scoped API keys</span>
-    </div>
-  </mat-card>
-</section>
-
-<!-- ================= PRICING ================= -->
-<section id="pricing" class="section">
-  <h2>Pricing</h2>
-  <p class="section-sub">
-    Pay only for what you use. Start free, scale as you grow.
-    <span class="muted">All prices in Bitcoin Lightning sats.</span>
-  </p>
-
-  <div class="pricing-grid">
-    <mat-card class="price">
-      <h3>Free Tier</h3>
-      <div class="price-num">0 sats</div>
-      <div class="price-sub">forever</div>
-      <ul>
-        <li>1,000 verifications/month</li>
-        <li>Proof-of-Work only</li>
-        <li>Community support</li>
-        <li>Full API access</li>
-      </ul>
-      <div class="price-perfect">Perfect for: Testing, indie devs</div>
-      <button mat-stroked-button class="ghost full" routerLink="/dev/projects">
-        Get Started
+  <section id="dashboard" class="section dashboard-band">
+    <div class="dashboard-copy">
+      <p class="eyebrow">Admin dashboard</p>
+      <h2>Designed for operators, not a demo checklist.</h2>
+      <p>
+        Manage projects, API keys, login pricing, MCP tool revenue, webhooks, and usage
+        without leaving the dashboard.
+      </p>
+      <button
+        mat-flat-button
+        class="primary"
+        routerLink="/dev/projects"
+        [queryParams]="{ mode: 'register' }">
+        Open Dashboard
       </button>
-    </mat-card>
+    </div>
 
-    <mat-card class="price featured">
-      <div class="badge">Most Popular</div>
-      <h3>Pro</h3>
-      <div class="price-num">50,000 sats</div>
-      <div class="price-sub">~ $30 USD</div>
-      <ul>
-        <li>100,000 verifications/month</li>
-        <li>PoW + Lightning payments</li>
-        <li>Email support</li>
-      </ul>
-      <div class="price-perfect">Perfect for: Startups, agent platforms</div>
-      <div class="price-note">
-        ⚡ Lightning fees paid by end-users, not you
+    <div class="dashboard-surface" aria-label="Dashboard capabilities preview">
+      <div class="surface-row">
+        <span>Projects</span>
+        <strong>API keys, domains, billing</strong>
       </div>
-      <button mat-raised-button class="primary full" routerLink="/dev/projects">
-        Go Pro
-      </button>
-    </mat-card>
+      <div class="surface-row">
+        <span>Auth Events</span>
+        <strong>PoW, Lightning, verification</strong>
+      </div>
+      <div class="surface-row">
+        <span>MCP Revenue</span>
+        <strong>Calls, sats, fees, ledger</strong>
+      </div>
+      <div class="surface-row">
+        <span>Controls</span>
+        <strong>Limits, webhooks, rotation</strong>
+      </div>
+    </div>
+  </section>
 
-    <mat-card class="price">
-      <h3>Enterprise</h3>
-      <div class="price-num">Custom</div>
-      <div class="price-sub">SLA + dedicated node</div>
-      <ul>
-        <li>Unlimited verifications</li>
-        <li>Custom Lightning infrastructure</li>
-        <li>SLA guarantees</li>
-        <li>Custom integrations</li>
-        <li>White-label options</li>
-      </ul>
-      <div class="price-perfect">Perfect for: Marketplaces, large platforms</div>
-      <a mat-stroked-button class="ghost full" href="mailto:support@liveauth.app">
-        Contact Sales
+  <section id="docs" class="section docs-band">
+    <div class="section-heading compact">
+      <p class="eyebrow">Detailed documentation</p>
+      <h2>Pick the guide that matches what you are gating.</h2>
+    </div>
+
+    <div class="docs-grid">
+      <a
+        class="doc-card"
+        href="https://docs.liveauth.app/GETTING-STARTED.md"
+        target="_blank"
+        rel="noopener">
+        <mat-icon>rocket_launch</mat-icon>
+        <span>Quickstart</span>
+        <strong>Protect the first login or API route.</strong>
       </a>
-    </mat-card>
-  </div>
-</section>
 
-<!-- ================= DEVELOPER RESOURCES ================= -->
-<section class="section alt">
-  <h2>Ship Your Agent Integration in Minutes</h2>
-  <p class="section-sub">
-    Comprehensive docs, SDKs, and community support.
-  </p>
+      <a
+        class="doc-card"
+        href="https://docs.liveauth.app/mcp-liveauth-gate.md"
+        target="_blank"
+        rel="noopener">
+        <mat-icon>hub</mat-icon>
+        <span>MCP gate</span>
+        <strong>Issue MCP JWTs and meter paid tool calls.</strong>
+      </a>
 
-  <div class="resources-grid">
-    <mat-card class="resource">
-      <mat-icon>description</mat-icon>
-      <h3>Documentation</h3>
-      <ul class="features-list">
-        <li>Quick Start Guide</li>
-        <li>API Reference</li>
-        <li>SDKs: JavaScript</li>
-        <li>Integration examples</li>
-      </ul>
-    </mat-card>
+      <a
+        class="doc-card"
+        href="https://docs.liveauth.app/add-l402-to-any-mcp-tool.md"
+        target="_blank"
+        rel="noopener">
+        <mat-icon>payments</mat-icon>
+        <span>L402 payments</span>
+        <strong>Add Lightning payments to any MCP tool.</strong>
+      </a>
 
-    <mat-card class="resource">
-      <mat-icon>extension</mat-icon>
-      <h3>SDKs & Tools</h3>
-      <ul class="features-list">
-        <li>npm: @liveauth-labs/sdk</li>
-        <li>MCP SDK + Claude-compatible CLI</li>
-        <li>npm: @liveauth-labs/mcp-server</li>
-      </ul>
-    </mat-card>
-
-    <mat-card class="resource">
-      <mat-icon>forum</mat-icon>
-      <h3>Community</h3>
-      <ul class="features-list">
-        <li>Discord server</li>
-        <li>GitHub discussions</li>
-        <li>Example repositories</li>
-      </ul>
-    </mat-card>
-
-    <mat-card class="resource">
-      <mat-icon>science</mat-icon>
-      <h3>Demo & Playground</h3>
-      <ul class="features-list">
-        <li>Working agent examples</li>
-        <li>Video tutorials</li>
-        <li>Architecture diagrams</li>
-      </ul>
-    </mat-card>
-  </div>
-</section>
-
-<!-- ================= VISION SECTION ================= -->
-<section class="section vision">
-  <h2>Building the Infrastructure for the Agent Economy</h2>
-  <p class="vision-statement">
-    The future isn't human-to-human transactions. It's agents transacting autonomously—24/7, globally, without friction. LiveAuth provides the trust layer that makes this possible.
-  </p>
-
-  <div class="vision-features">
-    <div class="vision-item">
-      <span class="vision-icon">✅</span>
-      <span>Agents that pay for API access without human intervention</span>
+      <a
+        class="doc-card"
+        href="https://docs.liveauth.app/demo.html"
+        target="_blank"
+        rel="noopener">
+        <mat-icon>play_circle</mat-icon>
+        <span>Live demo</span>
+        <strong>Try proof-of-work and Lightning flows.</strong>
+      </a>
     </div>
-    <div class="vision-item">
-      <span class="vision-icon">✅</span>
-      <span>Marketplaces where agents can trust each other</span>
-    </div>
-    <div class="vision-item">
-      <span class="vision-icon">✅</span>
-      <span>APIs that welcome bots instead of blocking them</span>
-    </div>
-    <div class="vision-item">
-      <span class="vision-icon">✅</span>
-      <span>A truly autonomous, permission-less digital economy</span>
-    </div>
-  </div>
+  </section>
 
-  <mat-card class="testimonial-featured">
-    <div class="testimonial-quote">
-      "LiveAuth gave us a clean way to price and verify automated access without forcing agents through human login flows."
+  <section id="pricing" class="section pricing">
+    <div class="section-heading compact">
+      <p class="eyebrow">Pricing</p>
+      <h2>Start free. Pay when your gates matter.</h2>
     </div>
-    <div class="testimonial-author">
-      <div class="author-name">LiveAuth Developer</div>
-      <div class="author-role">Building AI Agent Marketplace</div>
+
+    <div class="pricing-grid">
+      <article class="price">
+        <h3>Free</h3>
+        <p class="price-value">0 sats</p>
+        <p>Proof-of-work gates, project keys, dashboard access, and enough usage to test a real route.</p>
+        <button
+          mat-stroked-button
+          class="ghost full"
+          routerLink="/dev/projects"
+          [queryParams]="{ mode: 'register' }">
+          Create Account
+        </button>
+      </article>
+
+      <article class="price featured">
+        <h3>Pro</h3>
+        <p class="price-value">50,000 sats</p>
+        <p>Higher verification volume, Lightning fallback, paid MCP/API call tracking, and email support.</p>
+        <button
+          mat-flat-button
+          class="primary full"
+          routerLink="/dev/projects"
+          [queryParams]="{ mode: 'register' }">
+          Start Pro
+        </button>
+      </article>
+
+      <article class="price">
+        <h3>Enterprise</h3>
+        <p class="price-value">Custom</p>
+        <p>Dedicated infrastructure, custom limits, operational support, and integration help.</p>
+        <a mat-stroked-button class="ghost full" href="mailto:support@liveauth.app">
+          Contact
+        </a>
+      </article>
     </div>
-  </mat-card>
-</section>
+  </section>
 
-<!-- ================= CTA ================= -->
-<section class="cta">
-  <h2>Ready to Empower Your Agents?</h2>
-  <p>Create an account and get your API keys in 60 seconds.</p>
-
-  <div class="cta-actions">
+  <section class="final-cta">
+    <h2>Ready to protect the route that costs you money?</h2>
+    <p>Create an account, add a project, and gate the first endpoint today.</p>
     <button
-      mat-raised-button
+      mat-flat-button
       class="primary big"
       routerLink="/dev/projects"
       [queryParams]="{ mode: 'register' }">
-      <mat-icon>person_add</mat-icon>
-      Create Account - Free
+      <mat-icon>bolt</mat-icon>
+      Create Account
     </button>
-    <a href="https://docs.liveauth.app/demo.html"><button mat-stroked-button class="ghost big">
-      <mat-icon>play_arrow</mat-icon>
-      Try Demo
-    </button></a>
-  </div>
+  </section>
+</main>
 
-  <div class="cta-trust">
-    <span>✅ No credit card required</span>
-    <span>✅ 1,000 free verifications/month</span>
-    <span>✅ Cancel anytime</span>
-  </div>
-</section>
-
-<!-- ================= FOOTER ================= -->
 <footer class="footer">
-  <div class="footer-grid">
-    <div class="footer-col">
-      <div class="footer-brand">
-        <mat-icon>bolt</mat-icon>
-        <span>LiveAuth</span>
-      </div>
-      <p class="footer-tagline">Built for the Agent Economy</p>
-    </div>
-
-    <div class="footer-col">
-      <h4>Product</h4>
-      <a href="https://docs.liveauth.app/demo.html">Demo</a>
-      <a href="#pricing">Pricing</a>
-      <a href="https://docs.liveauth.app" target="_blank">Documentation</a>
-    </div>
-
-    <div class="footer-col">
-      <h4>Resources</h4>
-      <a routerLink="/blog">Blog</a>
-      <a href="https://github.com/dulzuradev/liveauth-mcp" target="_blank">GitHub</a>
-    </div>
-
-    <div class="footer-col">
-      <h4>Company</h4>
-      <a href="mailto:support@liveauth.app">Contact</a>
-    </div>
-
-    <div class="footer-col">
-      <h4>Legal</h4>
-      <a routerLink="/legal">Privacy Policy</a>
-      <a routerLink="/legal">Terms of Service</a>
-    </div>
+  <div class="footer-brand">
+    <mat-icon>bolt</mat-icon>
+    <span>LiveAuth</span>
   </div>
-
-  <div class="footer-bottom">
-    <p>© 2026 LiveAuth. Built for the Agent Economy.</p>
-    <div class="footer-social">
-      <a href="https://docs.liveauth.app" target="_blank" rel="noopener" aria-label="Documentation"><mat-icon>link</mat-icon></a>
-      <a href="https://github.com/dulzuradev/liveauth-mcp" target="_blank" aria-label="GitHub"><mat-icon>code</mat-icon></a>
-      <a href="mailto:support@liveauth.app" aria-label="Contact"><mat-icon>forum</mat-icon></a>
-    </div>
-  </div>
+  <nav aria-label="Footer navigation">
+    <a href="https://docs.liveauth.app" target="_blank" rel="noopener">Docs</a>
+    <a routerLink="/blog">Blog</a>
+    <a routerLink="/legal">Legal</a>
+    <a href="mailto:support@liveauth.app">Contact</a>
+  </nav>
 </footer>
