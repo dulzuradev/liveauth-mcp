@@ -1,5 +1,5 @@
 /* ============================================
-   LiveAuth Developer Dashboard – AI Economy Theme
+   LiveAuth Console - AI Economy Theme
    Matches landing page: electric-blue, btc-orange, wall-deep
    ============================================ */
 
@@ -14,7 +14,7 @@
   --card-glow: rgba(242, 169, 0, 0.12);
   --text-primary: #e6edf3;
   --text-muted: rgba(230, 237, 243, 0.6);
-  --radius: 14px;
+  --radius: 8px;
   --radius-sm: 8px;
 
   display: block;
@@ -47,18 +47,32 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ============================================
    Header
    ============================================ */
 .dashboard-header {
+  order: 1;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 40px;
+  margin-bottom: 16px;
   padding-bottom: 24px;
   border-bottom: 1px solid rgba(0, 194, 255, 0.12);
+}
+
+.console-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 6px;
+  color: var(--btc-orange);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .dashboard-title {
@@ -95,6 +109,71 @@
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+.console-nav {
+  order: 2;
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 24px;
+  background: rgba(0, 0, 0, 0.26);
+  border: 1px solid rgba(0, 194, 255, 0.14);
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+
+.console-nav-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.console-nav-item:hover,
+.console-nav-item.active {
+  color: var(--text-primary);
+  background: rgba(0, 194, 255, 0.14);
+}
+
+.login-card-wrapper {
+  order: 3;
+}
+
+.onboarding-wrapper,
+.project-empty-state {
+  order: 4;
+}
+
+.project-detail-page,
+.mcp-revenue-section,
+.projects-section {
+  order: 5;
+}
+
+.create-project-section {
+  order: 6;
+}
+
+.dashboard-stats {
+  order: 7;
+}
+
+.dashboard-footer {
+  order: 20;
 }
 
 /* ============================================
@@ -206,94 +285,6 @@
   margin-bottom: 6px;
   font-size: 0.9rem;
   color: var(--text-muted);
-}
-
-/* ============================================
-   Agent Economy Metrics (new)
-   ============================================ */
-.agent-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 32px;
-}
-
-.metric-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius);
-  padding: 24px;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s ease;
-}
-
-.metric-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--electric-blue), var(--btc-orange));
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.metric-card:hover {
-  border-color: var(--card-border-hover);
-  box-shadow: 0 4px 24px var(--card-glow);
-}
-
-.metric-card:hover::before {
-  opacity: 1;
-}
-
-.metric-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-}
-
-.metric-icon.blue {
-  background: rgba(0, 194, 255, 0.15);
-  color: var(--electric-blue);
-}
-
-.metric-icon.orange {
-  background: rgba(242, 169, 0, 0.15);
-  color: var(--btc-orange);
-}
-
-.metric-icon.green {
-  background: rgba(76, 217, 100, 0.15);
-  color: #4cd964;
-}
-
-.metric-icon.purple {
-  background: rgba(168, 85, 247, 0.15);
-  color: #a855f7;
-}
-
-.metric-icon i {
-  font-size: 20px;
-}
-
-.metric-value {
-  font-size: 2rem;
-  font-weight: 900;
-  line-height: 1;
-  margin-bottom: 4px;
-}
-
-.metric-label {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  font-weight: 500;
 }
 
 /* ============================================
@@ -518,20 +509,8 @@
 }
 
 /* Billing & Usage tab improvements - readability */
-:host ::ng-deep .p-dialog .p-tabpanel p {
-  color: rgba(255, 255, 255, 0.9) !important;
-}
-
-:host ::ng-deep .p-dialog .p-tabpanel .text-sm {
-  color: rgba(255, 255, 255, 0.8) !important;
-}
-
-:host ::ng-deep .p-dialog .p-tabpanel .opacity-80 {
+:host ::ng-deep .p-dialog .p-tabpanel :is(p, .text-sm, .opacity-80, b, li, label) {
   color: rgba(255, 255, 255, 0.85) !important;
-}
-
-:host ::ng-deep .p-dialog .p-tabpanel b {
-  color: rgba(255, 255, 255, 0.9) !important;
 }
 
 :host ::ng-deep .p-dialog .p-tabpanel code {
@@ -541,15 +520,6 @@
   border-radius: 4px !important;
 }
 
-:host ::ng-deep .p-dialog .p-tabpanel li {
-  color: rgba(255, 255, 255, 0.8) !important;
-}
-
-:host ::ng-deep .p-dialog .p-tabpanel label {
-  color: rgba(255, 255, 255, 0.75) !important;
-}
-
-/* Contact section in overview tab */
 :host ::ng-deep .p-dialog .p-tabpanel .border-top-1.border-300 {
   border-color: rgba(255, 255, 255, 0.15) !important;
 }
@@ -578,6 +548,7 @@
 .mcp-revenue-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
+  gap: 16px;
 }
 
 .mcp-tool-panel {
@@ -662,6 +633,22 @@
 .empty-state p {
   color: var(--text-muted);
   font-size: 1rem;
+}
+
+.empty-state.compact {
+  padding: 44px 20px;
+}
+
+.empty-create-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  width: min(560px, 100%);
+  margin: 22px auto 0;
+}
+
+.empty-create-row input {
+  min-width: 0;
 }
 
 /* ============================================
@@ -1017,41 +1004,48 @@
   font-weight: 800 !important;
 }
 
-:host ::ng-deep .p-dialog .p-dialog-content {
-  /* Match the landing/demo "lightning wall" background treatment */
-  position: relative;
-  background: radial-gradient(1200px 600px at 80% -10%, rgba(0, 194, 255, 0.15), transparent 60%),
-              radial-gradient(1000px 500px at 20% 120%, rgba(242, 169, 0, 0.12), transparent 60%),
-              linear-gradient(135deg, var(--wall-deep) 0%, var(--wall-surface) 100%) !important;
-}
-
-:host ::ng-deep .p-dialog .p-dialog-content::before {
-  /* Subtle animated lightning strokes (scoped to dialog) */
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: repeating-linear-gradient(
-    115deg,
-    rgba(255, 255, 255, 0.06) 0px,
-    rgba(255, 255, 255, 0.06) 1px,
-    transparent 2px,
-    transparent 10px
-  );
-  mix-blend-mode: overlay;
-  opacity: 0.22;
-  animation: flicker 4s infinite ease-in-out;
-  z-index: 0;
-}
-
-:host ::ng-deep .p-dialog .p-dialog-content > * {
-  position: relative;
-  z-index: 1;
-}
-
 :host ::ng-deep .p-dialog .p-dialog-footer {
   background: var(--wall-surface) !important;
   border-top: 1px solid rgba(0, 194, 255, 0.1) !important;
+}
+
+.project-detail-page {
+  position: relative;
+  padding: 20px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.24);
+  overflow: hidden;
+}
+
+.project-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.project-detail-header > div {
+  min-width: 0;
+  text-align: right;
+}
+
+.project-detail-header span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.project-detail-header h2 {
+  margin: 3px 0 0;
+  color: var(--text-primary);
+  font-size: 1.35rem;
+  font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .project-dialog-summary {
@@ -1212,6 +1206,45 @@
     padding: 16px;
   }
 
+  .console-nav {
+    width: 100%;
+  }
+
+  .console-nav-item {
+    flex: 1 0 auto;
+  }
+
+  .project-detail-page {
+    padding: 14px;
+  }
+
+  .project-detail-header {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .project-detail-header > div {
+    text-align: left;
+  }
+
+  :host ::ng-deep .project-detail-page .p-tablist-tab-list {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  :host ::ng-deep .project-detail-page .p-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .empty-create-row {
+    grid-template-columns: 1fr;
+  }
+
+  .empty-create-row button {
+    width: 100%;
+  }
+
   .project-dialog-summary,
   .project-overview-grid {
     grid-template-columns: 1fr;
@@ -1228,10 +1261,6 @@
 
   .header-actions button {
     flex: 1;
-  }
-
-  .agent-metrics {
-    grid-template-columns: repeat(2, 1fr);
   }
 
   .mcp-revenue-shell {
@@ -1283,16 +1312,9 @@
     font-size: 1.4rem;
   }
 
-  .metric-value {
-    font-size: 1.5rem;
-  }
 }
 
 @media (max-width: 480px) {
-  .agent-metrics {
-    grid-template-columns: 1fr;
-  }
-
   .dashboard-title {
     font-size: 1.6rem;
   }

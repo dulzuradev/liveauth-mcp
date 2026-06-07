@@ -5,15 +5,11 @@
        ============================================ -->
   <div class="dashboard-header">
     <div class="header-left">
-      <h1 class="dashboard-title gradient-text">Developer Dashboard</h1>
-      <p class="dashboard-subtitle" *ngIf="loggedIn">
-        Welcome back, {{ developerEmail }}
-      </p>
-      <p class="dashboard-subtitle" *ngIf="!loggedIn">
-        Sign in with GitHub to manage your projects
-      </p>
+      <div class="console-eyebrow">LiveAuth Console</div>
+      <h1 class="dashboard-title gradient-text">{{ consoleTitle }}</h1>
+      <p class="dashboard-subtitle">{{ consoleSubtitle }}</p>
       <div class="agent-economy-badge" *ngIf="loggedIn">
-        <i class="pi pi-bolt"></i> Built for the Agent Economy
+        <i class="pi pi-bolt"></i> Built for production agent access
       </div>
     </div>
 
@@ -28,6 +24,26 @@
       </button>
     </div>
   </div>
+
+  <nav class="console-nav" *ngIf="loggedIn" aria-label="Developer console">
+    <button
+      type="button"
+      class="console-nav-item"
+      [class.active]="isProjectsPage || isProjectDetailPage"
+      (click)="navigateToConsole('projects')">
+      <i class="pi pi-folder"></i>
+      <span>Projects</span>
+    </button>
+
+    <button
+      type="button"
+      class="console-nav-item"
+      [class.active]="isMcpPage"
+      (click)="navigateToConsole('mcp')">
+      <i class="pi pi-sitemap"></i>
+      <span>MCP Tools</span>
+    </button>
+  </nav>
 
   <!-- ============================================
        LOGIN CARD (not logged in)
@@ -180,7 +196,7 @@
   <!-- ============================================
        ONBOARDING WIZARD (logged in, no projects)
        ============================================ -->
-  <div class="onboarding-wrapper" *ngIf="loggedIn && !hasCompletedOnboarding && !loading">
+  <div class="onboarding-wrapper" *ngIf="loggedIn && isProjectsPage && !hasCompletedOnboarding && !loading">
     <div class="onboarding-card">
       <!-- Step indicator -->
       <div class="onboarding-steps">
@@ -380,53 +396,34 @@
     </div>
   </div>
 
-  <!-- ============================================
-       AGENT ECONOMY METRICS (logged in, has projects)
-       ============================================ -->
-  <div *ngIf="loggedIn && projects.length > 0">
-    <div class="section-divider">
-      <h2 class="gradient-text">Agent Economy</h2>
+  <div class="empty-state project-empty-state" *ngIf="loggedIn && isProjectsPage && hasCompletedOnboarding && projects.length === 0 && !loading">
+    <div class="empty-state-icon">
+      <i class="pi pi-folder-plus"></i>
     </div>
+    <h3>Create your first project</h3>
+    <p>No projects yet.</p>
 
-    <div class="agent-metrics">
-      <div class="metric-card">
-        <div class="metric-icon blue">
-          <i class="pi pi-verified"></i>
-        </div>
-        <div class="metric-value gradient-text">—</div>
-        <div class="metric-label">Agent Verifications</div>
-      </div>
-
-      <div class="metric-card">
-        <div class="metric-icon orange">
-          <i class="pi pi-bolt"></i>
-        </div>
-        <div class="metric-value gradient-text-reverse">—</div>
-        <div class="metric-label">Lightning Revenue (sats)</div>
-      </div>
-
-      <div class="metric-card">
-        <div class="metric-icon green">
-          <i class="pi pi-key"></i>
-        </div>
-        <div class="metric-value">—</div>
-        <div class="metric-label">Active API Keys</div>
-      </div>
-
-      <div class="metric-card">
-        <div class="metric-icon purple">
-          <i class="pi pi-microchip"></i>
-        </div>
-        <div class="metric-value">—</div>
-        <div class="metric-label">PoW Challenges Solved</div>
-      </div>
+    <div class="empty-create-row">
+      <input
+        [(ngModel)]="projectName"
+        pInputText
+        placeholder="My Agent API"/>
+      <button
+        pButton
+        class="btn-primary"
+        icon="pi pi-plus"
+        label="Create Project"
+        [disabled]="!projectName || loading"
+        [loading]="loading"
+        (click)="createProject()">
+      </button>
     </div>
   </div>
 
   <!-- ============================================
        DASHBOARD STATS (logged in)
        ============================================ -->
-  <div class="dashboard-stats" *ngIf="loggedIn && projects.length > 0">
+  <div class="dashboard-stats" *ngIf="loggedIn && isProjectsPage && projects.length > 0">
     <div class="stat-card">
       <div class="stat-icon">
         <i class="pi pi-folder"></i>
@@ -461,7 +458,7 @@
   <!-- ============================================
        MCP TOOL REVENUE
        ============================================ -->
-  <div class="mcp-revenue-section" *ngIf="loggedIn && mcpTools">
+  <div class="mcp-revenue-section" *ngIf="loggedIn && isMcpPage && mcpTools">
     <div class="section-divider">
       <h2 class="gradient-text">MCP Tool Revenue</h2>
     </div>
@@ -636,10 +633,22 @@
     </div>
   </div>
 
+  <div class="mcp-revenue-section" *ngIf="loggedIn && isMcpPage && !mcpTools">
+    <div class="mcp-settings-panel">
+      <div class="panel-title-row">
+        <div>
+          <h4>MCP Tools</h4>
+          <span>Loading tooling workspace</span>
+        </div>
+        <p-tag value="MCP" severity="info"></p-tag>
+      </div>
+    </div>
+  </div>
+
   <!-- ============================================
        CREATE PROJECT SECTION (logged in, has projects)
        ============================================ -->
-  <div class="create-project-section" *ngIf="loggedIn && projects.length > 0">
+  <div class="create-project-section" *ngIf="loggedIn && isProjectsPage && projects.length > 0">
     <div class="section-header">
       <h2 class="section-title gradient-text">Create New Project</h2>
     </div>
@@ -671,7 +680,7 @@
   <!-- ============================================
        PROJECTS GRID
        ============================================ -->
-  <div class="projects-section" *ngIf="loggedIn && projects.length > 0">
+  <div class="projects-section" *ngIf="loggedIn && isProjectsPage && projects.length > 0">
     <div class="section-divider">
       <h2 class="gradient-text">Your Projects</h2>
     </div>
@@ -763,7 +772,7 @@
   <div class="dashboard-footer" *ngIf="loggedIn">
     <div class="footer-brand">
       <i class="pi pi-bolt"></i>
-      LiveAuth — Built for the Agent Economy
+      LiveAuth Console
     </div>
   </div>
 
@@ -913,15 +922,31 @@
     </div>
   </p-dialog>
 
-  <!-- PROJECT DETAILS DIALOG -->
-  <p-dialog
-    [(visible)]="showProjectDialog"
-    [modal]="true"
-    class="project-details-dialog"
-    [style]="{ width: '980px', maxWidth: '96vw' }"
-    [breakpoints]="{ '960px': '94vw', '640px': '98vw' }"
-    [contentStyle]="{ 'min-height': '540px', 'max-height': '78vh', 'overflow-y': 'auto' }"
-    [header]="selectedProject ? selectedProject.name + ' Settings' : 'Project Details'">
+  <!-- PROJECT DETAIL ROUTE -->
+  <section class="project-detail-page p-dialog" *ngIf="loggedIn && isProjectDetailPage">
+    <div class="project-detail-header">
+      <button
+        pButton
+        type="button"
+        class="p-button-text p-button-sm"
+        icon="pi pi-arrow-left"
+        label="Projects"
+        (click)="goBackToProjects()">
+      </button>
+
+      <div>
+        <span>Project Detail</span>
+        <h2>{{ selectedProject ? selectedProject.name : 'Loading project' }}</h2>
+      </div>
+    </div>
+
+    <div class="empty-state compact" *ngIf="!selectedProject && !loading">
+      <div class="empty-state-icon">
+        <i class="pi pi-folder-open"></i>
+      </div>
+      <h3>Project not found</h3>
+      <p>Return to Projects to choose another workspace.</p>
+    </div>
 
     <div class="project-dialog-summary" *ngIf="selectedProject">
       <div class="summary-item">
@@ -946,7 +971,7 @@
       </div>
     </div>
 
-    <p-tabs [(value)]="_projectDialogTab" (valueChange)="setProjectDialogTab($event)">
+    <p-tabs *ngIf="selectedProject" [(value)]="_projectDialogTab" (valueChange)="setProjectDialogTab($event)">
 
       <div class="flex justify-content-between align-items-center mb-2">
         <p-tablist>
@@ -1430,7 +1455,7 @@
     </p-tabs>
 
     <p-message *ngIf="error" [text]="error" severity="warn" class="mt-3"></p-message>
-  </p-dialog>
+  </section>
 
   <!-- NEW API KEY DIALOG -->
   <p-dialog

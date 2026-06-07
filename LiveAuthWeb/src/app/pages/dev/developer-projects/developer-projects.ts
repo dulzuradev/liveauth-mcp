@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute, Router } from '@angular/router';
 
 // PrimeNG
 import { InputTextModule } from 'primeng/inputtext';
@@ -50,6 +51,7 @@ import {LocalTimePipe} from '../../../directives/local-time.pipe';
 
 // Extend API DTO with UI fields used by the template
 export type UiProject = ProjectDto;
+export type ConsolePage = 'projects' | 'project-detail' | 'mcp';
 
 export interface ProjectSettingsForm {
   allowedDomains: string;
@@ -108,6 +110,45 @@ export interface McpToolForm {
   styleUrls: ['./developer-projects.css']
 })
 export class DeveloperProjectsComponent implements OnInit, OnDestroy {
+
+  consolePage: ConsolePage = 'projects';
+  routedProjectId = '';
+
+  get isProjectsPage(): boolean {
+    return this.consolePage === 'projects';
+  }
+
+  get isProjectDetailPage(): boolean {
+    return this.consolePage === 'project-detail';
+  }
+
+  get isMcpPage(): boolean {
+    return this.consolePage === 'mcp';
+  }
+
+  get consoleTitle(): string {
+    if (this.isProjectDetailPage) {
+      return this.selectedProject ? this.selectedProject.name : 'Project';
+    }
+
+    return this.isMcpPage ? 'MCP Tools' : 'Projects';
+  }
+
+  get consoleSubtitle(): string {
+    if (!this.loggedIn) {
+      return 'Sign in to manage your LiveAuth workspace';
+    }
+
+    if (this.isProjectDetailPage) {
+      return this.selectedProject?.projectId ?? 'Project workspace';
+    }
+
+    if (this.isMcpPage) {
+      return 'Tool registry and paid-call ledger';
+    }
+
+    return `Welcome back, ${this.developerEmail || 'developer'}`;
+  }
 
   // 🎯 Onboarding State
   onboardingStep = 1;
@@ -189,9 +230,9 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   loading = false;
   error?: string;
 
-  // PROJECT DETAILS DIALOG STATE
-  showProjectDialog = false;
+  // Project detail route state
   selectedProject: UiProject | null = null;
+  private loadedProjectDetailId = '';
 
   projectForm: ProjectSettingsForm = {
     allowedDomains: '',
@@ -351,14 +392,76 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   constructor(
     private devAuth: DevAuthService,
     private devService: DeveloperProjectsService,
-    private http: HttpClient
+    private http: HttpClient,
+    private route: ActivatedRoute,
+    private router: Router
   ) {}
+
+  private syncRouteState(): void {
+    const page = this.route.snapshot.data['consolePage'] as ConsolePage | undefined;
+    const projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
+
+    this.routedProjectId = projectId;
+    this.consolePage = projectId ? 'project-detail' : page ?? 'projects';
+  }
+
+  private handleConsoleRoute(): void {
+    if (!this.loggedIn) return;
+
+    if (this.isProjectDetailPage) {
+      this.openProjectDetailsById(this.routedProjectId);
+      return;
+    }
+
+    this.selectedProject = null;
+    this.loadedProjectDetailId = '';
+
+    if (this.isMcpPage && this.mcpTools === null) {
+      this.loadMcpTools();
+    }
+  }
+
+  private openProjectDetailsById(projectId: string): void {
+    if (!projectId) return;
+
+    const project = this.projects.find(p => p.projectId === projectId);
+    if (!project) {
+      if (!this.loading && this.projects.length > 0) {
+        this.error = 'Project not found.';
+      }
+      return;
+    }
+
+    if (this.loadedProjectDetailId === project.projectId && this.selectedProject?.projectId === project.projectId) {
+      return;
+    }
+
+    this.activateProjectDetails(project);
+  }
+
+  navigateToConsole(page: 'projects' | 'mcp'): void {
+    this.router.navigate([page === 'mcp' ? '/dev/mcp' : '/dev/projects']);
+  }
+
+  goBackToProjects(): void {
+    this.router.navigate(['/dev/projects']);
+  }
 
   // ---------------------------------------------------------------------------
   // LIFECYCLE
   // ---------------------------------------------------------------------------
 
   ngOnInit() {
+    this.syncRouteState();
+    this.route.paramMap.subscribe(() => {
+      this.syncRouteState();
+      this.handleConsoleRoute();
+    });
+    this.route.data.subscribe(() => {
+      this.syncRouteState();
+      this.handleConsoleRoute();
+    });
+
     // Check for token in URL (from GitHub OAuth redirect)
     const urlParams = new URLSearchParams(window.location.search);
     const authMode = urlParams.get('mode');
@@ -396,6 +499,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.stopPolling();
     this.stopCountdown();
+    this.stopBillingTimers();
   }
 
   // ---------------------------------------------------------------------------
@@ -529,6 +633,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
         this.devAuth.clearToken();
         this.loggedIn = false;
         this.projects = [];
+        this.selectedProject = null;
         this.resetMcpRevenueState();
         this.loginSession = undefined;
         this.stopPolling();
@@ -539,6 +644,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
         this.devAuth.clearToken();
         this.loggedIn = false;
         this.projects = [];
+        this.selectedProject = null;
         this.resetMcpRevenueState();
         this.loginSession = undefined;
         this.stopPolling();
@@ -664,9 +770,11 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
     this.devService.listProjects().subscribe({
       next: (res) => {
         this.projects = res.projects ?? [];
-        this.selectedProject = this.projects.find(p => p.projectId == this.selectedProject?.projectId) ?? null;
+        if (this.selectedProject) {
+          this.selectedProject = this.projects.find(p => p.projectId == this.selectedProject?.projectId) ?? null;
+        }
         this.loading = false;
-        this.loadMcpTools();
+        this.handleConsoleRoute();
         // Mark onboarding complete if user has projects
         if (this.projects.length > 0) {
           this.hasCompletedOnboarding = true;
@@ -1026,6 +1134,10 @@ const result = await gate.invoke(
         this.projects = this.projects.filter(p => p.projectId !== project.projectId);
         if (this.selectedProject?.projectId === project.projectId) {
           this.selectedProject = null;
+          this.loadedProjectDetailId = '';
+          if (this.isProjectDetailPage) {
+            this.goBackToProjects();
+          }
         }
       },
       error: (err) => {
@@ -1088,15 +1200,21 @@ const result = await gate.invoke(
   }
 
   // ---------------------------------------------------------------------------
-  // PROJECT DETAILS DIALOG (SETTINGS / ANALYTICS / LOGS / KEYS)
+  // PROJECT DETAIL ROUTE (SETTINGS / ANALYTICS / LOGS / KEYS)
   // ---------------------------------------------------------------------------
 
-  // When opening dialog from the table
   openProjectDetails(p: UiProject): void {
-    this.selectedProject = p;
-    this.showProjectDialog = true;
+    this.router.navigate(['/dev/projects', p.projectId]);
+  }
 
-    // Only reset here ON OPEN, not on every tab change
+  private activateProjectDetails(p: UiProject): void {
+    if (this.loadedProjectDetailId === p.projectId && this.selectedProject?.projectId === p.projectId) {
+      return;
+    }
+
+    this.loadedProjectDetailId = p.projectId;
+    this.selectedProject = p;
+
     this._projectDialogTab = 'overview';
     this.timeRange = '24h';
 

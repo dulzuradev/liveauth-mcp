@@ -28,7 +28,10 @@ export const routes: Routes = [
   { path: 'mission', component: KanbanBoardComponent },
 
   // Developer console
+  { path: 'dev', redirectTo: 'dev/projects', pathMatch: 'full' },
   { path: 'dev/projects', component: DeveloperProjectsComponent },
+  { path: 'dev/projects/:projectId', component: DeveloperProjectsComponent, data: { consolePage: 'project-detail' } },
+  { path: 'dev/mcp', component: DeveloperProjectsComponent, data: { consolePage: 'mcp' } },
 
   // Email verification
   { path: 'dev/verify-email', component: VerifyEmailComponent },
