@@ -88,15 +88,20 @@ ssh "$SERVER" "sudo cp /tmp/Caddyfile /etc/caddy/Caddyfile"
 
 # Reload Caddy (pkill + start as systemd or user process)
 echo "Reloading Caddy..."
-ssh "$SERVER" "
-    # Try systemd first
-    sudo systemctl reload caddy 2>/dev/null && echo 'Caddy reloaded via systemd' && exit 0
-    # Fallback: pkill and restart as root caddy process
-    sudo pkill caddy 2>/dev/null || true
+ssh "$SERVER" 'bash -s' <<'REMOTE'
+    # Use restart (not reload) — works even when admin endpoint is disabled
+    if sudo systemctl restart caddy 2>/dev/null; then
+        echo "Caddy restarted via systemd"
+        exit 0
+    fi
+    # Last-resort fallback: pkill any orphan caddy and start detached
+    sudo pkill -9 caddy 2>/dev/null || true
     sleep 2
-    sudo caddy run --config /etc/caddy/Caddyfile &
-    echo 'Caddy started as background process'
-"
+    LOG=~/caddy-deploy.log
+    sudo nohup setsid caddy run --config /etc/caddy/Caddyfile > "$LOG" 2>&1 < /dev/null &
+    disown
+    echo "Caddy started as detached process (log: $LOG)"
+REMOTE
 
 # Quick verification
 echo "Verifying sites..."
