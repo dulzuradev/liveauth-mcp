@@ -1128,7 +1128,7 @@
                 <p-toggleswitch [(ngModel)]="projectForm.useCustomNode"></p-toggleswitch>
                 <label class="mb-0">Use custom Lightning node</label>
               </div>
-              
+
               <p class="text-sm mb-2" style="opacity: 0.7;" *ngIf="!projectForm.useCustomNode">
                 Payments route through LiveAuth's node. Enable to use your own LND.
               </p>
@@ -1163,8 +1163,7 @@
 
             <div class="mt-3 pt-3 border-top-1 border-300">
               <p class="mb-1"><b>Contact</b></p>
-              <p class="mb-1"><a href="mailto:DulzuraDev@gmail.com">DulzuraDev@gmail.com</a></p>
-              <p class="mb-0"><a href="mailto:Sydney.LiveAuth@gmail.com">Sydney.LiveAuth@gmail.com</a></p>
+              <p class="mb-1"><a href="mailto:support@liveauth.app">support@liveauth.app</a></p>
             </div>
 
           </ng-container>
@@ -1198,7 +1197,7 @@
                 <span *ngIf="usage.isPro">PRO</span>
               </span>
             </div>
-            
+
             <div class="usage-stats">
               <div class="stat">
                 <div class="stat-value">{{ usage.monthlyUsed | number }}</div>
@@ -1261,7 +1260,7 @@
               </div>
             </div>
           </ng-container>
-          
+
           <ng-container *ngIf="!usage">
             <p>Loading usage data...</p>
           </ng-container>
