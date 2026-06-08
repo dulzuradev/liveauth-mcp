@@ -49,6 +49,7 @@
       const md  = await res.text();
       const html = marked.parse(md);
       if (contentEl) contentEl.innerHTML = '<div class="doc-body markdown-body">' + html + '</div>';
+      rewriteDocLinks(contentEl);
 
       // Add copy buttons to code blocks
       document.querySelectorAll('.doc-body pre').forEach(pre => {
@@ -87,6 +88,27 @@
              '<span class="material-icons nav-icon">' + (iconMap[doc.icon] || 'article') + '</span>' +
              '<span>' + doc.title + '</span></a>';
     }).join('');
+  }
+
+  function rewriteDocLinks(root) {
+    if (!root) return;
+    const docPaths = new Set(MARKDOWN_FILES.map(doc => doc.path));
+    root.querySelectorAll('a[href]').forEach(link => {
+      let url;
+      try {
+        url = new URL(link.getAttribute('href'), window.location.href);
+      } catch {
+        return;
+      }
+
+      const isDocsHost = url.origin === window.location.origin || url.hostname === 'docs.liveauth.app';
+      const docPath = url.pathname.replace(/^\/+/, '');
+      if (!isDocsHost || !docPaths.has(docPath)) return;
+
+      link.href = '#doc/' + encodeURIComponent(docPath);
+      link.removeAttribute('target');
+      link.removeAttribute('rel');
+    });
   }
 
   function loadScript(src) {

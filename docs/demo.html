@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LiveAuth Demo - Try Verification</title>
     <style>
+        :root {
+            --btc-orange: #f59e0b;
+            --btc-orange-dark: #fbbf24;
+            --wall-deep: #090909;
+            --wall-surface: #111111;
+            --card-bg: #151719;
+            --code-bg: #0f0f0f;
+            --text-primary: #f7f9fb;
+            --text-muted: rgba(255, 255, 255, 0.66);
+            --border: rgba(255, 255, 255, 0.12);
+            --accent-soft: rgba(245, 158, 11, 0.12);
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -13,12 +26,12 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: var(--wall-deep);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #fff;
+            color: var(--text-primary);
             padding: 2rem 1rem;
         }
 
@@ -34,7 +47,7 @@
         }
 
         .subtitle {
-            color: #888;
+            color: var(--text-muted);
             margin-bottom: 2rem;
             text-align: center;
         }
@@ -46,15 +59,15 @@
             margin-bottom: 1.5rem;
             border-radius: 8px;
             overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid var(--border);
         }
 
         .tab {
             flex: 1;
             padding: 12px;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.06);
             border: none;
-            color: #aaa;
+            color: var(--text-muted);
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
@@ -62,8 +75,8 @@
         }
 
         .tab.active {
-            background: #00d4aa;
-            color: #000;
+            background: var(--btc-orange);
+            color: #090909;
         }
 
         .tab:hover:not(.active) {
@@ -79,10 +92,11 @@
         }
 
         .card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
             padding: 2rem;
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
         }
 
         .input-group {
@@ -92,22 +106,22 @@
         label {
             display: block;
             margin-bottom: 0.5rem;
-            color: #aaa;
+            color: var(--text-muted);
         }
 
         input {
             width: 100%;
             padding: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.16);
             border-radius: 8px;
-            background: rgba(0, 0, 0, 0.3);
-            color: #fff;
+            background: var(--code-bg);
+            color: var(--text-primary);
             font-size: 1rem;
         }
 
         input:focus {
             outline: none;
-            border-color: #00d4aa;
+            border-color: var(--btc-orange);
         }
 
         button {
@@ -122,12 +136,12 @@
         }
 
         .btn-primary {
-            background: #00d4aa;
-            color: #000;
+            background: var(--btc-orange);
+            color: #090909;
         }
 
         .btn-primary:hover {
-            background: #00f5c4;
+            background: var(--btc-orange-dark);
         }
 
         .btn-primary:disabled {
@@ -136,8 +150,8 @@
         }
 
         .btn-lightning {
-            background: linear-gradient(135deg, #F2A900 0%, #FF9500 100%);
-            color: #000;
+            background: var(--btc-orange);
+            color: #090909;
         }
 
         .btn-lightning:hover {
@@ -145,8 +159,8 @@
         }
 
         .result {
-            background: rgba(0, 212, 170, 0.1);
-            border: 1px solid #00d4aa;
+            background: var(--accent-soft);
+            border: 1px solid rgba(245, 158, 11, 0.28);
             border-radius: 8px;
             padding: 1rem;
             margin-top: 1rem;
@@ -163,15 +177,15 @@
         }
 
         .result.lightning {
-            background: rgba(242, 169, 0, 0.1);
-            border-color: #F2A900;
+            background: var(--accent-soft);
+            border-color: var(--btc-orange);
         }
 
         .token {
             font-family: monospace;
             font-size: 0.8rem;
             word-break: break-all;
-            background: rgba(0, 0, 0, 0.3);
+            background: var(--code-bg);
             padding: 0.5rem;
             border-radius: 4px;
             margin-top: 0.5rem;
@@ -181,7 +195,7 @@
             font-family: monospace;
             font-size: 0.75rem;
             word-break: break-all;
-            background: rgba(0, 0, 0, 0.3);
+            background: var(--code-bg);
             padding: 0.75rem;
             border-radius: 4px;
             margin: 0.5rem 0;
@@ -192,7 +206,7 @@
             gap: 1rem;
             margin-top: 1rem;
             font-size: 0.9rem;
-            color: #888;
+            color: var(--text-muted);
         }
 
         .stat {
@@ -202,11 +216,11 @@
 
         .stat-value {
             font-size: 1.5rem;
-            color: #00d4aa;
+            color: var(--btc-orange-dark);
         }
 
         .stat-value.orange {
-            color: #F2A900;
+            color: var(--btc-orange-dark);
         }
 
         .progress {
@@ -220,12 +234,12 @@
 
         .progress-bar {
             height: 100%;
-            background: #00d4aa;
+            background: var(--btc-orange);
             transition: width 0.1s;
         }
 
         .progress-bar.lightning {
-            background: #F2A900;
+            background: var(--btc-orange);
         }
 
         .badge {
@@ -238,21 +252,21 @@
         }
 
         .badge-pow {
-            background: rgba(0, 212, 170, 0.2);
-            color: #00d4aa;
+            background: var(--accent-soft);
+            color: var(--btc-orange-dark);
         }
 
         .badge-lightning {
-            background: rgba(242, 169, 0, 0.2);
-            color: #F2A900;
+            background: var(--accent-soft);
+            color: var(--btc-orange-dark);
         }
 
         .note {
             font-size: 0.85rem;
-            color: #666;
+            color: var(--text-muted);
             margin-top: 1rem;
             padding: 0.75rem;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.06);
             border-radius: 6px;
         }
     </style>
@@ -391,7 +405,7 @@
             <strong>✅ Verified!</strong>
             <p>Solved in <strong>${time}ms</strong> with <strong>${attempts}</strong> attempts.</p>
             <div class="token">Challenge: ${challenge.slice(0, 20)}...</div>
-            <p style="margin-top:0.5rem;color:#888;font-size:0.9rem;">
+            <p style="margin-top:0.5rem;color:var(--text-muted);font-size:0.9rem;">
               Client-side demo. In production, this would use the Agent Auth API with your project keys.
             </p>
           `;
@@ -435,7 +449,7 @@
             <strong>✅ Verified!</strong>
             <p>Solved in <strong>${time}ms</strong> with <strong>${attempts}</strong> attempts.</p>
             ${verifyResult.token ? `<div class="token">Token: ${verifyResult.token.slice(0, 30)}...</div>` : ''}
-            <p style="margin-top:0.5rem;color:#888;font-size:0.9rem;">
+            <p style="margin-top:0.5rem;color:var(--text-muted);font-size:0.9rem;">
               API verification successful.
             </p>
           `;
@@ -443,7 +457,7 @@
                 result.innerHTML = `
             <strong>✅ Demo Complete!</strong>
             <p>Solved in <strong>${time}ms</strong> with <strong>${attempts}</strong> attempts.</p>
-            <p style="margin-top:0.5rem;color:#888;font-size:0.9rem;">
+            <p style="margin-top:0.5rem;color:var(--text-muted);font-size:0.9rem;">
               In production, you'd get a JWT token after verification.
             </p>
           `;
@@ -623,7 +637,7 @@
         <strong>✅ Payment Received!</strong>
         <p>3 sats paid via Lightning ⚡</p>
         <div class="token">Token: demo_ln_token_${Date.now()}</div>
-        <p style="margin-top:0.5rem;color:#888;font-size:0.9rem;">
+        <p style="margin-top:0.5rem;color:var(--text-muted);font-size:0.9rem;">
           In production, you'd receive a JWT token after payment confirmation.
         </p>
       `;
