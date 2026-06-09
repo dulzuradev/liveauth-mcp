@@ -51,7 +51,7 @@ Macaroon = signed assertion containing claims. Format: `base64(cbor({claims})) +
 
 - Bundle credits decrement per call (not per verification attempt)
 - Unused calls expire 90 days after purchase
-- No refunds (Lightning is non-reversible — be clear about this)
+- No refunds (Lightning is non-reversible)
 
 ---
 

@@ -79,14 +79,14 @@ import { RouterLink } from '@angular/router';
           <p>We use industry-standard encryption (TLS 1.3), hash secrets, and follow security best practices. No warrant canary—we'll fight for privacy.</p>
 
           <h2>7. GDPR / CCPA</h2>
-          <p>You can request deletion of your data at any time. Contact us at hello&#64;liveauth.app</p>
+          <p>You can request deletion of your data at any time. Contact us at support&#64;liveauth.app</p>
         </section>
 
         <hr/>
 
         <section>
           <h2>Contact</h2>
-          <p>Questions? Email: <a href="mailto:hello@liveauth.app">hello&#64;liveauth.app</a></p>
+          <p>Questions? Email: <a href="mailto:support@liveauth.app">support&#64;liveauth.app</a></p>
         </section>
       </main>
 
