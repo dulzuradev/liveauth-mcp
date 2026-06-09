@@ -161,7 +161,10 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
   `,
   styles: [`
     .transactions-page {
+      min-height: 100vh;
       padding: 1.5rem;
+      background: var(--liveauth-bg, #090909);
+      color: var(--liveauth-text, #f7f9fb);
     }
 
     .page-header {
@@ -189,14 +192,14 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
 
     .stat .label {
       font-size: 0.75rem;
-      color: #8b95a5;
+      color: var(--liveauth-muted, rgba(255, 255, 255, 0.64));
       text-transform: uppercase;
     }
 
     .stat .value {
       font-size: 1.5rem;
       font-weight: 600;
-      color: #00C2FF;
+      color: var(--liveauth-orange, #f59e0b);
     }
 
     .filters {
@@ -208,22 +211,22 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
     .search-input {
       flex: 1;
       padding: 0.75rem 1rem;
-      border: 1px solid #2a3045;
+      border: 1px solid var(--liveauth-border, rgba(255, 255, 255, 0.12));
       border-radius: 0.5rem;
-      background: #1a1f35;
-      color: #e3e7ee;
+      background: var(--liveauth-input, #0d0d0d);
+      color: var(--liveauth-text, #f7f9fb);
       font-size: 0.9rem;
     }
 
     .search-input:focus {
       outline: none;
-      border-color: #00C2FF;
+      border-color: var(--liveauth-orange, #f59e0b);
     }
 
     .btn-primary {
       padding: 0.75rem 1.5rem;
-      background: #00C2FF;
-      color: #0a0f1e;
+      background: var(--liveauth-orange, #f59e0b);
+      color: #090909;
       border: none;
       border-radius: 0.5rem;
       font-weight: 600;
@@ -231,52 +234,75 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
     }
 
     .btn-primary:hover {
-      background: #00b8e6;
+      background: var(--liveauth-orange-bright, #fbbf24);
     }
 
     .btn-small {
       padding: 0.25rem 0.75rem;
-      background: #2a3045;
-      color: #e3e7ee;
-      border: none;
+      background: rgba(245, 158, 11, 0.14);
+      color: var(--liveauth-orange-bright, #fbbf24);
+      border: 1px solid rgba(245, 158, 11, 0.32);
       border-radius: 0.25rem;
       cursor: pointer;
       font-size: 0.8rem;
     }
 
     .btn-small:hover {
-      background: #3a4055;
+      background: rgba(245, 158, 11, 0.22);
+    }
+
+    .btn-ghost {
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--liveauth-border, rgba(255, 255, 255, 0.12));
+      border-radius: 0.5rem;
+      background: var(--liveauth-panel-soft, rgba(255, 255, 255, 0.055));
+      color: var(--liveauth-muted, rgba(255, 255, 255, 0.64));
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-ghost:hover {
+      border-color: rgba(245, 158, 11, 0.42);
+      background: rgba(245, 158, 11, 0.14);
+      color: var(--liveauth-text, #f7f9fb);
+    }
+
+    .transactions-table {
+      overflow-x: auto;
+      border: 1px solid var(--liveauth-border, rgba(255, 255, 255, 0.12));
+      border-radius: 0.5rem;
+      background: var(--liveauth-panel, #151719);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      background: #1a1f35;
-      border-radius: 0.5rem;
+      background: transparent;
       overflow: hidden;
     }
 
     th, td {
       padding: 0.75rem 1rem;
       text-align: left;
-      border-bottom: 1px solid #2a3045;
+      border-bottom: 1px solid var(--liveauth-border, rgba(255, 255, 255, 0.12));
     }
 
     th {
-      background: #151a2e;
+      background: #0f0f0f;
       font-weight: 600;
       font-size: 0.8rem;
       text-transform: uppercase;
-      color: #8b95a5;
+      color: var(--liveauth-muted, rgba(255, 255, 255, 0.64));
     }
 
     tr:hover {
-      background: #1f2540;
+      background: rgba(245, 158, 11, 0.08);
     }
 
     tr.selected {
-      background: #1f2540;
-      border-left: 3px solid #00C2FF;
+      background: rgba(245, 158, 11, 0.1);
+      border-left: 3px solid var(--liveauth-orange, #f59e0b);
     }
 
     .mono {
@@ -289,7 +315,7 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
     }
 
     .hash:hover {
-      color: #00C2FF;
+      color: var(--liveauth-orange, #f59e0b);
     }
 
     .badge {
@@ -301,13 +327,13 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
     }
 
     .badge.auth {
-      background: #3b82f6;
-      color: white;
+      background: rgba(245, 158, 11, 0.18);
+      color: var(--liveauth-orange-bright, #fbbf24);
     }
 
     .badge.mcp {
-      background: #8b5cf6;
-      color: white;
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--liveauth-text, #f7f9fb);
     }
 
     .badge.paid {
@@ -317,18 +343,18 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
 
     .badge.pending {
       background: #f59e0b;
-      color: white;
+      color: #090909;
     }
 
     .sats {
-      color: #F2A900;
+      color: var(--liveauth-orange, #f59e0b);
       font-weight: 600;
     }
 
     .no-data, .loading {
       text-align: center;
       padding: 3rem;
-      color: #8b95a5;
+      color: var(--liveauth-muted, rgba(255, 255, 255, 0.64));
     }
 
     /* Modal */
@@ -338,7 +364,7 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.76);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -346,8 +372,9 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
     }
 
     .modal {
-      background: #1a1f35;
-      border-radius: 1rem;
+      background: var(--liveauth-panel, #151719);
+      border: 1px solid var(--liveauth-border, rgba(255, 255, 255, 0.12));
+      border-radius: 0.5rem;
       width: 90%;
       max-width: 600px;
       max-height: 90vh;
@@ -359,7 +386,7 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
       justify-content: space-between;
       align-items: center;
       padding: 1.5rem;
-      border-bottom: 1px solid #2a3045;
+      border-bottom: 1px solid var(--liveauth-border, rgba(255, 255, 255, 0.12));
     }
 
     .modal-header h2 {
@@ -370,13 +397,13 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
     .close-btn {
       background: none;
       border: none;
-      color: #8b95a5;
+      color: var(--liveauth-muted, rgba(255, 255, 255, 0.64));
       font-size: 1.5rem;
       cursor: pointer;
     }
 
     .close-btn:hover {
-      color: #e3e7ee;
+      color: var(--liveauth-text, #f7f9fb);
     }
 
     .modal-body {
@@ -387,11 +414,11 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
       display: flex;
       justify-content: space-between;
       padding: 0.75rem 0;
-      border-bottom: 1px solid #2a3045;
+      border-bottom: 1px solid var(--liveauth-border, rgba(255, 255, 255, 0.12));
     }
 
     .detail-row .label {
-      color: #8b95a5;
+      color: var(--liveauth-muted, rgba(255, 255, 255, 0.64));
     }
 
     .detail-row .value {
@@ -405,7 +432,48 @@ import { TransactionDto, TransactionDetailDto } from '../../admin-analytics.mode
     }
 
     .invoice:hover {
-      color: #00C2FF;
+      color: var(--liveauth-orange, #f59e0b);
+    }
+
+    @media (max-width: 760px) {
+      .transactions-page {
+        padding: 0.875rem;
+      }
+
+      .page-header,
+      .filters {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .summary {
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .stat {
+        align-items: flex-start;
+      }
+
+      .filters,
+      .btn-primary,
+      .btn-ghost {
+        width: 100%;
+      }
+
+      .modal {
+        width: calc(100% - 1.5rem);
+      }
+
+      .detail-row {
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+
+      .detail-row .value {
+        max-width: 100%;
+        text-align: left;
+      }
     }
   `]
 })

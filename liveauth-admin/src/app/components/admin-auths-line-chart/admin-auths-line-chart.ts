@@ -46,10 +46,10 @@ export class AdminAuthsLineChartComponent implements OnChanges {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: 'rgba(10,15,30,0.95)',
-        titleColor: '#e3e7ee',
-        bodyColor: '#8b95a5',
-        borderColor: 'rgba(0,194,255,0.2)',
+        backgroundColor: '#151719',
+        titleColor: '#f7f9fb',
+        bodyColor: 'rgba(255,255,255,0.64)',
+        borderColor: 'rgba(245,158,11,0.34)',
         borderWidth: 1,
         padding: 10,
         cornerRadius: 8,
@@ -60,13 +60,13 @@ export class AdminAuthsLineChartComponent implements OnChanges {
     },
     scales: {
       x: {
-        grid: { color: 'rgba(255,255,255,0.04)' },
-        ticks: { color: '#8b95a5', maxTicksLimit: 8, font: { size: 11 } },
+        grid: { color: 'rgba(255,255,255,0.06)' },
+        ticks: { color: 'rgba(255,255,255,0.58)', maxTicksLimit: 8, font: { size: 11 } },
         border: { display: false }
       },
       y: {
-        grid: { color: 'rgba(255,255,255,0.04)' },
-        ticks: { color: '#8b95a5', font: { size: 11 }, maxTicksLimit: 6 },
+        grid: { color: 'rgba(255,255,255,0.06)' },
+        ticks: { color: 'rgba(255,255,255,0.58)', font: { size: 11 }, maxTicksLimit: 6 },
         border: { display: false },
         beginAtZero: true
       }

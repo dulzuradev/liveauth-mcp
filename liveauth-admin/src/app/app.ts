@@ -5,10 +5,10 @@ import { Chart, registerables } from 'chart.js';
 
 Chart.register(...registerables);
 
-// Dark-mode Chart.js defaults
-Chart.defaults.color = '#8b95a5';
-Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
-Chart.defaults.backgroundColor = 'rgba(17,24,45,0.8)';
+// LiveAuth dark console Chart.js defaults.
+Chart.defaults.color = 'rgba(255,255,255,0.64)';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.1)';
+Chart.defaults.backgroundColor = '#151719';
 
 @Component({
   selector: 'app-root',

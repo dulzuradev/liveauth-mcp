@@ -18,8 +18,8 @@ export class AdminProjectsDonutComponent implements OnChanges {
     labels: ['Pro', 'Free'],
     datasets: [{
       data: [0, 0],
-      backgroundColor: ['#4ade80', '#3b82f6'],
-      borderColor: 'rgba(17,24,45,0.8)',
+      backgroundColor: ['#f59e0b', 'rgba(255,255,255,0.24)'],
+      borderColor: '#151719',
       borderWidth: 3,
       hoverBorderWidth: 0,
       hoverOffset: 6
@@ -33,10 +33,10 @@ export class AdminProjectsDonutComponent implements OnChanges {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: 'rgba(10,15,30,0.95)',
-        titleColor: '#e3e7ee',
-        bodyColor: '#8b95a5',
-        borderColor: 'rgba(0,194,255,0.2)',
+        backgroundColor: '#151719',
+        titleColor: '#f7f9fb',
+        bodyColor: 'rgba(255,255,255,0.64)',
+        borderColor: 'rgba(245,158,11,0.34)',
         borderWidth: 1,
         padding: 10,
         cornerRadius: 8,
