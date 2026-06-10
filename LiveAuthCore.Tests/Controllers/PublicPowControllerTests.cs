@@ -200,6 +200,35 @@ public class PublicPowControllerTests : IClassFixture<LiveAuthWebApplicationFact
         Assert.Equal(5, challenges.Distinct().Count());
     }
 
+    [Fact]
+    public async Task PublicChallenge_WithProjectApiKey_RecordsAuthEventForRequestingProject()
+    {
+        // Arrange
+        var (project, publicKey) = await SeedTestProjectWithApiKey();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/public/pow/challenge");
+        request.Headers.Add("X-LW-Public", publicKey);
+
+        // Act
+        var response = await _client.SendAsync(request);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var challenge = await response.Content.ReadFromJsonAsync<PublicChallengeResponse>();
+        Assert.NotNull(challenge);
+        Assert.Equal(project.PublicKey, challenge.ProjectPublicKey);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        var authEvent = db.AuthEvents
+            .Where(e => e.EventType == AuthEventType.PowChallengeIssued)
+            .OrderByDescending(e => e.CreatedAt)
+            .First();
+
+        Assert.Equal(project.Id, authEvent.ProjectId);
+        Assert.NotEqual(Guid.Parse("00000000-0000-0000-0000-000000000002"), authEvent.ProjectId);
+    }
+
     /// <summary>
     /// Helper to seed a test project.
     /// </summary>
@@ -231,5 +260,32 @@ public class PublicPowControllerTests : IClassFixture<LiveAuthWebApplicationFact
         return project;
     }
 
+    private async Task<(Project Project, string PublicKey)> SeedTestProjectWithApiKey()
+    {
+        var project = await SeedTestProject();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+
+        project.PublicKey = $"la_pk_project_{Guid.NewGuid():N}";
+        var publicKey = $"la_pk_key_{Guid.NewGuid():N}";
+
+        db.Projects.Update(project);
+        db.ProjectApiKeys.Add(new ProjectApiKey
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Label = "Regression key",
+            PublicKey = publicKey,
+            SecretKeyHash = "test-secret-hash",
+            CreatedAt = DateTime.UtcNow,
+            IsActive = true
+        });
+
+        await db.SaveChangesAsync();
+        return (project, publicKey);
+    }
+
     private record ChallengeResponse(string Challenge, int DifficultyBits, DateTime ExpiresAt);
+    private record PublicChallengeResponse(string ProjectPublicKey, string ChallengeHex, string TargetHex, int DifficultyBits, long ExpiresAtUnix, string Sig);
 }

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
+using LiveAuthCore.Middleware;
 using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,9 +14,11 @@ namespace LiveAuthCore.Controllers;
 
 [ApiController]
 [Route("api/public/pow")]
-[AllowAnonymous] // Secured by PublicKeyAuthMiddleware
+[AllowAnonymous] // Project resolved from X-LW-Public or demo fallback
 public class PublicPowController : ControllerBase
 {
+    private const string PublicKeyHeaderName = "X-LW-Public";
+
     private readonly LightningService _jwt;
     private readonly PowChallengeSigner _signer;
     private readonly PowReplayService _replay;
@@ -53,22 +56,37 @@ public class PublicPowController : ControllerBase
      * Helpers
      * ============================================================ */
 
-    private Project? GetProject()
+    private async Task<Project?> GetProjectAsync(CancellationToken ct)
     {
         // First try to get from HttpContext (set by middleware)
         if (HttpContext.Items.TryGetValue("LW_Project", out var value) && value is Project proj)
             return proj;
 
-        // Fallback to demo project if no API key provided
-        try
+        if (HttpContext.Items.TryGetValue(HttpContextKeys.Project, out var projectValue) && projectValue is Project proj2)
+            return proj2;
+
+        if (Request.Headers.TryGetValue(PublicKeyHeaderName, out var publicKeyValues))
         {
-            return GetDemoProjectAsync(CancellationToken.None).GetAwaiter().GetResult();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to get demo project for PoW challenge");
+            var publicKey = publicKeyValues.FirstOrDefault()?.Trim();
+            if (string.IsNullOrWhiteSpace(publicKey))
+                return null;
+
+            var project = await _db.Projects
+                .FirstOrDefaultAsync(p => p.PublicKey == publicKey && p.IsActive, ct);
+            if (project != null)
+                return project;
+
+            var apiKey = await _db.ProjectApiKeys
+                .Include(k => k.Project)
+                .FirstOrDefaultAsync(k => k.PublicKey == publicKey && k.IsActive && k.Project.IsActive, ct);
+            if (apiKey?.Project != null)
+                return apiKey.Project;
+
             return null;
         }
+
+        // Fallback to demo project if no API key provided
+        return await GetDemoProjectAsync(ct);
     }
 
     private async Task<Project?> GetDemoProjectAsync(CancellationToken ct)
@@ -151,7 +169,7 @@ public class PublicPowController : ControllerBase
         CancellationToken ct // <-- injected automatically
     )
     {
-        var project = GetProject();
+        var project = await GetProjectAsync(ct);
         
         if (project == null)
         {
@@ -239,7 +257,7 @@ public async Task<IActionResult> Verify(
     [FromBody] PowVerifyRequest req,
     CancellationToken ct)
 {
-    var project = GetProject();
+    var project = await GetProjectAsync(ct);
     if (project == null)
     {
         _logger.LogWarning("PoW verify request: project not found in HttpContext.");
