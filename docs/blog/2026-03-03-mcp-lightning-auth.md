@@ -70,7 +70,7 @@ liveauth_mcp_confirm  → submit proof, get JWT
 liveauth_mcp_charge   → meter generic usage (sats per call)
 ```
 
-For paid MCP tools that need revenue attribution, import the SDK and configure `createMcpGate({ toolId })`. That routes charges to `/api/mcp/tools/{toolId}/charge` and records gross sats, LiveAuth platform fee, net sats, and a revenue event ID.
+For paid MCP tools that need revenue attribution, import the SDK and configure `createMcpGate({ toolId })`. That routes charges to `/api/mcp/tools/{toolId}/charge` and records gross sats, LiveAuth platform fee, net sats, a revenue event ID, and a signed per-call receipt.
 
 ## How It Works
 

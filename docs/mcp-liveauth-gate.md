@@ -207,9 +207,29 @@ Response:
   "platformFeeSats": 1,
   "netSats": 4,
   "feeBasisPoints": 500,
-  "revenueEventId": "event-guid"
+  "revenueEventId": "event-guid",
+  "receipt": {
+    "version": "mcp-call-receipt-v1",
+    "payload": "base64url-canonical-json",
+    "signature": "base64url-hmac-sha256",
+    "signatureAlgorithm": "HMAC-SHA256",
+    "keyId": "liveauth-mcp-receipt-v1",
+    "body": {
+      "receiptId": "mcp_receipt_eventguid",
+      "revenueEventId": "event-guid",
+      "mcpToolId": "tool-guid",
+      "toolSlug": "paid-research-tool",
+      "toolMethodName": "web_fetch",
+      "grossSats": 5,
+      "platformFeeSats": 1,
+      "netSats": 4,
+      "idempotencyKey": "request-or-call-id"
+    }
+  }
 }
 ```
+
+The receipt payload is base64url-encoded canonical JSON signed with HMAC-SHA256. It includes the revenue event ID, tool identity, session/token attribution, sats accounting, request ID, and idempotency key. Idempotent retries return the original receipt.
 
 Denied response:
 
@@ -316,7 +336,7 @@ POST /tools/web_fetch
 POST /tools/web_fetch_metadata
 ```
 
-Hosted calls require `Authorization: Bearer <mcp-jwt>`. Each call charges the seeded first-party tool ID through `/api/mcp/tools/{toolId}/charge`, then returns the fetch result plus the LiveAuth charge object, including `revenueEventId`.
+Hosted calls require `Authorization: Bearer <mcp-jwt>`. Each call charges the seeded first-party tool ID through `/api/mcp/tools/{toolId}/charge`, then returns the fetch result plus the LiveAuth charge object, including `revenueEventId` and a signed receipt.
 
 For stdio-only MCP clients, run the example `server.mjs` with `WEB_FETCH_HOSTED_URL` set. The local MCP process becomes a thin adapter that forwards tool calls to the hosted service while preserving the same LiveAuth JWT and idempotency key.
 
@@ -377,5 +397,6 @@ When `toolId` is omitted, the SDK keeps using `/api/mcp/charge` for backward-com
 - Send `X-LW-Public` for project context.
 - Use short JWT lifetimes and refresh tokens.
 - Always set an `idempotencyKey` for paid tool calls.
+- Store the signed receipt with your tool response when you need an audit trail.
 - Store only minimal metadata, such as host, content type, status, request ID, and client.
 - Do not store fetched content, prompts, completions, credentials, or private tool output in revenue metadata.

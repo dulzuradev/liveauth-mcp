@@ -27,6 +27,7 @@ public class McpGateController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly ILogger<McpGateController> _logger;
     private readonly L402Service _l402;
+    private readonly McpReceiptService _receiptService;
 
     public McpGateController(
         LiveAuthDbContext db,
@@ -37,7 +38,8 @@ public class McpGateController : ControllerBase
         ApiKeyService apiKeyService,
         IConfiguration configuration,
         ILogger<McpGateController> logger,
-        L402Service l402)
+        L402Service l402,
+        McpReceiptService receiptService)
     {
         _db = db;
         _lightning = lightning;
@@ -48,6 +50,7 @@ public class McpGateController : ControllerBase
         _configuration = configuration;
         _logger = logger;
         _l402 = l402;
+        _receiptService = receiptService;
     }
 
     private Project? GetProject()
@@ -661,7 +664,8 @@ public class McpGateController : ControllerBase
                     existing.PlatformFeeSats,
                     existing.NetSats,
                     existing.FeeBasisPoints,
-                    existing.Id));
+                    existing.Id,
+                    Receipt: _receiptService.CreateReceipt(existing, tool)));
             }
         }
 
@@ -706,7 +710,8 @@ public class McpGateController : ControllerBase
             revenueEvent.PlatformFeeSats,
             revenueEvent.NetSats,
             revenueEvent.FeeBasisPoints,
-            revenueEvent.Id));
+            revenueEvent.Id,
+            Receipt: _receiptService.CreateReceipt(revenueEvent, tool)));
     }
 
     [HttpGet("usage")]

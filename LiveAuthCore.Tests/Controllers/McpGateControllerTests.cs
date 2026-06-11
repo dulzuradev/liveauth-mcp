@@ -3,7 +3,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using FluentAssertions;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
@@ -56,10 +58,34 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         body.NetSats.Should().Be(4);
         body.FeeBasisPoints.Should().Be(500);
         body.RevenueEventId.Should().NotBeNull();
+        var revenueEventId = body.RevenueEventId.GetValueOrDefault();
+        body.Receipt.Should().NotBeNull();
+        body.Receipt!.Version.Should().Be("mcp-call-receipt-v1");
+        body.Receipt.SignatureAlgorithm.Should().Be("HMAC-SHA256");
+        body.Receipt.KeyId.Should().Be("liveauth-mcp-receipt-v1");
+        body.Receipt.Body.RevenueEventId.Should().Be(revenueEventId);
+        body.Receipt.Body.McpToolId.Should().Be(seed.ToolId);
+        body.Receipt.Body.ToolSlug.Should().StartWith("test-web-fetch-");
+        body.Receipt.Body.ToolMethodName.Should().Be("web_fetch");
+        body.Receipt.Body.McpGateTokenId.Should().Be(seed.TokenId);
+        body.Receipt.Body.McpGateSessionId.Should().Be(seed.SessionId);
+        body.Receipt.Body.PayingProjectId.Should().Be(seed.ProjectId);
+        body.Receipt.Body.AgentId.Should().Be("agent-1");
+        body.Receipt.Body.GrossSats.Should().Be(5);
+        body.Receipt.Body.PlatformFeeSats.Should().Be(1);
+        body.Receipt.Body.NetSats.Should().Be(4);
+        body.Receipt.Body.IdempotencyKey.Should().Be("call-1");
+        VerifyReceiptSignature(body.Receipt);
+
+        using var payload = DecodeReceiptPayload(body.Receipt);
+        payload.RootElement.GetProperty("version").GetString().Should().Be("mcp-call-receipt-v1");
+        payload.RootElement.GetProperty("receiptId").GetString().Should().Be($"mcp_receipt_{revenueEventId:N}");
+        payload.RootElement.GetProperty("revenueEventId").GetString().Should().Be(revenueEventId.ToString("D"));
+        payload.RootElement.GetProperty("idempotencyKey").GetString().Should().Be("call-1");
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
-        var revenueEvent = await db.McpToolRevenueEvents.FindAsync(body.RevenueEventId.Value);
+        var revenueEvent = await db.McpToolRevenueEvents.FindAsync(revenueEventId);
         revenueEvent.Should().NotBeNull();
         revenueEvent!.McpToolId.Should().Be(seed.ToolId);
         revenueEvent.McpGateTokenId.Should().Be(seed.TokenId);
@@ -87,6 +113,7 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         first.Status.Should().Be("ok");
         second.Status.Should().Be("ok");
         second.RevenueEventId.Should().Be(first.RevenueEventId);
+        second.Receipt.Should().BeEquivalentTo(first.Receipt);
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
@@ -155,6 +182,45 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         body.CallsUsed.Should().Be(1);
         body.SatsUsed.Should().Be(2);
         body.RevenueEventId.Should().BeNull();
+        body.Receipt.Should().BeNull();
+    }
+
+    private static void VerifyReceiptSignature(McpSignedReceiptResponse receipt)
+    {
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(TestJwtKey));
+        var signature = Base64UrlEncode(hmac.ComputeHash(Encoding.UTF8.GetBytes(receipt.Payload)));
+        signature.Should().Be(receipt.Signature);
+    }
+
+    private static JsonDocument DecodeReceiptPayload(McpSignedReceiptResponse receipt)
+    {
+        var json = Encoding.UTF8.GetString(Base64UrlDecode(receipt.Payload));
+        return JsonDocument.Parse(json);
+    }
+
+    private static string Base64UrlEncode(byte[] bytes)
+        => Convert.ToBase64String(bytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+
+    private static byte[] Base64UrlDecode(string value)
+    {
+        var padded = value
+            .Replace('-', '+')
+            .Replace('_', '/');
+
+        switch (padded.Length % 4)
+        {
+            case 2:
+                padded += "==";
+                break;
+            case 3:
+                padded += "=";
+                break;
+        }
+
+        return Convert.FromBase64String(padded);
     }
 
     private async Task<McpChargeResponseBody> SendToolChargeAsync(TestChargeSeed seed, object payload)
@@ -283,5 +349,33 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         int? NetSats,
         int? FeeBasisPoints,
         Guid? RevenueEventId,
-        string? Reason);
+        string? Reason,
+        McpSignedReceiptResponse? Receipt);
+
+    private sealed record McpSignedReceiptResponse(
+        string Version,
+        string Payload,
+        string Signature,
+        string SignatureAlgorithm,
+        string KeyId,
+        McpCallReceiptResponse Body);
+
+    private sealed record McpCallReceiptResponse(
+        string ReceiptId,
+        Guid RevenueEventId,
+        Guid McpToolId,
+        string ToolSlug,
+        string ToolMethodName,
+        Guid? McpGateTokenId,
+        Guid? McpGateSessionId,
+        Guid? PayingProjectId,
+        string? AgentId,
+        int GrossSats,
+        int PlatformFeeSats,
+        int NetSats,
+        int FeeBasisPoints,
+        string Status,
+        string? IdempotencyKey,
+        string? RequestId,
+        DateTime CreatedAt);
 }

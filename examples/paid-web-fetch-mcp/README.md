@@ -79,7 +79,7 @@ curl -X POST http://127.0.0.1:8787/tools/web_fetch_metadata \
   }'
 ```
 
-Each hosted call uses the same `/api/mcp/tools/{toolId}/charge` revenue attribution as the stdio MCP server. The response includes the fetched result and the LiveAuth charge object, including `revenueEventId`.
+Each hosted call uses the same `/api/mcp/tools/{toolId}/charge` revenue attribution as the stdio MCP server. The response includes the fetched result and the LiveAuth charge object, including `revenueEventId` and the signed receipt when returned by LiveAuthCore.
 
 For MCP clients that still need stdio, run `server.mjs` as a thin adapter by setting `WEB_FETCH_HOSTED_URL`. In that mode the local MCP process forwards `web_fetch` and `web_fetch_metadata` calls to the hosted service instead of fetching directly:
 
@@ -212,7 +212,7 @@ The smoke script:
 3. Confirms the session to get a JWT.
 4. Starts this MCP server over stdio.
 5. Calls `web_fetch_metadata`.
-6. Prints the charge result, including `revenueEventId`.
+6. Prints the charge result, including `revenueEventId` and the signed receipt when returned by LiveAuthCore.
 
 The hosted smoke follows the same auth flow, then calls `POST /tools/web_fetch_metadata`.
 

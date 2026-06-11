@@ -35,5 +35,5 @@ sequenceDiagram
     MCP->>API: POST /api/mcp/tools/{toolId}/charge
     API->>API: Validate JWT, budget, idempotency
     API->>API: Record gross / fee / net revenue
-    API->>MCP: ok + revenueEventId
+    API->>MCP: ok + revenueEventId + signed receipt
     MCP->>Agent: Tool result

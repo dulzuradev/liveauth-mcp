@@ -9,5 +9,6 @@ public record McpChargeResponse(
     int? NetSats = null,
     int? FeeBasisPoints = null,
     Guid? RevenueEventId = null,
-    string? Reason = null
+    string? Reason = null,
+    McpSignedReceipt? Receipt = null
 );

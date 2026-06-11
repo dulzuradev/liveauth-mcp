@@ -49,7 +49,7 @@ sequenceDiagram
     Tool->>API: POST /api/mcp/tools/{toolId}/charge
     API->>API: Validate JWT, token, project, budget
     API->>DB: Append McpToolRevenueEvent
-    API->>Tool: ok + callsUsed + satsUsed + revenueEventId
+    API->>Tool: ok + callsUsed + satsUsed + revenueEventId + signed receipt
     Tool->>Agent: Tool result
     
     Note over Tool,API: Generic metering can still call /api/mcp/charge without revenue attribution.

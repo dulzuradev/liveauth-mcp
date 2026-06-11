@@ -13,7 +13,7 @@ Agent                    LiveAuth                    Your MCP Tool
   │  ◄─ MCP JWT                 │                            │
   │  2. invoke MCP tool ────────────────────────────────────► │
   │                           ◄── POST /api/mcp/tools/{id}/charge │
-  │                           ──► ok + revenueEventId         │
+  │                           ──► ok + revenueEventId + receipt │
   │  ◄──────────────────────────  tool result                 │
 ```
 
@@ -232,11 +232,29 @@ Response:
   "platformFeeSats": 1,
   "netSats": 4,
   "feeBasisPoints": 500,
-  "revenueEventId": "event-guid"
+  "revenueEventId": "event-guid",
+  "receipt": {
+    "version": "mcp-call-receipt-v1",
+    "payload": "base64url-canonical-json",
+    "signature": "base64url-hmac-sha256",
+    "signatureAlgorithm": "HMAC-SHA256",
+    "keyId": "liveauth-mcp-receipt-v1",
+    "body": {
+      "receiptId": "mcp_receipt_eventguid",
+      "revenueEventId": "event-guid",
+      "mcpToolId": "tool-guid",
+      "toolSlug": "paid-research-tool",
+      "toolMethodName": "web_fetch",
+      "grossSats": 5,
+      "platformFeeSats": 1,
+      "netSats": 4,
+      "idempotencyKey": "request-or-call-id"
+    }
+  }
 }
 ```
 
-If the same `idempotencyKey` is retried for the same tool, LiveAuth returns the original charge instead of double charging. If the session budget is exhausted, the response is:
+The signed receipt is derived from the persisted revenue event, so it is stable for idempotent retries and can be stored alongside your tool result for audit. If the same `idempotencyKey` is retried for the same tool, LiveAuth returns the original charge and receipt instead of double charging. If the session budget is exhausted, the response is:
 
 ```json
 {
