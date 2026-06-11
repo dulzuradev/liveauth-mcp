@@ -113,11 +113,41 @@ export interface McpChargeResponse {
   netSats?: number | null;
   feeBasisPoints?: number | null;
   revenueEventId?: string | null;
+  receipt?: McpSignedReceipt | null;
   reason?: string | null;
 }
 
 export interface McpChargeResult extends McpChargeResponse {
   ok: boolean;
+}
+
+export interface McpSignedReceipt {
+  version: string;
+  payload: string;
+  signature: string;
+  signatureAlgorithm: 'HMAC-SHA256' | string;
+  keyId: string;
+  body: McpCallReceipt;
+}
+
+export interface McpCallReceipt {
+  receiptId: string;
+  revenueEventId: string;
+  mcpToolId: string;
+  toolSlug: string;
+  toolMethodName: string;
+  mcpGateTokenId?: string | null;
+  mcpGateSessionId?: string | null;
+  payingProjectId?: string | null;
+  agentId?: string | null;
+  grossSats: number;
+  platformFeeSats: number;
+  netSats: number;
+  feeBasisPoints: number;
+  status: string;
+  idempotencyKey?: string | null;
+  requestId?: string | null;
+  createdAt: string;
 }
 
 export interface McpStatusResponse {

@@ -177,6 +177,7 @@ const result = await gate.invoke(
     return {
       text: page,
       revenueEventId: context.liveAuth.charge.revenueEventId,
+      receipt: context.liveAuth.charge.receipt,
       netSats: context.liveAuth.charge.netSats,
     };
   },
@@ -199,7 +200,7 @@ When `toolId` is set, `GateToolOptions` supports:
 |--------|---------|
 | `costSats` | Sats to charge for this call. |
 | `toolMethodName` | Method within the tool, such as `web_fetch` or `search`. |
-| `idempotencyKey` | Retry-safe key. Reusing it for the same tool returns the original revenue event instead of double charging. |
+| `idempotencyKey` | Retry-safe key. Reusing it for the same tool returns the original revenue event and signed receipt instead of double charging. |
 | `agentId` | Optional caller/agent identifier for reporting. |
 | `metadata` | Small JSON object for audit context. Do not store private tool output here. |
 
@@ -214,9 +215,29 @@ Tool charge responses include the normal budget counters plus revenue accounting
   "platformFeeSats": 1,
   "netSats": 4,
   "feeBasisPoints": 500,
-  "revenueEventId": "event-guid"
+  "revenueEventId": "event-guid",
+  "receipt": {
+    "version": "mcp-call-receipt-v1",
+    "payload": "base64url-canonical-json",
+    "signature": "base64url-hmac-sha256",
+    "signatureAlgorithm": "HMAC-SHA256",
+    "keyId": "liveauth-mcp-receipt-v1",
+    "body": {
+      "receiptId": "mcp_receipt_eventguid",
+      "revenueEventId": "event-guid",
+      "mcpToolId": "tool-guid",
+      "toolSlug": "paid-research-tool",
+      "toolMethodName": "web_fetch",
+      "grossSats": 5,
+      "platformFeeSats": 1,
+      "netSats": 4,
+      "idempotencyKey": "req_123"
+    }
+  }
 }
 ```
+
+The receipt is a signed per-call audit artifact returned by LiveAuthCore for paid tool charges. Store it with your tool result when you need proof of charge or later reconciliation.
 
 If no `toolId` is configured, the SDK keeps using `/api/mcp/charge` for backward-compatible usage metering.
 
@@ -427,7 +448,7 @@ Refresh the JWT token without re-authenticating. Use the refreshToken returned f
 3. Call `liveauth_mcp_confirm` with the solution to receive a JWT
 4. Use the JWT in `Authorization: Bearer <token>` header for API requests
 5. After each generic API call, call `liveauth_mcp_charge` with the call cost in sats
-6. For monetized MCP tools, wrap handlers with `createMcpGate({ toolId })` so each call creates a revenue event
+6. For monetized MCP tools, wrap handlers with `createMcpGate({ toolId })` so each call creates a revenue event and signed receipt
 
 ### Lightning Authentication
 
@@ -458,7 +479,7 @@ Paid tool servers use the same JWT but charge through the attributed endpoint:
 Agent calls MCP tool
 → Tool server calls POST /api/mcp/tools/{toolId}/charge
 → LiveAuth validates JWT and budget
-→ LiveAuth records gross / platform fee / net revenue
+→ LiveAuth records gross / platform fee / net revenue and returns a signed receipt
 → Tool handler runs and returns the result
 ```
 

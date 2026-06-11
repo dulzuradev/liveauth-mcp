@@ -147,6 +147,33 @@ describe('LiveAuth MCP SDK helpers', () => {
   });
 
   it('routes server gate charges to the tool charge endpoint when toolId is configured', async () => {
+    const receipt = {
+      version: 'mcp-call-receipt-v1',
+      payload: 'payload-test',
+      signature: 'signature-test',
+      signatureAlgorithm: 'HMAC-SHA256',
+      keyId: 'liveauth-mcp-receipt-v1',
+      body: {
+        receiptId: 'mcp_receipt_event1',
+        revenueEventId: 'event-1',
+        mcpToolId: 'tool-123',
+        toolSlug: 'web-fetch',
+        toolMethodName: 'web_fetch',
+        mcpGateTokenId: 'token-123',
+        mcpGateSessionId: 'session-123',
+        payingProjectId: 'project-123',
+        agentId: 'agent-123',
+        grossSats: 5,
+        platformFeeSats: 1,
+        netSats: 4,
+        feeBasisPoints: 500,
+        status: 'Charged',
+        idempotencyKey: 'call-123',
+        requestId: 'request-123',
+        createdAt: '2026-06-11T12:00:00.0000000Z',
+      },
+    };
+
     const fakeFetch = vi.fn(async () =>
       jsonResponse({
         status: 'ok',
@@ -157,6 +184,7 @@ describe('LiveAuth MCP SDK helpers', () => {
         netSats: 4,
         feeBasisPoints: 500,
         revenueEventId: 'event-1',
+        receipt,
       })
     );
 
@@ -171,7 +199,10 @@ describe('LiveAuth MCP SDK helpers', () => {
     const result = await gate.invoke(
       'jwt-test',
       { url: 'https://example.com' },
-      async (_input, context) => context.liveAuth.charge,
+      async (_input, context) => ({
+        charge: context.liveAuth.charge,
+        receiptId: context.liveAuth.charge.receipt?.body.receiptId,
+      }),
       {},
       {
         validateFirst: false,
@@ -197,12 +228,14 @@ describe('LiveAuth MCP SDK helpers', () => {
         }),
       })
     );
-    expect(result).toMatchObject({
+    expect(result.charge).toMatchObject({
       ok: true,
       revenueEventId: 'event-1',
       platformFeeSats: 1,
       netSats: 4,
+      receipt,
     });
+    expect(result.receiptId).toBe('mcp_receipt_event1');
   });
 
   it('solves PoW with the backend publicKey:challengeHex:nonce payload', async () => {
