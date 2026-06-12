@@ -61,7 +61,7 @@ describe('LiveAuth stdio MCP server tools', () => {
   it('runs the no-config demo flow across start, lnurl, status, confirm, charge, usage, and refresh', async () => {
     const fetchImpl = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
-      expect(url).toBe(`${API_BASE}/api/public/demo/start`);
+      expect(url).toBe(`${API_BASE}/api/public/auth/demo/start`);
       return jsonResponse({
         sessionId: 'demo-session-1',
         invoice: {

@@ -278,7 +278,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         // Use demo endpoint if no API key or DEMO mode enabled
         const endpoint = LIVEAUTH_DEMO 
-          ? `${LIVEAUTH_API_BASE}/api/public/demo/start`
+          ? `${LIVEAUTH_API_BASE}/api/public/auth/demo/start`
           : `${LIVEAUTH_API_BASE}/api/mcp/start`;
         
         const response = await fetchImpl(endpoint, {

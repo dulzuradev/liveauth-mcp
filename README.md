@@ -1,8 +1,8 @@
 # LiveAuth MCP Server
 
-[![npm version](https://img.shields.io/npm/v/@liveauth-labs/mcp-server.svg)](https://www.npmjs.com/package/@liveauth-labs/mcp-server) [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![L402](https://img.shields.io/badge/auth-L402%20%2F%20x402-F7931A.svg)](#x402-compatibility) [![MCP](https://img.shields.io/badge/protocol-MCP%202.0-7C3AED.svg)](https://modelcontextprotocol.io)
+[![npm version](https://img.shields.io/npm/v/@liveauth-labs/mcp-server.svg)](https://www.npmjs.com/package/@liveauth-labs/mcp-server) [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![L402](https://img.shields.io/badge/auth-L402-F7931A.svg)](#l402-bundle-flow) [![MCP](https://img.shields.io/badge/protocol-MCP-7C3AED.svg)](https://modelcontextprotocol.io)
 
-> **Authentication, pay-per-call metering, and signed receipts for AI agents and MCP tools — Bitcoin-native, non-custodial, L402 / x402 compatible.**
+> **Authentication, pay-per-call metering, and signed receipts for AI agents and MCP tools: Bitcoin-native, Lightning-backed, and L402 compatible.**
 
 This MCP server lets any AI agent authenticate against your API using **proof-of-work** (free, no account) or **Lightning Network micropayments** (sats), then **meter and monetize** subsequent tool calls with per-call pricing, idempotent revenue events, and HMAC-signed receipts that auditors can verify offline.
 
@@ -10,7 +10,7 @@ This MCP server lets any AI agent authenticate against your API using **proof-of
 - Gate an API or MCP tool behind real cost-of-compute or real sats (anti-spam by design, not by CAPTCHA).
 - Charge AI agents per call without signing them up for an account.
 - Issue a tamper-evident audit trail (signed `mcp-call-receipt-v1`) for every paid tool invocation.
-- Accept both L402 (Lightning) and x402 (USDC / HTTP 402) authorization headers from the same endpoint.
+- Offer Lightning-backed L402 bundle access for prepaid MCP sessions.
 
 **Try it in 5 seconds — no account, no API key:**
 
@@ -28,7 +28,7 @@ Runs in demo mode (real Lightning invoice, simulated confirmation). Drop in your
 |---|---|
 | `liveauth_mcp_start` | Begin a session. Returns a PoW challenge, a Lightning invoice, or an L402 bundle hint. |
 | `liveauth_mcp_confirm` | Submit a solved PoW challenge, a paid Lightning invoice, or an L402 macaroon → receive a JWT. |
-| `liveauth_mcp_charge` | Meter usage after a call. Resolves a registered tool by `toolName` and records a paid revenue event. |
+| `liveauth_mcp_charge` | Meter usage after a call. With `toolName`, resolves registered tool pricing and records a paid revenue event. |
 | `liveauth_mcp_refresh` | Exchange a refresh token for a new JWT — no re-auth required. |
 | `liveauth_mcp_status` | Poll session/payment status (Lightning confirmation, expiry). |
 | `liveauth_mcp_lnurl` | Fetch the BOLT11 invoice for a session (lnget-compatible). |
@@ -88,8 +88,8 @@ The package is also a TypeScript SDK — see [SDK Usage](#sdk-usage) below. The 
 
 **For AI agents / agent builders:**
 - Permissionless access to paid APIs — solve a PoW or pay sats, get a JWT. No signup, no email, no OAuth dance.
-- The same endpoint speaks L402 (Lightning) and x402 (USDC) — pick your rail.
-- LiveAuth holds no custody. Payments are non-custodial end-to-end via Lightning.
+- Use PoW, Lightning invoices, or L402 bundle macaroons for agent access.
+- Projects can settle through a custom Lightning node when configured; otherwise payments use the LiveAuthCore-configured node.
 
 **The math that matters:** if your tool is being scraped by a bot, charging 1 sat per call is enough to make the scraper unprofitable. We call this *cost-of-attack economics*, and it's the whole reason we exist.
 
@@ -293,7 +293,7 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-**Demo Mode:** If you omit `LIVEAUTH_API_KEY` or set `LIVEAUTH_DEMO=true`, the server uses the free demo endpoint (3 sats per verification). Useful for testing without an account.
+**Demo Mode:** If you omit `LIVEAUTH_API_KEY` or set `LIVEAUTH_DEMO=true`, the server uses the public demo auth endpoint and returns a 3-sat Lightning invoice preview. Confirmation is simulated by this MCP wrapper, so it is useful for testing without an account.
 
 **Other env vars:**
 
@@ -540,19 +540,32 @@ Agent calls MCP tool
 → Tool handler runs and returns the result
 ```
 
-## x402 Compatibility
+## L402 Bundle Flow
 
-LiveAuth supports the x402 standard (Cloudflare/Coinbase). Use either format:
+LiveAuthCore supports Lightning-backed L402 bundles for prepaid MCP access. Buy a bundle, claim the macaroon after payment, then start an MCP session in L402 mode and confirm it with that macaroon.
 
 ```bash
-# L402 (LiveAuth native)
-curl -H "Authorization: L402 l402_xxx" https://api.liveauth.app/api/mcp/start
+# 1. Create a bundle invoice.
+curl -X POST https://api.liveauth.app/api/public/l402/bundle/invoice \
+  -H "Content-Type: application/json" \
+  -d '{"publicKey":"la_pk_xxx","tier":"starter","agentId":"agent_abc"}'
 
-# x402 (Cloudflare/Coinbase compatible)
-curl -H "Authorization: x402 preimage_xxx" https://api.liveauth.app/api/mcp/start
+# 2. After the invoice is paid, claim a macaroon.
+curl -X POST https://api.liveauth.app/api/public/l402/bundle/claim \
+  -H "Content-Type: application/json" \
+  -d '{"publicKey":"la_pk_xxx","paymentHash":"payment_hash_from_step_1"}'
+
+# 3. Start and confirm an MCP session with the macaroon.
+curl -X POST https://api.liveauth.app/api/mcp/start \
+  -H "X-LW-Public: la_pk_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"forceL402":true}'
+
+curl -X POST https://api.liveauth.app/api/mcp/confirm \
+  -H "X-LW-Public: la_pk_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"quoteId":"quote_id_from_step_3","macaroon":"macaroon_from_step_2"}'
 ```
-
-The API accepts both and returns `WWW-Authenticate: x402` in 402 responses.
 
 ## Development
 
@@ -579,4 +592,4 @@ MIT
 
 ---
 
-**Categories:** `authentication` · `payments` · `lightning` · `l402` · `x402` · `bitcoin` · `pay-per-call` · `metering` · `agent-tools` · `anti-abuse` · `mcp-server` · `typescript`
+**Categories:** `authentication` · `payments` · `lightning` · `l402` · `bitcoin` · `pay-per-call` · `metering` · `agent-tools` · `anti-abuse` · `mcp-server` · `typescript`
