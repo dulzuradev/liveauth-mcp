@@ -24,6 +24,11 @@ if ! bash "$LOCAL_DIR/scripts/deploy-checklist.sh" 2>/dev/null; then
     echo "WARNING: Deploy checklist had issues (continuing anyway)..."
 fi
 
+# Build backend API
+echo "Building backend API..."
+cd "$LOCAL_DIR/LiveAuthCore"
+dotnet publish -c Release -r linux-x64 --self-contained false -o /tmp/liveauth-x64 2>&1 | tail -3
+
 # Build frontend
 echo "Building frontend..."
 cd $LOCAL_DIR/LiveAuthWeb
@@ -103,21 +108,85 @@ ssh "$SERVER" 'bash -s' <<'REMOTE'
     echo "Caddy started as detached process (log: $LOG)"
 REMOTE
 
-# Quick verification
-echo "Verifying sites..."
+# Quick verification (web only — API is verified later)
+echo "Verifying web sites..."
 sleep 3
 HTTP_LIVE=$(curl -s -o /dev/null -w "%{http_code}" https://liveauth.app/ 2>/dev/null || echo "000")
 HTTP_ADMIN=$(curl -s -o /dev/null -w "%{http_code}" https://admin.liveauth.app/ 2>/dev/null || echo "000")
-HTTP_API=$(curl -s -o /dev/null -w "%{http_code}" https://api.liveauth.app/api/health 2>/dev/null || echo "000")
 
 echo "  liveauth.app: $HTTP_LIVE"
 echo "  admin.liveauth.app: $HTTP_ADMIN"
-echo "  api.liveauth.app: $HTTP_API"
 
-if [[ "$HTTP_LIVE" == "200" && "$HTTP_ADMIN" == "200" ]]; then
+if [[ "$HTTP_LIVE" != "200" || "$HTTP_ADMIN" != "200" ]]; then
     echo ""
-    echo "=== Deploy successful! ==="
+    echo "=== Web deploy failed — aborting before API restart ==="
+    exit 1
+fi
+
+# === Backend API deploy ===
+# Sync the freshly-built DLL to /opt/liveauth on the server.
+echo "Syncing backend DLL..."
+rsync -avz /tmp/liveauth-x64/LiveAuthCore.dll "$SERVER:/opt/liveauth/LiveAuthCore.dll" 2>&1 | tail -2
+
+# Find the running API by port 8081 (avoid pkill -f gotcha: the env string in
+# our SSH session contains "LiveAuthCore", and the absolute-path pattern fails
+# when the process is launched as ./LiveAuthCore — we get the relative path in
+# ps). Port-based PID lookup is the only reliable way.
+echo "Restarting API..."
+OLD_PID=$(ssh "$SERVER" "ss -tlnp 2>/dev/null | grep ':8081' | grep -oP 'pid=\\K[0-9]+' | head -1" 2>/dev/null || true)
+if [ -n "$OLD_PID" ]; then
+    ssh "$SERVER" "kill -9 $OLD_PID" 2>/dev/null || true
+    echo "  Stopped old API (PID $OLD_PID)"
+    # Wait for the port to free up
+    for i in 1 2 3 4 5; do
+        sleep 1
+        STILL=$(ssh "$SERVER" "ss -tlnp 2>/dev/null | grep -c ':8081'" 2>/dev/null || echo "0")
+        if [ "$STILL" = "0" ]; then break; fi
+    done
+fi
+
+# Start the new API as a detached process. Writes to /tmp/liveauth-new.log on
+# the server (liveauth-writable; the legacy /tmp/liveauth-prod.log is
+# root-owned and the redirect silently fails when run as the liveauth user).
+ssh "$SERVER" "cd /opt/liveauth && nohup env \
+    ASPNETCORE_URLS='http://0.0.0.0:8081' \
+    ASPNETCORE_ENVIRONMENT=Production \
+    ConnectionStrings__Default='Data Source=/opt/liveauth/.liveauth.db' \
+    LiveAuth__PowHmacSecret='swm3lIZ+arLWaU4Uz9zaUpzUbdV87O7p72Foo6RLtGstLmyeA3bNedhZenBn3H4t8n1IzsToxOVyaL1ILcFOtA==' \
+    Resend__ApiKey='re_P4qnqHQM_M5tNYHX3Ar4TfjJLGBc7uxez' \
+    Resend__FromEmail='admin@liveauth.app' \
+    Resend__FromName='LiveAuth' \
+    Lnd__BaseUrl='https://localhost:8080' \
+    Lnd__UseMock='false' \
+    ./LiveAuthCore > /tmp/liveauth-new.log 2>&1 < /dev/null & disown"
+
+# Wait up to 10s for the new process to bind 8081
+NEW_PID=""
+for i in 1 2 3 4 5 6 7 8 9 10; do
+    sleep 1
+    NEW_PID=$(ssh "$SERVER" "ss -tlnp 2>/dev/null | grep ':8081' | grep -oP 'pid=\\K[0-9]+' | head -1" 2>/dev/null || true)
+    if [ -n "$NEW_PID" ]; then break; fi
+done
+
+if [ -z "$NEW_PID" ]; then
+    echo ""
+    echo "=== API FAILED TO START — check /tmp/liveauth-new.log on the server ==="
+    exit 1
+fi
+
+echo "  API running as PID $NEW_PID"
+
+# Verify the running DLL matches the build we just shipped (catches rsync
+# issues and any caching weirdness)
+REMOTE_HASH=$(ssh "$SERVER" "md5sum /opt/liveauth/LiveAuthCore.dll" 2>/dev/null | awk '{print $1}')
+LOCAL_HASH=$(md5sum /tmp/liveauth-x64/LiveAuthCore.dll 2>/dev/null | awk '{print $1}')
+if [ "$REMOTE_HASH" = "$LOCAL_HASH" ] && [ -n "$REMOTE_HASH" ]; then
+    echo "  DLL hash verified: $REMOTE_HASH"
 else
     echo ""
-    echo "=== Deploy completed with warnings (check sites manually) ==="
+    echo "=== DLL HASH MISMATCH — remote=$REMOTE_HASH local=$LOCAL_HASH ==="
+    exit 1
 fi
+
+echo ""
+echo "=== Full deploy successful (web + API) ==="
