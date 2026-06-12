@@ -186,6 +186,8 @@ POST /api/mcp/charge
 
 Tool charges preserve the same session budget checks, but also record an immutable revenue event with gross sats, LiveAuth platform fee, developer net sats, tool method name, paying project/session/token, metadata, and idempotency key. When `costSats` is omitted, LiveAuthCore uses the registered tool's default price; without `toolId` or `toolName`, it falls back to the project's global MCP price.
 
+Registered tools can also have a paid-call webhook URL. On every successful new paid call, LiveAuthCore queues a `liveauth.mcp.tool.paid_call` webhook with the tool identity, gross/platform/net sats, revenue event ID, metadata, and the signed receipt. If the tool webhook URL is blank, LiveAuthCore falls back to the project's webhook URL; idempotent retries do not enqueue duplicates.
+
 ```ts
 import { createMcpGate } from '@liveauth-labs/mcp-server';
 
