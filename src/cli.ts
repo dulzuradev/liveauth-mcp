@@ -200,10 +200,14 @@ const TOOLS: Tool[] = [
       properties: {
         callCostSats: {
           type: 'number',
-          description: 'Cost of the API call in sats',
+          description: 'Optional cost of the API call in sats. Omit to use LiveAuth project or tool pricing.',
+        },
+        toolName: {
+          type: 'string',
+          description: 'Optional registered MCP tool slug or name for per-tool pricing and revenue attribution.',
         },
       },
-      required: ['callCostSats'],
+      required: [],
     },
   },
   {
@@ -437,7 +441,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'liveauth_mcp_charge': {
-        const { callCostSats } = args as { callCostSats: number };
+        const { callCostSats, toolName } = args as { callCostSats?: number; toolName?: string };
+        const demoCostSats = callCostSats ?? 1;
 
         if (LIVEAUTH_DEMO) {
           if (!cachedJwt) {
@@ -452,7 +457,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             };
           }
 
-          if (demoSatsUsed + callCostSats > 1000) {
+          if (demoSatsUsed + demoCostSats > 1000) {
             return {
               content: [
                 {
@@ -465,7 +470,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
 
           demoCallsUsed += 1;
-          demoSatsUsed += callCostSats;
+          demoSatsUsed += demoCostSats;
 
           return {
             content: [
@@ -491,7 +496,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           method: 'POST',
           headers: authHeaders,
           body: JSON.stringify({
-            callCostSats,
+            ...(callCostSats === undefined ? {} : { callCostSats }),
+            ...(toolName ? { toolName } : {}),
           }),
         });
 

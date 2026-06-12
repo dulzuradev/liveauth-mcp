@@ -174,11 +174,11 @@ export class LiveAuthMcpClient {
     });
   }
 
-  async charge(callCostSats: number, jwt = this.requireJwt()): Promise<McpChargeResult> {
+  async charge(callCostSats?: number, jwt = this.requireJwt()): Promise<McpChargeResult> {
     const response = await requestJson<McpChargeResponse>(this.fetchImpl, `${this.baseUrl}/api/mcp/charge`, {
       method: 'POST',
       headers: projectHeaders(this.publicKey, jwt),
-      body: JSON.stringify({ callCostSats })
+      body: JSON.stringify(callCostSats === undefined ? {} : { callCostSats })
     });
 
     const result = { ...response, ok: response.status === 'ok' };

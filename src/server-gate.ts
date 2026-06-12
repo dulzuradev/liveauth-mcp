@@ -13,7 +13,8 @@ export class LiveAuthMcpServerGate {
   readonly publicKey: string;
   readonly baseUrl: string;
   readonly toolId?: string;
-  readonly defaultCostSats: number;
+  readonly toolName?: string;
+  readonly defaultCostSats?: number;
 
   private readonly fetchImpl: NonNullable<LiveAuthMcpServerGateConfig['fetch']>;
 
@@ -25,7 +26,8 @@ export class LiveAuthMcpServerGate {
     this.publicKey = config.publicKey;
     this.baseUrl = cleanBaseUrl(config.baseUrl);
     this.toolId = config.toolId;
-    this.defaultCostSats = config.defaultCostSats ?? 1;
+    this.toolName = config.toolName;
+    this.defaultCostSats = config.defaultCostSats;
     this.fetchImpl = requireFetch(config.fetch);
   }
 
@@ -61,15 +63,15 @@ export class LiveAuthMcpServerGate {
       ? `${this.baseUrl}/api/mcp/tools/${encodeURIComponent(this.toolId)}/charge`
       : `${this.baseUrl}/api/mcp/charge`;
 
-    const body = this.toolId
-      ? {
-          callCostSats,
-          ...(options.toolMethodName ? { toolMethodName: options.toolMethodName } : {}),
-          ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
-          ...(options.agentId ? { agentId: options.agentId } : {}),
-          ...(options.metadata ? { metadata: options.metadata } : {}),
-        }
-      : { callCostSats };
+    const toolName = options.toolName ?? this.toolName;
+    const body = {
+      ...(callCostSats === undefined ? {} : { callCostSats }),
+      ...(!this.toolId && toolName ? { toolName } : {}),
+      ...(options.toolMethodName ? { toolMethodName: options.toolMethodName } : {}),
+      ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
+      ...(options.agentId ? { agentId: options.agentId } : {}),
+      ...(options.metadata ? { metadata: options.metadata } : {}),
+    };
 
     const response = await requestJson<McpChargeResponse>(this.fetchImpl, endpoint, {
       method: 'POST',

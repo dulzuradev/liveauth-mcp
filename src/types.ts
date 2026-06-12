@@ -20,6 +20,7 @@ export interface LiveAuthMcpServerGateConfig {
   publicKey: string;
   baseUrl?: string;
   toolId?: string;
+  toolName?: string;
   defaultCostSats?: number;
   fetch?: FetchLike;
 }
@@ -115,6 +116,9 @@ export interface McpChargeResponse {
   revenueEventId?: string | null;
   receipt?: McpSignedReceipt | null;
   reason?: string | null;
+  toolId?: string | null;
+  toolName?: string | null;
+  toolSlug?: string | null;
 }
 
 export interface McpChargeResult extends McpChargeResponse {
@@ -134,6 +138,7 @@ export interface McpCallReceipt {
   receiptId: string;
   revenueEventId: string;
   mcpToolId: string;
+  toolName: string;
   toolSlug: string;
   toolMethodName: string;
   mcpGateTokenId?: string | null;
@@ -165,6 +170,7 @@ export interface LnurlInvoiceResponse {
 export interface GateToolOptions {
   costSats?: number;
   validateFirst?: boolean;
+  toolName?: string;
   toolMethodName?: string;
   idempotencyKey?: string;
   agentId?: string;

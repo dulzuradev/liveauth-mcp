@@ -250,6 +250,7 @@ describe('LiveAuth MCP SDK helpers', () => {
         receiptId: 'mcp_receipt_event1',
         revenueEventId: 'event-1',
         mcpToolId: 'tool-123',
+        toolName: 'Web Fetch',
         toolSlug: 'web-fetch',
         toolMethodName: 'web_fetch',
         mcpGateTokenId: 'token-123',
@@ -329,6 +330,56 @@ describe('LiveAuth MCP SDK helpers', () => {
       receipt,
     });
     expect(result.receiptId).toBe('mcp_receipt_event1');
+  });
+
+  it('routes server gate charges through generic endpoint with toolName when no toolId is configured', async () => {
+    const fakeFetch = vi.fn(async () =>
+      jsonResponse({
+        status: 'ok',
+        callsUsed: 1,
+        satsUsed: 8,
+        grossSats: 8,
+        netSats: 7,
+        toolName: 'Paid Research Tool',
+        toolSlug: 'paid-research-tool',
+      })
+    );
+
+    const gate = createMcpGate({
+      publicKey: 'la_pk_test',
+      baseUrl: API_BASE,
+      toolName: 'paid-research-tool',
+      fetch: fakeFetch,
+    });
+
+    const result = await gate.invoke(
+      'jwt-test',
+      { query: 'test' },
+      async (_input, context) => context.liveAuth.charge,
+      {},
+      {
+        validateFirst: false,
+        toolMethodName: 'search',
+        idempotencyKey: 'call-by-tool-name',
+      }
+    );
+
+    expect(fakeFetch).toHaveBeenCalledWith(
+      `${API_BASE}/api/mcp/charge`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          toolName: 'paid-research-tool',
+          toolMethodName: 'search',
+          idempotencyKey: 'call-by-tool-name',
+        }),
+      })
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      grossSats: 8,
+      toolSlug: 'paid-research-tool',
+    });
   });
 
   it('solves PoW with the backend publicKey:challengeHex:nonce payload', async () => {
