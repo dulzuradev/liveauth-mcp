@@ -594,13 +594,23 @@ public class McpGateController : ControllerBase
     [Authorize] // requires JWT
     public async Task<IActionResult> Charge([FromBody] McpChargeRequest req, CancellationToken ct)
     {
-        if (req.CallCostSats <= 0) return BadRequest("callCostSats must be positive");
-
         var resolved = await TryGetChargeContextAsync(ct);
         if (resolved.Error != null)
             return resolved.Error;
 
-        var budgetResult = ApplyBudgetCharge(resolved.Context!.GateToken, resolved.Context.Project, req.CallCostSats);
+        var context = resolved.Context!;
+        var toolResult = await ResolveToolForChargeAsync(req, ct);
+        if (toolResult.Error != null)
+            return toolResult.Error;
+
+        if (toolResult.Tool != null)
+            return await ChargeResolvedToolAsync(toolResult.Tool, req, context, ct);
+
+        var mcpConfig = GetMcpConfig(context.Project);
+        var callCostSats = req.CallCostSats ?? mcpConfig.SatsPerCall;
+        if (callCostSats <= 0) return BadRequest("callCostSats must be positive");
+
+        var budgetResult = ApplyBudgetCharge(context.GateToken, context.Project, callCostSats);
         if (budgetResult.Status != "ok")
             return Ok(budgetResult);
         
@@ -613,8 +623,6 @@ public class McpGateController : ControllerBase
     [Authorize]
     public async Task<IActionResult> ChargeTool(Guid toolId, [FromBody] McpChargeRequest req, CancellationToken ct)
     {
-        if (req.CallCostSats <= 0) return BadRequest("callCostSats must be positive");
-
         var tool = await _db.McpTools
             .Where(t => t.Id == toolId && t.RemovedAt == null)
             .FirstOrDefaultAsync(ct);
@@ -626,22 +634,36 @@ public class McpGateController : ControllerBase
         if (resolved.Error != null)
             return resolved.Error;
 
-        var gateToken = resolved.Context!.GateToken;
-        var project = resolved.Context.Project;
+        return await ChargeResolvedToolAsync(tool, req, resolved.Context!, ct);
+    }
+
+    private async Task<IActionResult> ChargeResolvedToolAsync(
+        McpTool tool,
+        McpChargeRequest req,
+        McpChargeContext context,
+        CancellationToken ct)
+    {
+        var gateToken = context.GateToken;
+        var project = context.Project;
+        var callCostSats = req.CallCostSats ?? Math.Clamp(tool.DefaultCostSats, 1, int.MaxValue);
 
         if (!string.Equals(tool.Status, "Active", StringComparison.OrdinalIgnoreCase))
         {
+            await RecordDeniedToolChargeAsync(tool, req, context, callCostSats, "tool_inactive", ct);
             return Ok(new McpChargeResponse(
                 "deny",
                 gateToken.CallsUsed,
                 gateToken.SatsUsed,
-                Reason: "tool_inactive"));
+                Reason: "tool_inactive",
+                ToolId: tool.Id,
+                ToolName: tool.Name,
+                ToolSlug: tool.Slug));
         }
 
-        if (req.CallCostSats < tool.MinCostSats)
+        if (callCostSats < tool.MinCostSats)
             return BadRequest($"callCostSats must be at least {tool.MinCostSats} for this tool");
 
-        if (tool.MaxCostSats > 0 && req.CallCostSats > tool.MaxCostSats)
+        if (tool.MaxCostSats > 0 && callCostSats > tool.MaxCostSats)
             return BadRequest($"callCostSats must be no more than {tool.MaxCostSats} for this tool");
 
         var idempotencyKey = string.IsNullOrWhiteSpace(req.IdempotencyKey)
@@ -665,18 +687,29 @@ public class McpGateController : ControllerBase
                     existing.NetSats,
                     existing.FeeBasisPoints,
                     existing.Id,
-                    Receipt: _receiptService.CreateReceipt(existing, tool)));
+                    Receipt: _receiptService.CreateReceipt(existing, tool),
+                    ToolId: tool.Id,
+                    ToolName: tool.Name,
+                    ToolSlug: tool.Slug));
             }
         }
 
-        var budgetResult = ApplyBudgetCharge(gateToken, project, req.CallCostSats);
+        var budgetResult = ApplyBudgetCharge(gateToken, project, callCostSats);
         if (budgetResult.Status != "ok")
-            return Ok(budgetResult);
+        {
+            await RecordDeniedToolChargeAsync(tool, req, context, callCostSats, budgetResult.Reason ?? "charge_denied", ct);
+            return Ok(new McpChargeResponse(
+                budgetResult.Status,
+                budgetResult.CallsUsed,
+                budgetResult.SatsUsed,
+                Reason: budgetResult.Reason,
+                ToolId: tool.Id,
+                ToolName: tool.Name,
+                ToolSlug: tool.Slug));
+        }
 
-        var fee = CalculatePlatformFee(req.CallCostSats);
-        var metadataJson = req.Metadata.HasValue
-            ? JsonSerializer.Serialize(req.Metadata.Value)
-            : null;
+        var fee = CalculatePlatformFee(callCostSats);
+        var metadataJson = CreateMetadataJson(req);
 
         var revenueEvent = new McpToolRevenueEvent
         {
@@ -688,7 +721,7 @@ public class McpGateController : ControllerBase
             ToolMethodName = string.IsNullOrWhiteSpace(req.ToolMethodName)
                 ? tool.Slug
                 : req.ToolMethodName.Trim(),
-            GrossSats = req.CallCostSats,
+            GrossSats = callCostSats,
             PlatformFeeSats = fee.PlatformFeeSats,
             NetSats = fee.NetSats,
             FeeBasisPoints = fee.FeeBasisPoints,
@@ -711,7 +744,10 @@ public class McpGateController : ControllerBase
             revenueEvent.NetSats,
             revenueEvent.FeeBasisPoints,
             revenueEvent.Id,
-            Receipt: _receiptService.CreateReceipt(revenueEvent, tool)));
+            Receipt: _receiptService.CreateReceipt(revenueEvent, tool),
+            ToolId: tool.Id,
+            ToolName: tool.Name,
+            ToolSlug: tool.Slug));
     }
 
     [HttpGet("usage")]
@@ -755,6 +791,87 @@ public class McpGateController : ControllerBase
             ExpiresAt: gateToken.ExpiresAt,
             DayWindowStart: gateToken.DayWindowStart
         ));
+    }
+
+    private async Task<(McpTool? Tool, IActionResult? Error)> ResolveToolForChargeAsync(
+        McpChargeRequest req,
+        CancellationToken ct)
+    {
+        if (req.ToolId.HasValue)
+        {
+            var toolById = await _db.McpTools
+                .Where(t => t.Id == req.ToolId.Value && t.RemovedAt == null)
+                .FirstOrDefaultAsync(ct);
+
+            return toolById == null
+                ? (null, NotFound("Unknown MCP tool"))
+                : (toolById, null);
+        }
+
+        var toolName = req.ToolName?.Trim();
+        if (string.IsNullOrWhiteSpace(toolName))
+            return (null, null);
+
+        var normalizedToolName = toolName.ToLowerInvariant();
+        var toolBySlug = await _db.McpTools
+            .Where(t => t.RemovedAt == null && t.Slug.ToLower() == normalizedToolName)
+            .FirstOrDefaultAsync(ct);
+
+        if (toolBySlug != null)
+            return (toolBySlug, null);
+
+        var toolsByName = await _db.McpTools
+            .Where(t => t.RemovedAt == null && t.Name.ToLower() == normalizedToolName)
+            .Take(2)
+            .ToListAsync(ct);
+
+        return toolsByName.Count switch
+        {
+            0 => (null, NotFound("Unknown MCP tool")),
+            1 => (toolsByName[0], null),
+            _ => (null, BadRequest("toolName is ambiguous; use toolId or the tool slug."))
+        };
+    }
+
+    private async Task RecordDeniedToolChargeAsync(
+        McpTool tool,
+        McpChargeRequest req,
+        McpChargeContext context,
+        int callCostSats,
+        string reason,
+        CancellationToken ct)
+    {
+        _db.McpToolRevenueEvents.Add(new McpToolRevenueEvent
+        {
+            McpToolId = tool.Id,
+            McpGateTokenId = context.GateToken.Id,
+            McpGateSessionId = context.GateToken.SessionId,
+            PayingProjectId = context.Project.Id,
+            AgentId = string.IsNullOrWhiteSpace(req.AgentId) ? null : req.AgentId.Trim(),
+            ToolMethodName = string.IsNullOrWhiteSpace(req.ToolMethodName)
+                ? tool.Slug
+                : req.ToolMethodName.Trim(),
+            GrossSats = callCostSats,
+            PlatformFeeSats = 0,
+            NetSats = 0,
+            FeeBasisPoints = 0,
+            Status = "Denied",
+            RequestId = HttpContext.TraceIdentifier,
+            MetadataJson = CreateMetadataJson(req, reason),
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private static string? CreateMetadataJson(McpChargeRequest req, string? denyReason = null)
+    {
+        if (string.IsNullOrWhiteSpace(denyReason))
+            return req.Metadata.HasValue ? JsonSerializer.Serialize(req.Metadata.Value) : null;
+
+        return req.Metadata.HasValue
+            ? JsonSerializer.Serialize(new { denyReason, metadata = req.Metadata.Value })
+            : JsonSerializer.Serialize(new { denyReason });
     }
 
     private static McpProjectConfig GetMcpConfig(Project project)

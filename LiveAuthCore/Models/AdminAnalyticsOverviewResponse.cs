@@ -30,6 +30,9 @@ public sealed class AdminAnalyticsOverviewResponse
     public int McpTokensIssued { get; set; }
     public long McpSatsEarned { get; set; }
     public double? McpSatsEarnedUsd { get; set; }
+    public long McpPaidToolCalls { get; set; }
+    public long McpPaidToolSatsCharged { get; set; }
+    public long McpDeniedToolCharges { get; set; }
 
     // === L402 Usage ===
     public int L402InvoicesCreated { get; set; }
@@ -71,6 +74,5 @@ public sealed class AuthsOverTimePoint
     public long Successful { get; set; }
     public long Failed { get; set; }
 }
-
 
 

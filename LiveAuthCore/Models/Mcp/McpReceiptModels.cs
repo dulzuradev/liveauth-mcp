@@ -13,6 +13,7 @@ public record McpCallReceipt(
     string ReceiptId,
     Guid RevenueEventId,
     Guid McpToolId,
+    string ToolName,
     string ToolSlug,
     string ToolMethodName,
     Guid? McpGateTokenId,

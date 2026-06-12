@@ -69,6 +69,29 @@ public record McpToolRevenueSummaryResponse(
     double AverageGrossSatsPerCall
 );
 
+public record McpToolRevenueOverviewResponse(
+    int WindowHours,
+    long PaidCalls,
+    long GrossSats,
+    long PlatformFeeSats,
+    long NetSats,
+    long DeniedCharges,
+    IReadOnlyList<McpToolRevenueTopToolDto> TopTools
+);
+
+public record McpToolRevenueTopToolDto(
+    Guid ToolId,
+    string ToolName,
+    string ToolSlug,
+    string ToolStatus,
+    long Calls,
+    long GrossSats,
+    long PlatformFeeSats,
+    long NetSats,
+    long DeniedCharges,
+    double AverageGrossSatsPerCall
+);
+
 public record McpToolRevenueEventsResponse(
     Guid ToolId,
     int Limit,

@@ -166,7 +166,7 @@ In the developer dashboard, open **MCP Tool Revenue**, choose **Register MCP too
 - Visibility: `Private`, `Unlisted`, or `Public`.
 - Minimum, default, and maximum sats per call.
 
-The dashboard returns a tool ID and an integration snippet. Use that tool ID as `LIVEAUTH_TOOL_ID`.
+The dashboard returns a tool ID and an integration snippet. Use that tool ID as `LIVEAUTH_TOOL_ID`, or use the globally unique slug as `toolName` when you want LiveAuth to resolve pricing through the generic charge endpoint.
 
 You can also register through the developer API:
 
@@ -193,17 +193,17 @@ Tool slugs are globally unique. Deleted tools are soft-deleted so historical rev
 
 ## Step 3: Charge a Paid MCP Tool Call
 
-For usage metering only, call the generic endpoint:
+For usage metering only, call the generic endpoint. If `callCostSats` is omitted and no tool is identified, LiveAuth falls back to the project's global MCP price.
 
 ```bash
 curl -X POST https://api.liveauth.app/api/mcp/charge \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer eyJhbG..." \
   -H "X-LW-Public: la_pk_your_public_key" \
-  -d '{"callCostSats": 1}'
+  -d '{}'
 ```
 
-For monetized tools, use the tool-attributed endpoint:
+For monetized tools, either use the tool-attributed endpoint or identify the tool by slug/name on the generic endpoint. If `callCostSats` is omitted, LiveAuth charges the tool's configured `defaultCostSats`; explicit variable prices must stay within the tool's min/max bounds.
 
 ```bash
 curl -X POST https://api.liveauth.app/api/mcp/tools/<tool-guid>/charge \
@@ -221,6 +221,20 @@ curl -X POST https://api.liveauth.app/api/mcp/tools/<tool-guid>/charge \
   }'
 ```
 
+Equivalent slug-based charge:
+
+```bash
+curl -X POST https://api.liveauth.app/api/mcp/charge \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbG..." \
+  -H "X-LW-Public: la_pk_your_public_key" \
+  -d '{
+    "toolName": "paid-research-tool",
+    "toolMethodName": "search",
+    "idempotencyKey": "request-or-call-id"
+  }'
+```
+
 Response:
 
 ```json
@@ -233,6 +247,9 @@ Response:
   "netSats": 4,
   "feeBasisPoints": 500,
   "revenueEventId": "event-guid",
+  "toolId": "tool-guid",
+  "toolName": "Paid Research Tool",
+  "toolSlug": "paid-research-tool",
   "receipt": {
     "version": "mcp-call-receipt-v1",
     "payload": "base64url-canonical-json",
@@ -243,6 +260,7 @@ Response:
       "receiptId": "mcp_receipt_eventguid",
       "revenueEventId": "event-guid",
       "mcpToolId": "tool-guid",
+      "toolName": "Paid Research Tool",
       "toolSlug": "paid-research-tool",
       "toolMethodName": "web_fetch",
       "grossSats": 5,
@@ -277,8 +295,7 @@ import { createMcpGate } from '@liveauth-labs/mcp-server';
 const gate = createMcpGate({
   publicKey: process.env.LIVEAUTH_PUBLIC_KEY!,
   baseUrl: process.env.LIVEAUTH_API_URL ?? 'https://api.liveauth.app',
-  toolId: process.env.LIVEAUTH_TOOL_ID!,
-  defaultCostSats: 5,
+  toolName: 'paid-research-tool',
 });
 
 const output = await gate.invoke(
@@ -293,7 +310,6 @@ const output = await gate.invoke(
   },
   { requestId: 'req_123' },
   {
-    costSats: 5,
     toolMethodName: 'web_fetch',
     idempotencyKey: 'req_123',
     metadata: { urlHost: 'example.com' }
@@ -301,7 +317,7 @@ const output = await gate.invoke(
 );
 ```
 
-When `toolId` is omitted, the SDK uses `/api/mcp/charge` for backward-compatible metering. When `toolId` is present, it uses `/api/mcp/tools/{toolId}/charge` and records revenue attribution.
+When `toolId` is present, the SDK uses `/api/mcp/tools/{toolId}/charge`. When `toolName` is present without `toolId`, it uses `/api/mcp/charge` and lets LiveAuth resolve the registered tool price. When neither is configured, `/api/mcp/charge` falls back to the project's global MCP price.
 
 ---
 
@@ -310,11 +326,13 @@ When `toolId` is omitted, the SDK uses `/api/mcp/charge` for backward-compatible
 Use the dashboard **MCP Tool Revenue** section or call:
 
 ```http
+GET /api/dev/mcp-tools/revenue?projectId=<optional-project-guid>&windowHours=24
 GET /api/dev/mcp-tools/{toolId}/revenue?windowHours=24
 GET /api/dev/mcp-tools/{toolId}/revenue/events?limit=50
+GET /api/admin/analytics/mcp?windowHours=24
 ```
 
-The revenue view shows call count, gross sats, LiveAuth platform fee, net sats, and recent event metadata. Keep metadata small and audit-oriented; do not store fetched content, prompts, completions, credentials, or private tool output there.
+The revenue views show paid call count, gross sats, LiveAuth platform fee, net sats, denied charge attempts, and top tools by calls/revenue. Keep metadata small and audit-oriented; do not store fetched content, prompts, completions, credentials, or private tool output there.
 
 ---
 

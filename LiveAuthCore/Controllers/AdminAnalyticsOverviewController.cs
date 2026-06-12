@@ -64,6 +64,16 @@ public class AdminAnalyticsOverviewController : ControllerBase
         var mcpSatsEarned = await _db.McpGateTokens
             .SumAsync(t => t.SatsUsed, ct);
 
+        var mcpToolEvents = _db.McpToolRevenueEvents
+            .Where(e => e.CreatedAt >= fromUtc);
+        var mcpPaidToolCalls = await mcpToolEvents
+            .LongCountAsync(e => e.Status == "Charged", ct);
+        var mcpPaidToolSatsCharged = await mcpToolEvents
+            .Where(e => e.Status == "Charged")
+            .SumAsync(e => (long?)e.GrossSats, ct) ?? 0L;
+        var mcpDeniedToolCharges = await mcpToolEvents
+            .LongCountAsync(e => e.Status == "Denied", ct);
+
         // === L402 Metrics ===
         // L402 payments tracked via AuthEvents with specific event types
         var l402InvoicesCreated = await authEvents
@@ -208,6 +218,9 @@ public class AdminAnalyticsOverviewController : ControllerBase
             McpTokensIssued = mcpTokensIssued,
             McpSatsEarned = mcpSatsEarned,
             McpSatsEarnedUsd = mcpSatsEarnedUsd,
+            McpPaidToolCalls = mcpPaidToolCalls,
+            McpPaidToolSatsCharged = mcpPaidToolSatsCharged,
+            McpDeniedToolCharges = mcpDeniedToolCharges,
 
             // L402 Metrics
             L402InvoicesCreated = l402InvoicesCreated,

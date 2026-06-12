@@ -755,6 +755,20 @@ public class DeveloperProjectsController : ControllerBase
         var mcpActiveBudgetSats = await mcpTokensQuery
             .Where(t => t.Status == "active" && t.ExpiresAt > now)
             .SumAsync(t => (long?)t.MaxSatsPerDay, ct) ?? 0L;
+        var projectToolIds = await _db.McpTools
+            .Where(t => t.ProjectId == projectId)
+            .Select(t => t.Id)
+            .ToListAsync(ct);
+        var mcpToolEventsQuery = _db.McpToolRevenueEvents
+            .Where(e => projectToolIds.Contains(e.McpToolId));
+        var mcpPaidToolCalls = await mcpToolEventsQuery.LongCountAsync(e => e.Status == "Charged", ct);
+        var mcpPaidToolSatsCharged = await mcpToolEventsQuery
+            .Where(e => e.Status == "Charged")
+            .SumAsync(e => (long?)e.GrossSats, ct) ?? 0L;
+        var mcpPaidToolNetSats = await mcpToolEventsQuery
+            .Where(e => e.Status == "Charged")
+            .SumAsync(e => (long?)e.NetSats, ct) ?? 0L;
+        var mcpDeniedToolCharges = await mcpToolEventsQuery.LongCountAsync(e => e.Status == "Denied", ct);
 
         var limit = PlanLimits.GetMonthlyAuthLimit(project.Plan, project.ProPaidUntil);
         var used = project.MonthlyAuthCount;
@@ -783,7 +797,11 @@ public class DeveloperProjectsController : ControllerBase
             McpTokensActive = mcpTokensActive,
             McpCallsUsed = mcpCallsUsed,
             McpSatsUsed = mcpSatsUsed,
-            McpActiveBudgetSats = mcpActiveBudgetSats
+            McpActiveBudgetSats = mcpActiveBudgetSats,
+            McpPaidToolCalls = mcpPaidToolCalls,
+            McpPaidToolSatsCharged = mcpPaidToolSatsCharged,
+            McpPaidToolNetSats = mcpPaidToolNetSats,
+            McpDeniedToolCharges = mcpDeniedToolCharges
         };
 
         return Ok(response);

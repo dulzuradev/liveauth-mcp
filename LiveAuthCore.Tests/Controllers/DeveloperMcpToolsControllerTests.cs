@@ -171,6 +171,19 @@ public class DeveloperMcpToolsControllerTests : IClassFixture<LiveAuthWebApplica
             e.Id == chargeBody.RevenueEventId &&
             e.ToolMethodName == "acceptance_paid_tool" &&
             e.GrossSats == 7);
+
+        var overview = await _client.GetFromJsonAsync<McpRevenueOverviewResponse>(
+            $"/api/dev/mcp-tools/revenue?projectId={seed.ProjectId}&windowHours=24");
+
+        overview.Should().NotBeNull();
+        overview!.PaidCalls.Should().Be(1);
+        overview.GrossSats.Should().Be(7);
+        overview.PlatformFeeSats.Should().Be(1);
+        overview.NetSats.Should().Be(6);
+        overview.TopTools.Should().ContainSingle(t =>
+            t.ToolId == tool.Id &&
+            t.Calls == 1 &&
+            t.GrossSats == 7);
     }
 
     private async Task<(Guid DeveloperId, Guid ProjectId)> SeedDeveloperProjectAsync()
@@ -319,4 +332,25 @@ public class DeveloperMcpToolsControllerTests : IClassFixture<LiveAuthWebApplica
         int GrossSats,
         int PlatformFeeSats,
         int NetSats);
+
+    private sealed record McpRevenueOverviewResponse(
+        int WindowHours,
+        long PaidCalls,
+        long GrossSats,
+        long PlatformFeeSats,
+        long NetSats,
+        long DeniedCharges,
+        IReadOnlyList<McpRevenueTopToolResponse> TopTools);
+
+    private sealed record McpRevenueTopToolResponse(
+        Guid ToolId,
+        string ToolName,
+        string ToolSlug,
+        string ToolStatus,
+        long Calls,
+        long GrossSats,
+        long PlatformFeeSats,
+        long NetSats,
+        long DeniedCharges,
+        double AverageGrossSatsPerCall);
 }

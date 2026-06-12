@@ -9,13 +9,13 @@ It exposes:
 | `web_fetch` | 5 sats | Fetch a public URL and return cleaned text plus metadata. |
 | `web_fetch_metadata` | 1 sat | Fetch title, description, status, and content type only. |
 
-Every tool call is charged through:
+Every tool call is charged through the registered first-party tool:
 
 ```text
 POST /api/mcp/tools/{toolId}/charge
 ```
 
-That means LiveAuth records a `McpToolRevenueEvent` with gross sats, platform fee, net sats, method name, paying project/session/token, metadata, and idempotency key.
+That means LiveAuth records a `McpToolRevenueEvent` with gross sats, platform fee, net sats, method name, paying project/session/token, metadata, and idempotency key. Registered tools also carry default/min/max sats pricing, so SDK integrations can omit an explicit cost when they want LiveAuthCore to use the configured default.
 
 ## Install
 

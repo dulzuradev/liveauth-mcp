@@ -30,4 +30,8 @@ public sealed class ProjectUsageResponse
     public long McpCallsUsed { get; set; }
     public long McpSatsUsed { get; set; }
     public long McpActiveBudgetSats { get; set; }
+    public long McpPaidToolCalls { get; set; }
+    public long McpPaidToolSatsCharged { get; set; }
+    public long McpPaidToolNetSats { get; set; }
+    public long McpDeniedToolCharges { get; set; }
 }

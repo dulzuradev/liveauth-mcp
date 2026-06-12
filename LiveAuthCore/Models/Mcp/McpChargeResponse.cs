@@ -10,5 +10,8 @@ public record McpChargeResponse(
     int? FeeBasisPoints = null,
     Guid? RevenueEventId = null,
     string? Reason = null,
-    McpSignedReceipt? Receipt = null
+    McpSignedReceipt? Receipt = null,
+    Guid? ToolId = null,
+    string? ToolName = null,
+    string? ToolSlug = null
 );

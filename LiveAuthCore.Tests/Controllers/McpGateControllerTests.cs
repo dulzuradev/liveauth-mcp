@@ -65,6 +65,7 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         body.Receipt.KeyId.Should().Be("liveauth-mcp-receipt-v1");
         body.Receipt.Body.RevenueEventId.Should().Be(revenueEventId);
         body.Receipt.Body.McpToolId.Should().Be(seed.ToolId);
+        body.Receipt.Body.ToolName.Should().Be(seed.ToolName);
         body.Receipt.Body.ToolSlug.Should().StartWith("test-web-fetch-");
         body.Receipt.Body.ToolMethodName.Should().Be("web_fetch");
         body.Receipt.Body.McpGateTokenId.Should().Be(seed.TokenId);
@@ -94,6 +95,65 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         revenueEvent.ToolMethodName.Should().Be("web_fetch");
         revenueEvent.IdempotencyKey.Should().Be("call-1");
         revenueEvent.MetadataJson.Should().Contain("example.com");
+    }
+
+    [Fact]
+    public async Task Charge_WithToolName_UsesRegisteredDefaultPrice_WhenCostOmitted()
+    {
+        var seed = await SeedChargeStateAsync(toolDefaultCostSats: 9);
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/mcp/charge")
+        {
+            Content = JsonContent.Create(new
+            {
+                toolName = seed.ToolSlug,
+                idempotencyKey = "priced-by-tool"
+            })
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", seed.Jwt);
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<McpChargeResponseBody>();
+        body.Should().NotBeNull();
+        body!.Status.Should().Be("ok");
+        body.CallsUsed.Should().Be(1);
+        body.SatsUsed.Should().Be(9);
+        body.GrossSats.Should().Be(9);
+        body.NetSats.Should().Be(8);
+        body.ToolId.Should().Be(seed.ToolId);
+        body.ToolName.Should().Be(seed.ToolName);
+        body.ToolSlug.Should().Be(seed.ToolSlug);
+        body.Receipt.Should().NotBeNull();
+        body.Receipt!.Body.ToolName.Should().Be(seed.ToolName);
+        body.Receipt.Body.ToolSlug.Should().Be(seed.ToolSlug);
+        body.Receipt.Body.GrossSats.Should().Be(9);
+    }
+
+    [Fact]
+    public async Task Charge_WithoutToolOrCost_FallsBackToProjectGlobalPrice()
+    {
+        var seed = await SeedChargeStateAsync(mcpSatsPerCall: 4);
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/mcp/charge")
+        {
+            Content = JsonContent.Create(new { })
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", seed.Jwt);
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<McpChargeResponseBody>();
+        body.Should().NotBeNull();
+        body!.Status.Should().Be("ok");
+        body.CallsUsed.Should().Be(1);
+        body.SatsUsed.Should().Be(4);
+        body.RevenueEventId.Should().BeNull();
+        body.Receipt.Should().BeNull();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        db.McpToolRevenueEvents.Count(e => e.McpToolId == seed.ToolId).Should().Be(0);
     }
 
     [Fact]
@@ -141,7 +201,9 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
-        db.McpToolRevenueEvents.Count(e => e.McpToolId == seed.ToolId).Should().Be(0);
+        var denied = db.McpToolRevenueEvents.Single(e => e.McpToolId == seed.ToolId);
+        denied.Status.Should().Be("Denied");
+        denied.GrossSats.Should().Be(5);
     }
 
     [Fact]
@@ -161,7 +223,9 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
-        db.McpToolRevenueEvents.Count(e => e.McpToolId == seed.ToolId).Should().Be(0);
+        var denied = db.McpToolRevenueEvents.Single(e => e.McpToolId == seed.ToolId);
+        denied.Status.Should().Be("Denied");
+        denied.MetadataJson.Should().Contain("tool_inactive");
     }
 
     [Fact]
@@ -238,13 +302,17 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
 
     private async Task<TestChargeSeed> SeedChargeStateAsync(
         int maxSatsPerDay = 100,
-        string toolStatus = "Active")
+        string toolStatus = "Active",
+        int toolDefaultCostSats = 5,
+        int mcpSatsPerCall = 1)
     {
         var developerId = Guid.NewGuid();
         var projectId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
         var tokenId = Guid.NewGuid();
         var toolId = Guid.NewGuid();
+        var toolName = "Test Web Fetch";
+        var toolSlug = $"test-web-fetch-{toolId:N}";
         var jwtId = Guid.NewGuid().ToString("N");
 
         using var scope = _factory.Services.CreateScope();
@@ -265,6 +333,7 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
             PublicKey = $"la_pk_{projectId:N}",
             SecretKeyHash = $"la_sk_{projectId:N}",
             IsActive = true,
+            McpSatsPerCall = mcpSatsPerCall,
             CreatedAt = DateTime.UtcNow
         });
 
@@ -297,12 +366,12 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         {
             Id = toolId,
             ProjectId = projectId,
-            Name = "Test Web Fetch",
-            Slug = $"test-web-fetch-{toolId:N}",
+            Name = toolName,
+            Slug = toolSlug,
             Description = "Test paid MCP tool",
             Status = toolStatus,
             Visibility = "Unlisted",
-            DefaultCostSats = 5,
+            DefaultCostSats = toolDefaultCostSats,
             MinCostSats = 1,
             MaxCostSats = 0,
             CreatedAt = DateTime.UtcNow,
@@ -311,7 +380,7 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
 
         await db.SaveChangesAsync();
 
-        return new TestChargeSeed(projectId, sessionId, tokenId, toolId, CreateJwt(projectId, jwtId));
+        return new TestChargeSeed(projectId, sessionId, tokenId, toolId, toolName, toolSlug, CreateJwt(projectId, jwtId));
     }
 
     private static string CreateJwt(Guid projectId, string jwtId)
@@ -338,6 +407,8 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         Guid SessionId,
         Guid TokenId,
         Guid ToolId,
+        string ToolName,
+        string ToolSlug,
         string Jwt);
 
     private sealed record McpChargeResponseBody(
@@ -350,7 +421,10 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         int? FeeBasisPoints,
         Guid? RevenueEventId,
         string? Reason,
-        McpSignedReceiptResponse? Receipt);
+        McpSignedReceiptResponse? Receipt,
+        Guid? ToolId,
+        string? ToolName,
+        string? ToolSlug);
 
     private sealed record McpSignedReceiptResponse(
         string Version,
@@ -364,6 +438,7 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         string ReceiptId,
         Guid RevenueEventId,
         Guid McpToolId,
+        string ToolName,
         string ToolSlug,
         string ToolMethodName,
         Guid? McpGateTokenId,

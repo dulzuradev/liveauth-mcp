@@ -192,7 +192,8 @@ Validation:
 - JWT contains a valid `projectId` and `jti`.
 - MCP gate token is active and not expired.
 - Paying project is active.
-- `callCostSats` is positive and within the tool's min/max bounds.
+- `callCostSats` is positive and within the tool's min/max bounds when provided.
+- If `callCostSats` is omitted, the registered tool's `DefaultCostSats` is used.
 - Session budget or L402 balance is sufficient.
 - If `idempotencyKey` was already charged for this tool, LiveAuth returns the original revenue event instead of double charging.
 
@@ -208,6 +209,9 @@ Response:
   "netSats": 4,
   "feeBasisPoints": 500,
   "revenueEventId": "event-guid",
+  "toolId": "tool-guid",
+  "toolName": "Paid Research Tool",
+  "toolSlug": "paid-research-tool",
   "receipt": {
     "version": "mcp-call-receipt-v1",
     "payload": "base64url-canonical-json",
@@ -218,6 +222,7 @@ Response:
       "receiptId": "mcp_receipt_eventguid",
       "revenueEventId": "event-guid",
       "mcpToolId": "tool-guid",
+      "toolName": "Paid Research Tool",
       "toolSlug": "paid-research-tool",
       "toolMethodName": "web_fetch",
       "grossSats": 5,
@@ -258,6 +263,7 @@ Paused or inactive tools return:
 ## Revenue Ledger
 
 Tool charges write `McpToolRevenueEvent` records. Events are append-only; reversals should be represented by a new event rather than changing the charged event.
+Denied registered-tool charge attempts are recorded with `Status = Denied`, zero platform/net sats, and the denial reason in metadata so seller/admin analytics can report failed charge attempts without treating them as revenue.
 
 Recorded fields include:
 
@@ -295,14 +301,16 @@ Developer JWTs can register tools and query MCP tool revenue through the develop
 ```http
 POST /api/dev/mcp-tools
 GET /api/dev/mcp-tools
+GET /api/dev/mcp-tools/revenue?projectId=<optional-project-guid>&windowHours=24
 GET /api/dev/mcp-tools/{toolId}
 PATCH /api/dev/mcp-tools/{toolId}
 DELETE /api/dev/mcp-tools/{toolId}
 GET /api/dev/mcp-tools/{toolId}/revenue?windowHours=24
 GET /api/dev/mcp-tools/{toolId}/revenue/events?limit=50
+GET /api/admin/analytics/mcp?windowHours=24
 ```
 
-The dashboard uses these endpoints to register and edit developer-owned tools, show gross sats, LiveAuth platform fees, developer net sats, call count, and recent revenue events. Non-admin developers only see tools they own directly or through one of their projects; admins can see first-party tools such as LiveAuth Web Fetch MCP. Deleting a tool is a soft delete: the tool is removed from active listings, but existing revenue events remain in the ledger.
+The dashboard uses these endpoints to register and edit developer-owned tools, show gross sats, LiveAuth platform fees, developer net sats, call count, denied attempts, top tools, and recent revenue events. Non-admin developers only see tools they own directly or through one of their projects; admins can see first-party tools such as LiveAuth Web Fetch MCP. Deleting a tool is a soft delete: the tool is removed from active listings, but existing revenue events remain in the ledger.
 
 ---
 
@@ -360,8 +368,7 @@ import { createMcpGate } from '@liveauth-labs/mcp-server';
 const gate = createMcpGate({
   publicKey: process.env.LIVEAUTH_PUBLIC_KEY!,
   baseUrl: process.env.LIVEAUTH_API_URL ?? 'https://api.liveauth.app',
-  toolId: process.env.LIVEAUTH_TOOL_ID!,
-  defaultCostSats: 5,
+  toolName: 'paid-research-tool',
 });
 
 const result = await gate.invoke(
@@ -376,7 +383,6 @@ const result = await gate.invoke(
   },
   { requestId: 'req_123' },
   {
-    costSats: 5,
     toolMethodName: 'web_fetch',
     idempotencyKey: 'req_123',
     agentId: 'agent_abc',
@@ -387,7 +393,7 @@ const result = await gate.invoke(
 );
 ```
 
-When `toolId` is omitted, the SDK keeps using `/api/mcp/charge` for backward-compatible metering.
+Use `toolId` to charge `/api/mcp/tools/{toolId}/charge`, or `toolName` to charge `/api/mcp/charge` with registered tool pricing. When no tool is configured, `/api/mcp/charge` remains backward-compatible generic metering and falls back to the project's global MCP price if `costSats` is omitted.
 
 ---
 

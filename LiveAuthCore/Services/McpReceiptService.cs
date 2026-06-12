@@ -24,6 +24,7 @@ public class McpReceiptService
             ReceiptId: $"mcp_receipt_{revenueEvent.Id:N}",
             RevenueEventId: revenueEvent.Id,
             McpToolId: revenueEvent.McpToolId,
+            ToolName: tool.Name,
             ToolSlug: tool.Slug,
             ToolMethodName: revenueEvent.ToolMethodName,
             McpGateTokenId: revenueEvent.McpGateTokenId,
@@ -72,6 +73,7 @@ public class McpReceiptService
             ["requestId"] = body.RequestId,
             ["revenueEventId"] = body.RevenueEventId.ToString("D"),
             ["status"] = body.Status,
+            ["toolName"] = body.ToolName,
             ["toolMethodName"] = body.ToolMethodName,
             ["toolSlug"] = body.ToolSlug,
             ["version"] = ReceiptVersion
