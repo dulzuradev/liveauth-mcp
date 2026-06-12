@@ -48,6 +48,10 @@ export interface ProjectUsageResponse {
   mcpCallsUsed: number;
   mcpSatsUsed: number;
   mcpActiveBudgetSats: number;
+  mcpPaidToolCalls: number;
+  mcpPaidToolSatsCharged: number;
+  mcpPaidToolNetSats: number;
+  mcpDeniedToolCharges: number;
 }
 
 export interface RotateSecretResponse {
@@ -191,6 +195,29 @@ export interface McpToolRevenueSummaryResponse {
   platformFeeSats: number;
   netSats: number;
   averageGrossSatsPerCall: number;
+}
+
+export interface McpToolRevenueTopToolDto {
+  toolId: string;
+  toolName: string;
+  toolSlug: string;
+  toolStatus: string;
+  calls: number;
+  grossSats: number;
+  platformFeeSats: number;
+  netSats: number;
+  deniedCharges: number;
+  averageGrossSatsPerCall: number;
+}
+
+export interface McpToolRevenueOverviewResponse {
+  windowHours: number;
+  paidCalls: number;
+  grossSats: number;
+  platformFeeSats: number;
+  netSats: number;
+  deniedCharges: number;
+  topTools: McpToolRevenueTopToolDto[];
 }
 
 export interface McpToolRevenueEventDto {
@@ -475,6 +502,23 @@ export class DeveloperProjectsService {
     return this.http.delete<void>(
       `${this.baseUrl}/api/dev/mcp-tools/${toolId}`,
       this.devAuth.authHeaders()
+    );
+  }
+
+  getMcpToolsRevenueOverview(
+    range: '1h' | '24h' | '7d',
+    limit: number = 10
+  ): Observable<McpToolRevenueOverviewResponse> {
+    const params = new HttpParams()
+      .set('windowHours', this.mapRangeToWindowHours(range).toString())
+      .set('limit', limit.toString());
+
+    return this.http.get<McpToolRevenueOverviewResponse>(
+      `${this.baseUrl}/api/dev/mcp-tools/revenue`,
+      {
+        params,
+        ...this.devAuth.authHeaders()
+      }
     );
   }
 

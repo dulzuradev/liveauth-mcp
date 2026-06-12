@@ -50,6 +50,9 @@ export interface AdminAnalyticsOverviewResponse {
   mcpTokensIssued: number;
   mcpSatsEarned: number;
   mcpSatsEarnedUsd: number | null;
+  mcpPaidToolCalls: number;
+  mcpPaidToolSatsCharged: number;
+  mcpDeniedToolCharges: number;
 
   // L402 Metrics
   l402InvoicesCreated: number;

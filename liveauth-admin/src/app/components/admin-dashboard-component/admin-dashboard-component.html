@@ -95,6 +95,12 @@
       </article>
 
       <article class="metric-card">
+        <span class="metric-label">MCP Paid Tools</span>
+        <strong>{{ data.mcpPaidToolCalls | number }}</strong>
+        <small>{{ data.mcpPaidToolSatsCharged | number }} sats, {{ data.mcpDeniedToolCharges | number }} denied</small>
+      </article>
+
+      <article class="metric-card">
         <span class="metric-label">L402</span>
         <strong>{{ data.l402PaymentsReceived | number }}</strong>
         <small>{{ data.l402InvoicesCreated | number }} invoices, {{ data.l402SatsEarned | number }} sats</small>

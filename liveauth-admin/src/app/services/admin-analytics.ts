@@ -63,6 +63,9 @@ export class AdminAnalyticsService {
           mcpTokensIssued: raw.mcpTokensIssued ?? 0,
           mcpSatsEarned: raw.mcpSatsEarned ?? 0,
           mcpSatsEarnedUsd: raw.mcpSatsEarnedUsd ?? null,
+          mcpPaidToolCalls: raw.mcpPaidToolCalls ?? 0,
+          mcpPaidToolSatsCharged: raw.mcpPaidToolSatsCharged ?? 0,
+          mcpDeniedToolCharges: raw.mcpDeniedToolCharges ?? 0,
 
           // L402
           l402InvoicesCreated: raw.l402InvoicesCreated ?? 0,

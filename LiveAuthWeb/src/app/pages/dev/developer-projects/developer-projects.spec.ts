@@ -31,7 +31,16 @@ describe('DeveloperProjectsComponent', () => {
           provide: DeveloperProjectsService,
           useValue: {
             listProjects: () => of({ projects: [] }),
-            listMcpTools: () => of({ tools: [] })
+            listMcpTools: () => of({ tools: [] }),
+            getMcpToolsRevenueOverview: () => of({
+              windowHours: 24,
+              paidCalls: 0,
+              grossSats: 0,
+              platformFeeSats: 0,
+              netSats: 0,
+              deniedCharges: 0,
+              topTools: []
+            })
           }
         }
       ]

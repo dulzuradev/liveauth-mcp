@@ -463,6 +463,29 @@
       <h2 class="gradient-text">MCP Tool Revenue</h2>
     </div>
 
+    <div class="usage-stats mcp-stats mcp-overview-stats" *ngIf="mcpRevenueOverview">
+      <div class="stat">
+        <div class="stat-value">{{ mcpRevenueOverview.paidCalls | number }}</div>
+        <div class="stat-label">Paid Calls</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">{{ mcpRevenueOverview.grossSats | number }}</div>
+        <div class="stat-label">Gross Sats</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">{{ mcpRevenueOverview.netSats | number }}</div>
+        <div class="stat-label">Net Sats</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">{{ mcpRevenueOverview.deniedCharges | number }}</div>
+        <div class="stat-label">Denied</div>
+      </div>
+    </div>
+
+    <div class="mcp-empty-state" *ngIf="loadingMcpRevenueOverview && !mcpRevenueOverview">
+      Loading MCP revenue overview...
+    </div>
+
     <div class="mcp-revenue-shell">
       <div class="mcp-tool-panel mcp-settings-panel">
         <div class="panel-title-row">
@@ -508,6 +531,26 @@
             [severity]="tool.projectId ? 'info' : 'warn'">
           </p-tag>
         </button>
+
+        <div class="mcp-top-tools" *ngIf="mcpRevenueOverview?.topTools?.length">
+          <div class="mcp-top-tools-title">
+            <span>Top Tools</span>
+            <small>{{ mcpWindowLabel }}</small>
+          </div>
+
+          <button
+            type="button"
+            class="mcp-tool-row"
+            *ngFor="let topTool of mcpRevenueOverview?.topTools"
+            [class.selected]="topTool.toolId === selectedMcpToolId"
+            (click)="selectMcpToolById(topTool.toolId)">
+            <span>
+              <strong>{{ topTool.toolName }}</strong>
+              <small>{{ topTool.calls | number }} calls, {{ topTool.grossSats | number }} gross</small>
+            </span>
+            <span class="top-tool-net">{{ topTool.netSats | number }} net</span>
+          </button>
+        </div>
       </div>
 
       <div class="mcp-revenue-panel mcp-settings-panel" *ngIf="selectedMcpTool">
@@ -1257,6 +1300,25 @@
                 <p>Tokens Issued: {{ usage.mcpTokensIssued | number }}</p>
                 <p>Active Token Budget: {{ usage.mcpActiveBudgetSats | number }} sats</p>
                 <p>L402 Balance: {{ usage.l402BalanceSats | number }} sats</p>
+              </div>
+
+              <div class="usage-stats mcp-stats">
+                <div class="stat">
+                  <div class="stat-value">{{ usage.mcpPaidToolCalls | number }}</div>
+                  <div class="stat-label">Paid Tool Calls</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value">{{ usage.mcpPaidToolSatsCharged | number }}</div>
+                  <div class="stat-label">Gross Sats</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value">{{ usage.mcpPaidToolNetSats | number }}</div>
+                  <div class="stat-label">Net Sats</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value">{{ usage.mcpDeniedToolCharges | number }}</div>
+                  <div class="stat-label">Denied Charges</div>
+                </div>
               </div>
             </div>
           </ng-container>

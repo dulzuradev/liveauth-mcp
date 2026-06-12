@@ -31,6 +31,7 @@ import {
   ProjectUsageResponse,
   McpToolDto,
   McpToolRevenueEventDto,
+  McpToolRevenueOverviewResponse,
   McpToolRevenueSummaryResponse,
   CreateMcpToolRequest
 } from '../../../services/developer-projects.service';
@@ -257,10 +258,12 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   // MCP tool revenue dashboard
   mcpTools: McpToolDto[] | null = null;
   selectedMcpToolId = '';
+  mcpRevenueOverview: McpToolRevenueOverviewResponse | null = null;
   mcpRevenue: McpToolRevenueSummaryResponse | null = null;
   mcpRevenueEvents: McpToolRevenueEventDto[] | null = null;
   mcpRevenueRange: '1h' | '24h' | '7d' = '24h';
   loadingMcpTools = false;
+  loadingMcpRevenueOverview = false;
   loadingMcpRevenue = false;
   showMcpToolDialog = false;
   editingMcpTool: McpToolDto | null = null;
@@ -790,9 +793,11 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   private resetMcpRevenueState(): void {
     this.mcpTools = null;
     this.selectedMcpToolId = '';
+    this.mcpRevenueOverview = null;
     this.mcpRevenue = null;
     this.mcpRevenueEvents = null;
     this.loadingMcpTools = false;
+    this.loadingMcpRevenueOverview = false;
     this.loadingMcpRevenue = false;
   }
 
@@ -803,6 +808,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.mcpTools = res.tools ?? [];
         this.loadingMcpTools = false;
+        this.loadMcpRevenueOverview();
 
         if (!this.mcpTools.length) {
           this.selectedMcpToolId = '';
@@ -821,6 +827,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.loadingMcpTools = false;
         this.mcpTools = [];
+        this.mcpRevenueOverview = null;
         console.warn('Failed to load MCP tools:', err);
       }
     });
@@ -834,7 +841,24 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
 
   onMcpRevenueRangeChange(range: '1h' | '24h' | '7d'): void {
     this.mcpRevenueRange = range;
+    this.loadMcpRevenueOverview();
     this.loadMcpRevenue();
+  }
+
+  private loadMcpRevenueOverview(): void {
+    this.loadingMcpRevenueOverview = true;
+
+    this.devService.getMcpToolsRevenueOverview(this.mcpRevenueRange, 10).subscribe({
+      next: (res) => {
+        this.mcpRevenueOverview = res;
+        this.loadingMcpRevenueOverview = false;
+      },
+      error: (err) => {
+        this.loadingMcpRevenueOverview = false;
+        this.mcpRevenueOverview = null;
+        console.warn('Failed to load MCP revenue overview:', err);
+      }
+    });
   }
 
   private loadMcpRevenue(): void {
@@ -868,6 +892,12 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
 
   get selectedMcpTool(): McpToolDto | null {
     return this.mcpTools?.find(t => t.id === this.selectedMcpToolId) ?? null;
+  }
+
+  selectMcpToolById(toolId: string): void {
+    const tool = this.mcpTools?.find(t => t.id === toolId);
+    if (!tool) return;
+    this.selectMcpTool(tool);
   }
 
   get mcpToolIntegrationSnippet(): string {
