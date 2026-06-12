@@ -1,6 +1,7 @@
 {
   "name": "@liveauth-labs/mcp-server",
   "version": "1.0.7",
+  "mcpName": "io.github.dulzuradev/liveauth-mcp",
   "description": "MCP server for LiveAuth - PoW and Lightning authentication for AI agents",
   "type": "module",
   "main": "dist/index.js",
