@@ -1,36 +1,57 @@
 # LiveAuth MCP Server
 
-Model Context Protocol (MCP) server for LiveAuth authentication. Enables AI agents to authenticate using proof-of-work or Lightning Network payments.
+[![npm version](https://img.shields.io/npm/v/@liveauth-labs/mcp-server.svg)](https://www.npmjs.com/package/@liveauth-labs/mcp-server) [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![L402](https://img.shields.io/badge/auth-L402%20%2F%20x402-F7931A.svg)](#x402-compatibility) [![MCP](https://img.shields.io/badge/protocol-MCP%202.0-7C3AED.svg)](https://modelcontextprotocol.io)
 
-## ⚡ One-Liner Demo
+> **Authentication, pay-per-call metering, and signed receipts for AI agents and MCP tools — Bitcoin-native, non-custodial, L402 / x402 compatible.**
+
+This MCP server lets any AI agent authenticate against your API using **proof-of-work** (free, no account) or **Lightning Network micropayments** (sats), then **meter and monetize** subsequent tool calls with per-call pricing, idempotent revenue events, and HMAC-signed receipts that auditors can verify offline.
+
+**Use it when you want to:**
+- Gate an API or MCP tool behind real cost-of-compute or real sats (anti-spam by design, not by CAPTCHA).
+- Charge AI agents per call without signing them up for an account.
+- Issue a tamper-evident audit trail (signed `mcp-call-receipt-v1`) for every paid tool invocation.
+- Accept both L402 (Lightning) and x402 (USDC / HTTP 402) authorization headers from the same endpoint.
+
+**Try it in 5 seconds — no account, no API key:**
 
 ```bash
 npx @liveauth-labs/mcp-server
 ```
 
-That's it! Runs in demo mode (3 sats per verification). No API key needed.
+Runs in demo mode (real Lightning invoice, simulated confirmation). Drop in your `LIVEAUTH_API_KEY` to go live.
 
-**Demo vs Production:**
-- **Demo mode**: Returns real Lightning invoice (paid by user's wallet) but simulates confirmation for testing
-- **Production**: Real payment required, real JWT issued
+---
 
-## ⚡ Quick Start (5 Minutes)
+## Available Tools (Glama / MCP auto-discovered)
 
-### Option 1: Demo Mode (No Config)
+| Tool | Purpose |
+|---|---|
+| `liveauth_mcp_start` | Begin a session. Returns a PoW challenge, a Lightning invoice, or an L402 bundle hint. |
+| `liveauth_mcp_confirm` | Submit a solved PoW challenge, a paid Lightning invoice, or an L402 macaroon → receive a JWT. |
+| `liveauth_mcp_charge` | Meter usage after a call. Resolves a registered tool by `toolName` and records a paid revenue event. |
+| `liveauth_mcp_refresh` | Exchange a refresh token for a new JWT — no re-auth required. |
+| `liveauth_mcp_status` | Poll session/payment status (Lightning confirmation, expiry). |
+| `liveauth_mcp_lnurl` | Fetch the BOLT11 invoice for a session (lnget-compatible). |
+| `liveauth_mcp_usage` | Query remaining budget, calls used, and rate-limit windows. |
+
+Full parameter and response schemas are in the [Tool Reference](#tool-reference) below.
+
+---
+
+## 5-Minute Quick Start
+
+### Option 1 — Demo Mode (no account, no key)
 
 ```bash
-# Just run - no API key needed
 npx @liveauth-labs/mcp-server
 ```
 
-That's it! The server runs in demo mode with 3 sats per verification.
+Returns a real Lightning invoice (so you can see the payment flow) but confirmation is simulated. Free, no signup.
 
-> **Note:** Demo mode returns a real Lightning invoice (so you can see the actual payment flow), but confirmation is simulated for testing. For production, set `LIVEAUTH_API_KEY`.
+### Option 2 — Production Mode
 
-### Option 2: Production Mode
-
-1. **Get API keys** at [liveauth.app](https://liveauth.app)
-2. **Add to Claude Desktop** (`claude_desktop_config.json`):
+1. Grab an API key at [liveauth.app](https://liveauth.app).
+2. Add to Claude Desktop's `claude_desktop_config.json`:
 
 ```json
 {
@@ -39,36 +60,38 @@ That's it! The server runs in demo mode with 3 sats per verification.
       "command": "npx",
       "args": ["-y", "@liveauth-labs/mcp-server"],
       "env": {
-        "LIVEAUTH_API_KEY": "la_pk_xxx"
+        "LIVEAUTH_API_BASE": "https://api.liveauth.app",
+        "LIVEAUTH_API_KEY": "la_pk_your_public_key"
       }
     }
   }
 }
 ```
 
-3. **Restart Claude** - Done!
+3. Restart Claude. Done.
 
-### Option 3: CLI (Programmatic)
+### Option 3 — Programmatic (CLI / SDK)
 
 ```bash
-# Production
 export LIVEAUTH_API_KEY=la_pk_xxx
-npx @liveauth-labs/mcp-server
-
-# Demo
 npx @liveauth-labs/mcp-server
 ```
 
----
+The package is also a TypeScript SDK — see [SDK Usage](#sdk-usage) below. The CLI bin is `liveauth-mcp`.
 
-## What is This?
+## Why LiveAuth?
 
-This MCP server allows AI agents (Claude, GPT, AutoGPT, etc.) to:
-- Start an MCP session and get a proof-of-work challenge
-- Solve challenges to prove computational work
-- Receive JWT tokens for authenticated API access
-- Meter API usage with sats per call
-- Wrap paid MCP tools so calls are attributed to a LiveAuth tool and recorded as revenue events
+**For API providers / tool developers:**
+- Stop bots at the protocol layer. PoW and Lightning sats are non-replayable, non-phishable, and don't require user accounts.
+- Charge per call in sats. We sign a receipt you can show auditors, your customers, or your accountant.
+- Wrap any MCP tool with one line (`createMcpGate`) and you get per-tool revenue, per-tool min/max pricing, and idempotent retries.
+
+**For AI agents / agent builders:**
+- Permissionless access to paid APIs — solve a PoW or pay sats, get a JWT. No signup, no email, no OAuth dance.
+- The same endpoint speaks L402 (Lightning) and x402 (USDC) — pick your rail.
+- LiveAuth holds no custody. Payments are non-custodial end-to-end via Lightning.
+
+**The math that matters:** if your tool is being scraped by a bot, charging 1 sat per call is enough to make the scraper unprofitable. We call this *cost-of-attack economics*, and it's the whole reason we exist.
 
 ## Installation
 
@@ -263,24 +286,36 @@ Add to your `claude_desktop_config.json`:
       "args": ["-y", "@liveauth-labs/mcp-server"],
       "env": {
         "LIVEAUTH_API_BASE": "https://api.liveauth.app",
-        "LIVEAUTH_API_KEY": "your-project-public-key"
+        "LIVEAUTH_API_KEY": "la_pk_your_public_key"
       }
     }
   }
 }
 ```
 
-**Demo Mode:** If you omit `LIVEAUTH_API_KEY` or set `LIVEAUTH_DEMO=true`, the server will use the free demo endpoint (3 sats per verification). This is useful for testing without an API key.
+**Demo Mode:** If you omit `LIVEAUTH_API_KEY` or set `LIVEAUTH_DEMO=true`, the server uses the free demo endpoint (3 sats per verification). Useful for testing without an account.
+
+**Other env vars:**
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `LIVEAUTH_API_KEY` | _(unset)_ | Your LiveAuth project public key (`la_pk_…`). |
+| `LIVEAUTH_API_BASE` | `https://api.liveauth.app` | Override for self-hosted LiveAuth. |
+| `LIVEAUTH_DEMO` | `false` | Force demo mode even with a key set. |
 
 ### Other MCP Clients
 
-The server communicates over stdio. Start it with:
+The server speaks stdio (JSON-RPC 2.0). Start it with:
 
 ```bash
 liveauth-mcp
 ```
 
-## Available Tools
+It also works with any MCP-compatible client: Cursor, VS Code, ChatGPT, Windsurf, Continue, Cline.
+
+## Tool Reference
+
+Full schemas for each MCP tool. Each tool is JSON-RPC 2.0 compatible and tested under `src/index.test.ts` and `src/cli.test.ts`.
 
 ### `liveauth_mcp_start`
 
@@ -519,18 +554,6 @@ curl -H "Authorization: x402 preimage_xxx" https://api.liveauth.app/api/mcp/star
 
 The API accepts both and returns `WWW-Authenticate: x402` in 402 responses.
 
-## Why LiveAuth?
-
-**For API Providers:**
-- Protect endpoints from abuse without CAPTCHA
-- Monetize AI agent access with micropayments
-- No user friction (agents handle authentication)
-
-**For AI Agents:**
-- Permissionless access (no account signup)
-- Cryptographically proven authentication
-- Pay with compute (PoW) or sats
-
 ## Development
 
 ```bash
@@ -553,3 +576,7 @@ node dist/cli.js
 ## License
 
 MIT
+
+---
+
+**Categories:** `authentication` · `payments` · `lightning` · `l402` · `x402` · `bitcoin` · `pay-per-call` · `metering` · `agent-tools` · `anti-abuse` · `mcp-server` · `typescript`
