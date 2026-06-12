@@ -1475,6 +1475,7 @@
                 <tr>
                   <th>Created</th>
                   <th>Event</th>
+                  <th>Destination</th>
                   <th>Status</th>
                   <th>HTTP</th>
                   <th>Attempts</th>
@@ -1486,6 +1487,10 @@
                 <tr>
                   <td>{{ wh.createdAt | localTime }}</td>
                   <td><code>{{ wh.eventType }}</code></td>
+                  <td>
+                    <span class="text-xs whitespace-nowrap overflow-hidden text-ellipsis block max-w-16rem"
+                          [title]="wh.destinationUrl || ''">{{ wh.destinationUrl || '—' }}</span>
+                  </td>
                   <td>
                     <p-tag [value]="wh.status"
                            [severity]="wh.status === 'Delivered' ? 'success' : (wh.status === 'Dead' || wh.status === 'Failed') ? 'danger' : 'warn'">

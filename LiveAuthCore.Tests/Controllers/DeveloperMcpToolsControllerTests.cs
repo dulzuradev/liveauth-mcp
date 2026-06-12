@@ -42,7 +42,8 @@ public class DeveloperMcpToolsControllerTests : IClassFixture<LiveAuthWebApplica
             status = "Draft",
             defaultCostSats = 3,
             minCostSats = 1,
-            maxCostSats = 10
+            maxCostSats = 10,
+            webhookUrl = "https://seller.example.com/liveauth/mcp"
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -52,6 +53,30 @@ public class DeveloperMcpToolsControllerTests : IClassFixture<LiveAuthWebApplica
         body.DeveloperId.Should().Be(seed.DeveloperId);
         body.DefaultCostSats.Should().Be(3);
         body.Status.Should().Be("Draft");
+        body.WebhookUrl.Should().Be("https://seller.example.com/liveauth/mcp");
+    }
+
+    [Fact]
+    public async Task CreateTool_RejectsInvalidWebhookUrl()
+    {
+        var seed = await SeedDeveloperProjectAsync();
+        Authorize(seed.DeveloperId);
+
+        var response = await _client.PostAsJsonAsync("/api/dev/mcp-tools", new
+        {
+            projectId = seed.ProjectId,
+            name = "Bad Webhook Tool",
+            slug = $"bad-webhook-{Guid.NewGuid():N}",
+            description = "Should not accept ftp webhooks.",
+            visibility = "Private",
+            status = "Draft",
+            defaultCostSats = 3,
+            minCostSats = 1,
+            maxCostSats = 10,
+            webhookUrl = "ftp://seller.example.com/liveauth/mcp"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -303,7 +328,8 @@ public class DeveloperMcpToolsControllerTests : IClassFixture<LiveAuthWebApplica
         string Visibility,
         int DefaultCostSats,
         int MinCostSats,
-        int MaxCostSats);
+        int MaxCostSats,
+        string? WebhookUrl);
 
     private sealed record McpChargeResponse(
         string Status,

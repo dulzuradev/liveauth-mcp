@@ -138,6 +138,7 @@ export interface WebhookEventDto {
   status: WebhookEventStatus;
   lastStatusCode?: number;
   lastError?: string;
+  destinationUrl?: string;
 }
 
 export interface ListWebhookEventsResponse {

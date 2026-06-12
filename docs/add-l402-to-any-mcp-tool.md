@@ -165,6 +165,7 @@ In the developer dashboard, open **MCP Tool Revenue**, choose **Register MCP too
 - Status: `Draft`, `Active`, or `Paused`.
 - Visibility: `Private`, `Unlisted`, or `Public`.
 - Minimum, default, and maximum sats per call.
+- Optional paid-call webhook URL.
 
 The dashboard returns a tool ID and an integration snippet. Use that tool ID as `LIVEAUTH_TOOL_ID`, or use the globally unique slug as `toolName` when you want LiveAuth to resolve pricing through the generic charge endpoint.
 
@@ -183,7 +184,8 @@ curl -X POST https://api.liveauth.app/api/dev/mcp-tools \
     "status": "Draft",
     "defaultCostSats": 5,
     "minCostSats": 1,
-    "maxCostSats": 25
+    "maxCostSats": 25,
+    "webhookUrl": "https://api.example.com/liveauth/mcp-paid-call"
   }'
 ```
 
@@ -285,6 +287,8 @@ The signed receipt is derived from the persisted revenue event, so it is stable 
 
 The v1 platform fee is 500 basis points (5%), with a 1 sat minimum fee whenever gross sats are positive.
 
+If the registered tool has a `webhookUrl`, every successful new paid call also queues a `liveauth.mcp.tool.paid_call` webhook to that URL. If the tool does not have its own webhook URL, LiveAuth falls back to the project's webhook URL. The payload includes the tool identity, gross/platform/net sats, revenue event ID, metadata, and the signed receipt. Idempotent retries return the original charge without queuing a duplicate paid-call webhook.
+
 ---
 
 ## Step 4: Wrap a Tool Handler With the SDK
@@ -333,6 +337,8 @@ GET /api/admin/analytics/mcp?windowHours=24
 ```
 
 The revenue views show paid call count, gross sats, LiveAuth platform fee, net sats, denied charge attempts, and top tools by calls/revenue. Keep metadata small and audit-oriented; do not store fetched content, prompts, completions, credentials, or private tool output there.
+
+Paid-call webhook delivery attempts appear in the project **Webhooks** tab alongside auth webhook events, including status, HTTP result, retry count, and destination URL.
 
 ---
 

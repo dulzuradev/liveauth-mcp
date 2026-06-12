@@ -30,6 +30,9 @@ public class WebhookEvent
     [Required]
     public string PayloadJson { get; set; } = default!;
 
+    [MaxLength(1000)]
+    public string? DestinationUrl { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime NextAttemptAt { get; set; }
 

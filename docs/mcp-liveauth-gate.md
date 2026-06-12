@@ -312,6 +312,8 @@ GET /api/admin/analytics/mcp?windowHours=24
 
 The dashboard uses these endpoints to register and edit developer-owned tools, show gross sats, LiveAuth platform fees, developer net sats, call count, denied attempts, top tools, and recent revenue events. Non-admin developers only see tools they own directly or through one of their projects; admins can see first-party tools such as LiveAuth Web Fetch MCP. Deleting a tool is a soft delete: the tool is removed from active listings, but existing revenue events remain in the ledger.
 
+Successful new paid tool calls can also enqueue `liveauth.mcp.tool.paid_call` webhooks. A tool-level webhook URL takes priority; if it is absent, LiveAuth falls back to the owning project's webhook URL. The payload includes tool identity, revenue accounting, metadata, and the signed receipt, and the project Webhooks tab shows delivery status, retry count, HTTP result, and destination URL.
+
 ---
 
 ## Tool Model
@@ -322,6 +324,7 @@ Registered MCP tools are stored as `McpTool` records with:
 - Status: `Draft`, `Active`, `Paused`, or `Removed`.
 - Visibility: `Private`, `Unlisted`, or `Public`.
 - Default, minimum, and maximum call cost.
+- Optional paid-call webhook URL.
 - Optional developer and project ownership.
 
 The backend seeds a first-party `LiveAuth Web Fetch MCP` tool and allows developers to register their own tools from the dashboard. Public marketplace listing is still separate future work.

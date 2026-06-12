@@ -207,6 +207,9 @@ public class DeveloperMcpToolsController : ControllerBase
         if (validation.Result != null)
             return validation.Result;
 
+        if (!TryNormalizeWebhookUrl(req.WebhookUrl, out var webhookUrl))
+            return BadRequest("Webhook URL must be a valid http or https URL.");
+
         var now = DateTime.UtcNow;
         var tool = new McpTool
         {
@@ -223,7 +226,7 @@ public class DeveloperMcpToolsController : ControllerBase
             MaxCostSats = req.MaxCostSats,
             WebsiteUrl = TrimOrNull(req.WebsiteUrl),
             DocsUrl = TrimOrNull(req.DocsUrl),
-            WebhookUrl = TrimOrNull(req.WebhookUrl),
+            WebhookUrl = webhookUrl,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -278,6 +281,10 @@ public class DeveloperMcpToolsController : ControllerBase
         if (validation.Result != null)
             return validation.Result;
 
+        string? webhookUrl = null;
+        if (req.WebhookUrl != null && !TryNormalizeWebhookUrl(req.WebhookUrl, out webhookUrl))
+            return BadRequest("Webhook URL must be a valid http or https URL.");
+
         tool.ProjectId = projectId;
         tool.Name = name.Trim();
         tool.Slug = validation.Slug;
@@ -290,7 +297,7 @@ public class DeveloperMcpToolsController : ControllerBase
         tool.MaxCostSats = maxCostSats;
         tool.WebsiteUrl = req.WebsiteUrl == null ? tool.WebsiteUrl : TrimOrNull(req.WebsiteUrl);
         tool.DocsUrl = req.DocsUrl == null ? tool.DocsUrl : TrimOrNull(req.DocsUrl);
-        tool.WebhookUrl = req.WebhookUrl == null ? tool.WebhookUrl : TrimOrNull(req.WebhookUrl);
+        tool.WebhookUrl = req.WebhookUrl == null ? tool.WebhookUrl : webhookUrl;
         tool.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
@@ -538,5 +545,21 @@ public class DeveloperMcpToolsController : ControllerBase
     {
         var trimmed = value?.Trim();
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static bool TryNormalizeWebhookUrl(string? webhookUrl, out string? normalized)
+    {
+        normalized = null;
+        if (string.IsNullOrWhiteSpace(webhookUrl))
+            return true;
+
+        if (!Uri.TryCreate(webhookUrl.Trim(), UriKind.Absolute, out var uri))
+            return false;
+
+        if (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)
+            return false;
+
+        normalized = uri.ToString();
+        return true;
     }
 }

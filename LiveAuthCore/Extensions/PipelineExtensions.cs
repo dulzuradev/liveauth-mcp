@@ -47,6 +47,7 @@ public static class PipelineExtensions
         await EnsureColumnAsync(connection, "Projects", "McpInvoiceCallCredits", "INTEGER NOT NULL DEFAULT 10");
         await EnsureColumnAsync(connection, "Projects", "McpMaxSatsPerDay", "INTEGER NOT NULL DEFAULT 10000");
         await EnsureColumnAsync(connection, "Projects", "McpMaxCallsPerMinute", "INTEGER NOT NULL DEFAULT 60");
+        await EnsureColumnAsync(connection, "WebhookEvents", "DestinationUrl", "TEXT");
 
         // Add remaining table creations from GetSqliteMigrations that need separate handling
         // (CREATE TABLE IF NOT EXISTS is already in the SQL; these just need table-check guard)

@@ -94,7 +94,11 @@ public class WebhookDeliveryWorker : BackgroundService
 
     private async Task DeliverWebhook(WebhookEvent evt, LiveAuthDbContext db, CancellationToken ct)
     {
-        if (evt.Project == null || string.IsNullOrWhiteSpace(evt.Project.WebhookUrl))
+        var destinationUrl = string.IsNullOrWhiteSpace(evt.DestinationUrl)
+            ? evt.Project?.WebhookUrl
+            : evt.DestinationUrl.Trim();
+
+        if (evt.Project == null || string.IsNullOrWhiteSpace(destinationUrl))
         {
             evt.Status = WebhookEventStatus.Failed;
             evt.LastError = "No webhook URL configured";
@@ -121,8 +125,8 @@ public class WebhookDeliveryWorker : BackgroundService
             // Add signature header for verification
             var payload = evt.PayloadJson ?? "{}";
             var signature = ComputeSignature(payload, evt.Project.WebhookSecret ?? "");
-            
-            var request = new HttpRequestMessage(HttpMethod.Post, evt.Project.WebhookUrl);
+
+            var request = new HttpRequestMessage(HttpMethod.Post, destinationUrl);
             request.Content = new StringContent(payload, Encoding.UTF8, "application/json");
             request.Headers.Add("X-LiveAuth-Signature", signature);
             request.Headers.Add("X-LiveAuth-Event", evt.EventType);
@@ -137,7 +141,7 @@ public class WebhookDeliveryWorker : BackgroundService
                 evt.DeliveredAt = DateTime.UtcNow;
                 evt.LastError = null;
                 _logger.LogInformation("Webhook delivered successfully: {EventId} to {Url}", 
-                    evt.Id, evt.Project.WebhookUrl);
+                    evt.Id, destinationUrl);
             }
             else
             {

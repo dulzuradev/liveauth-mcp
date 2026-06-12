@@ -131,6 +131,75 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
     }
 
     [Fact]
+    public async Task ChargeTool_EnqueuesPaidCallWebhook_WhenToolWebhookConfigured()
+    {
+        const string webhookUrl = "https://seller.example.com/liveauth/mcp";
+        var seed = await SeedChargeStateAsync(toolWebhookUrl: webhookUrl);
+
+        var body = await SendToolChargeAsync(seed, new
+        {
+            toolMethodName = "web_fetch",
+            callCostSats = 5,
+            idempotencyKey = "webhook-call",
+            agentId = "agent-webhook",
+            metadata = new { urlHost = "example.com" }
+        });
+
+        body.Status.Should().Be("ok");
+        body.RevenueEventId.Should().NotBeNull();
+        var revenueEventId = body.RevenueEventId.GetValueOrDefault();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        var webhook = db.WebhookEvents.Single(e =>
+            e.ProjectId == seed.ProjectId &&
+            e.EventType == "liveauth.mcp.tool.paid_call");
+        webhook.ProjectId.Should().Be(seed.ProjectId);
+        webhook.DestinationUrl.Should().Be(webhookUrl);
+
+        using var payload = JsonDocument.Parse(webhook.PayloadJson);
+        var root = payload.RootElement;
+        root.GetProperty("type").GetString().Should().Be("liveauth.mcp.tool.paid_call");
+        root.GetProperty("projectId").GetString().Should().Be(seed.ProjectId.ToString());
+        root.GetProperty("mcpToolId").GetString().Should().Be(seed.ToolId.ToString());
+        root.GetProperty("toolName").GetString().Should().Be(seed.ToolName);
+        root.GetProperty("toolSlug").GetString().Should().Be(seed.ToolSlug);
+        root.GetProperty("toolMethodName").GetString().Should().Be("web_fetch");
+        root.GetProperty("revenueEventId").GetString().Should().Be(revenueEventId.ToString());
+        root.GetProperty("grossSats").GetInt32().Should().Be(5);
+        root.GetProperty("platformFeeSats").GetInt32().Should().Be(1);
+        root.GetProperty("netSats").GetInt32().Should().Be(4);
+        root.GetProperty("agentId").GetString().Should().Be("agent-webhook");
+        root.GetProperty("metadata").GetProperty("urlHost").GetString().Should().Be("example.com");
+        root.GetProperty("receipt").GetProperty("body").GetProperty("revenueEventId")
+            .GetString().Should().Be(revenueEventId.ToString());
+    }
+
+    [Fact]
+    public async Task ChargeTool_EnqueuesPaidCallWebhook_UsingProjectWebhookFallback()
+    {
+        const string webhookUrl = "https://project.example.com/hooks/liveauth";
+        var seed = await SeedChargeStateAsync(projectWebhookUrl: webhookUrl);
+
+        var body = await SendToolChargeAsync(seed, new
+        {
+            toolMethodName = "web_fetch",
+            callCostSats = 5,
+            idempotencyKey = "project-webhook-call"
+        });
+
+        body.Status.Should().Be("ok");
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        var webhook = db.WebhookEvents.Single(e =>
+            e.ProjectId == seed.ProjectId &&
+            e.EventType == "liveauth.mcp.tool.paid_call");
+        webhook.ProjectId.Should().Be(seed.ProjectId);
+        webhook.DestinationUrl.Should().Be(webhookUrl);
+    }
+
+    [Fact]
     public async Task Charge_WithoutToolOrCost_FallsBackToProjectGlobalPrice()
     {
         var seed = await SeedChargeStateAsync(mcpSatsPerCall: 4);
@@ -159,7 +228,7 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
     [Fact]
     public async Task ChargeTool_ReturnsOriginalCharge_ForDuplicateIdempotencyKey()
     {
-        var seed = await SeedChargeStateAsync();
+        var seed = await SeedChargeStateAsync(toolWebhookUrl: "https://seller.example.com/liveauth/mcp");
         var payload = new
         {
             toolMethodName = "web_fetch",
@@ -180,6 +249,9 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         db.McpToolRevenueEvents.Count(e => e.McpToolId == seed.ToolId).Should().Be(1);
         db.McpGateTokens.Single(t => t.Id == seed.TokenId).CallsUsed.Should().Be(1);
         db.McpGateTokens.Single(t => t.Id == seed.TokenId).SatsUsed.Should().Be(5);
+        db.WebhookEvents.Count(e =>
+            e.ProjectId == seed.ProjectId &&
+            e.EventType == "liveauth.mcp.tool.paid_call").Should().Be(1);
     }
 
     [Fact]
@@ -304,7 +376,9 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         int maxSatsPerDay = 100,
         string toolStatus = "Active",
         int toolDefaultCostSats = 5,
-        int mcpSatsPerCall = 1)
+        int mcpSatsPerCall = 1,
+        string? projectWebhookUrl = null,
+        string? toolWebhookUrl = null)
     {
         var developerId = Guid.NewGuid();
         var projectId = Guid.NewGuid();
@@ -334,6 +408,7 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
             SecretKeyHash = $"la_sk_{projectId:N}",
             IsActive = true,
             McpSatsPerCall = mcpSatsPerCall,
+            WebhookUrl = projectWebhookUrl,
             CreatedAt = DateTime.UtcNow
         });
 
@@ -374,6 +449,7 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
             DefaultCostSats = toolDefaultCostSats,
             MinCostSats = 1,
             MaxCostSats = 0,
+            WebhookUrl = toolWebhookUrl,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         });

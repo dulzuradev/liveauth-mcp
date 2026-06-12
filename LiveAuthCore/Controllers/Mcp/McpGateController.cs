@@ -28,6 +28,7 @@ public class McpGateController : ControllerBase
     private readonly ILogger<McpGateController> _logger;
     private readonly L402Service _l402;
     private readonly McpReceiptService _receiptService;
+    private readonly WebhookService _webhooks;
 
     public McpGateController(
         LiveAuthDbContext db,
@@ -39,7 +40,8 @@ public class McpGateController : ControllerBase
         IConfiguration configuration,
         ILogger<McpGateController> logger,
         L402Service l402,
-        McpReceiptService receiptService)
+        McpReceiptService receiptService,
+        WebhookService webhooks)
     {
         _db = db;
         _lightning = lightning;
@@ -51,6 +53,7 @@ public class McpGateController : ControllerBase
         _logger = logger;
         _l402 = l402;
         _receiptService = receiptService;
+        _webhooks = webhooks;
     }
 
     private Project? GetProject()
@@ -735,6 +738,9 @@ public class McpGateController : ControllerBase
         _db.McpToolRevenueEvents.Add(revenueEvent);
         await _db.SaveChangesAsync(ct);
 
+        var receipt = _receiptService.CreateReceipt(revenueEvent, tool);
+        await EnqueuePaidToolWebhookAsync(tool, context, revenueEvent, receipt, ct);
+
         return Ok(new McpChargeResponse(
             "ok",
             gateToken.CallsUsed,
@@ -744,7 +750,7 @@ public class McpGateController : ControllerBase
             revenueEvent.NetSats,
             revenueEvent.FeeBasisPoints,
             revenueEvent.Id,
-            Receipt: _receiptService.CreateReceipt(revenueEvent, tool),
+            Receipt: receipt,
             ToolId: tool.Id,
             ToolName: tool.Name,
             ToolSlug: tool.Slug));
@@ -872,6 +878,71 @@ public class McpGateController : ControllerBase
         return req.Metadata.HasValue
             ? JsonSerializer.Serialize(new { denyReason, metadata = req.Metadata.Value })
             : JsonSerializer.Serialize(new { denyReason });
+    }
+
+    private async Task EnqueuePaidToolWebhookAsync(
+        McpTool tool,
+        McpChargeContext context,
+        McpToolRevenueEvent revenueEvent,
+        McpSignedReceipt receipt,
+        CancellationToken ct)
+    {
+        try
+        {
+            var payload = new
+            {
+                type = "liveauth.mcp.tool.paid_call",
+                createdAt = revenueEvent.CreatedAt,
+                projectId = context.Project.Id,
+                payingProjectId = revenueEvent.PayingProjectId,
+                mcpToolId = tool.Id,
+                toolName = tool.Name,
+                toolSlug = tool.Slug,
+                toolMethodName = revenueEvent.ToolMethodName,
+                revenueEventId = revenueEvent.Id,
+                mcpGateTokenId = revenueEvent.McpGateTokenId,
+                mcpGateSessionId = revenueEvent.McpGateSessionId,
+                agentId = revenueEvent.AgentId,
+                grossSats = revenueEvent.GrossSats,
+                platformFeeSats = revenueEvent.PlatformFeeSats,
+                netSats = revenueEvent.NetSats,
+                feeBasisPoints = revenueEvent.FeeBasisPoints,
+                status = revenueEvent.Status,
+                idempotencyKey = revenueEvent.IdempotencyKey,
+                requestId = revenueEvent.RequestId,
+                metadata = DeserializeMetadataJson(revenueEvent.MetadataJson),
+                receipt
+            };
+
+            await _webhooks.EnqueueAsync(
+                context.Project,
+                "liveauth.mcp.tool.paid_call",
+                payload,
+                tool.WebhookUrl,
+                ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to enqueue MCP paid tool webhook for revenue event {RevenueEventId}",
+                revenueEvent.Id);
+        }
+    }
+
+    private static object? DeserializeMetadataJson(string? metadataJson)
+    {
+        if (string.IsNullOrWhiteSpace(metadataJson))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<JsonElement>(metadataJson);
+        }
+        catch (JsonException)
+        {
+            return metadataJson;
+        }
     }
 
     private static McpProjectConfig GetMcpConfig(Project project)

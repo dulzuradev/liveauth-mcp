@@ -588,7 +588,8 @@ public class DeveloperProjectsController : ControllerBase
                 AttemptCount = e.AttemptCount,
                 Status = e.Status.ToString(),
                 LastStatusCode = e.LastStatusCode,
-                LastError = e.LastError
+                LastError = e.LastError,
+                DestinationUrl = e.DestinationUrl
             })
             .ToListAsync(ct);
 

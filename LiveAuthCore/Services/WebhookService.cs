@@ -14,13 +14,25 @@ public class WebhookService
         _db = db;
     }
 
+    public async Task EnqueueAsync(Project project, string eventType, object payload, CancellationToken ct = default)
+        => await EnqueueAsync(project, eventType, payload, destinationUrl: null, ct);
+
     /// <summary>
     /// Enqueue a webhook event for the given project.
-    /// If no webhook URL is configured, this is a no-op.
+    /// If no destination or project webhook URL is configured, this is a no-op.
     /// </summary>
-    public async Task EnqueueAsync(Project project, string eventType, object payload, CancellationToken ct = default)
+    public async Task EnqueueAsync(
+        Project project,
+        string eventType,
+        object payload,
+        string? destinationUrl,
+        CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(project.WebhookUrl))
+        var targetUrl = (string.IsNullOrWhiteSpace(destinationUrl)
+            ? project.WebhookUrl
+            : destinationUrl)?.Trim();
+
+        if (string.IsNullOrWhiteSpace(targetUrl))
         {
             // No webhook configured – nothing to do
             return;
@@ -38,6 +50,7 @@ public class WebhookService
             ProjectId = project.Id,
             EventType = eventType,
             PayloadJson = json,
+            DestinationUrl = targetUrl,
             CreatedAt = now,
             NextAttemptAt = now,
             AttemptCount = 0,
