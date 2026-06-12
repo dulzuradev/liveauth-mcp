@@ -145,20 +145,25 @@ if [ -n "$OLD_PID" ]; then
     done
 fi
 
-# Start the new API as a detached process. Writes to /tmp/liveauth-new.log on
-# the server (liveauth-writable; the legacy /tmp/liveauth-prod.log is
-# root-owned and the redirect silently fails when run as the liveauth user).
-ssh "$SERVER" "cd /opt/liveauth && nohup env \
-    ASPNETCORE_URLS='http://0.0.0.0:8081' \
-    ASPNETCORE_ENVIRONMENT=Production \
-    ConnectionStrings__Default='Data Source=/opt/liveauth/.liveauth.db' \
-    LiveAuth__PowHmacSecret='swm3lIZ+arLWaU4Uz9zaUpzUbdV87O7p72Foo6RLtGstLmyeA3bNedhZenBn3H4t8n1IzsToxOVyaL1ILcFOtA==' \
-    Resend__ApiKey='re_P4qnqHQM_M5tNYHX3Ar4TfjJLGBc7uxez' \
-    Resend__FromEmail='admin@liveauth.app' \
-    Resend__FromName='LiveAuth' \
-    Lnd__BaseUrl='https://localhost:8080' \
-    Lnd__UseMock='false' \
-    ./LiveAuthCore > /tmp/liveauth-new.log 2>&1 < /dev/null & disown"
+# Start the new API as a fully detached process. Uses setsid to release the
+# controlling terminal and a heredoc to ensure the remote bash session exits
+# cleanly (avoids the parent-ssh hanging on the child's open fds).
+ssh "$SERVER" 'bash -s' <<'REMOTE'
+    cd /opt/liveauth
+    nohup setsid env \
+        ASPNETCORE_URLS='http://0.0.0.0:8081' \
+        ASPNETCORE_ENVIRONMENT=Production \
+        ConnectionStrings__Default='Data Source=/opt/liveauth/.liveauth.db' \
+        LiveAuth__PowHmacSecret='swm3lIZ+arLWaU4Uz9zaUpzUbdV87O7p72Foo6RLtGstLmyeA3bNedhZenBn3H4t8n1IzsToxOVyaL1ILcFOtA==' \
+        Resend__ApiKey='re_P4qnqHQM_M5tNYHX3Ar4TfjJLGBc7uxez' \
+        Resend__FromEmail='admin@liveauth.app' \
+        Resend__FromName='LiveAuth' \
+        Lnd__BaseUrl='https://localhost:8080' \
+        Lnd__UseMock='false' \
+        ./LiveAuthCore > /tmp/liveauth-new.log 2>&1 < /dev/null &
+    disown
+    echo "API start command issued"
+REMOTE
 
 # Wait up to 10s for the new process to bind 8081
 NEW_PID=""
