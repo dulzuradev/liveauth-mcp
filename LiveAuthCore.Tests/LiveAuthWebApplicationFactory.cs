@@ -36,6 +36,7 @@ public class LiveAuthWebApplicationFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Admin__SkipPayment", "true");
         Environment.SetEnvironmentVariable("GitHub__ClientId", "test-client-id");
         Environment.SetEnvironmentVariable("GitHub__ClientSecret", "test-client-secret");
+        Environment.SetEnvironmentVariable("Resend__ApiKey", "test-resend-key");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -59,6 +60,7 @@ public class LiveAuthWebApplicationFactory : WebApplicationFactory<Program>
                 ["Admin:SkipPayment"] = "true",
                 ["GitHub:ClientId"] = "test-client-id",
                 ["GitHub:ClientSecret"] = "test-client-secret",
+                ["Resend:ApiKey"] = "test-resend-key",
                 ["Lnd:BaseUrl"] = "https://localhost:9739",
                 ["Lnd:Macaroon"] = "",
             });

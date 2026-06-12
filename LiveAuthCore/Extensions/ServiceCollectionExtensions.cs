@@ -234,7 +234,8 @@ public static class ServiceCollectionExtensions
             {
                 policy.WithOrigins("https://liveauth.app", "https://admin.liveauth.app")
                     .AllowAnyHeader()
-                    .AllowAnyMethod();
+                    .AllowAnyMethod()
+                    .AllowCredentials();
             });
         });
 

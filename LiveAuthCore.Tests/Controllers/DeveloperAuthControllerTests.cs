@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -19,6 +20,56 @@ public class DeveloperAuthControllerTests : IClassFixture<LiveAuthWebApplication
     {
         _factory = factory;
         _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task GitHubStart_UsesUrlSafeStateCookie()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        var response = await client.GetAsync("/api/dev/auth/github/start");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.NotNull(response.Headers.Location);
+
+        var state = GetQueryParam(response.Headers.Location!, "state");
+        Assert.NotNull(state);
+        Assert.Matches("^[a-f0-9]{64}$", state!);
+
+        var setCookies = response.Headers.GetValues("Set-Cookie").ToList();
+        Assert.Contains(setCookies, cookie =>
+            cookie.StartsWith($"github_oauth_state={state};", StringComparison.Ordinal) &&
+            cookie.Contains("path=/", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(setCookies, cookie =>
+            cookie.StartsWith("github_oauth_state=;", StringComparison.Ordinal) &&
+            cookie.Contains("path=/api/dev/auth/github", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task GitHubCallback_WithInvalidState_RedirectsToLoginAndClearsStateCookies()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        var response = await client.GetAsync("/api/dev/auth/github/callback?code=fake-code&state=wrong-state");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(
+            "https://liveauth.app/dev/projects?githubError=invalid_state",
+            response.Headers.Location?.ToString());
+
+        var setCookies = response.Headers.GetValues("Set-Cookie").ToList();
+        Assert.Contains(setCookies, cookie =>
+            cookie.StartsWith("github_oauth_state=;", StringComparison.Ordinal) &&
+            cookie.Contains("path=/", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(setCookies, cookie =>
+            cookie.StartsWith("github_oauth_state=;", StringComparison.Ordinal) &&
+            cookie.Contains("path=/api/dev/auth/github", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -211,6 +262,25 @@ public class DeveloperAuthControllerTests : IClassFixture<LiveAuthWebApplication
         await db.SaveChangesAsync();
 
         return developer;
+    }
+
+    private static string? GetQueryParam(Uri uri, string name)
+    {
+        var query = uri.Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(query))
+            return null;
+
+        foreach (var part in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pieces = part.Split('=', 2);
+            var key = Uri.UnescapeDataString(pieces[0]);
+            if (!string.Equals(key, name, StringComparison.Ordinal))
+                continue;
+
+            return pieces.Length == 2 ? Uri.UnescapeDataString(pieces[1]) : string.Empty;
+        }
+
+        return null;
     }
 
     private record RegisterResponse(string Token, string Email, Guid DeveloperId);

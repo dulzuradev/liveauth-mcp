@@ -22,6 +22,10 @@ using Microsoft.AspNetCore.RateLimiting;
 [Route("api/dev/auth")]
 public class DevAuthController : ControllerBase
 {
+    private const string GitHubOAuthStateCookie = "github_oauth_state";
+    private const string GitHubOAuthStateCookiePath = "/";
+    private const string LegacyGitHubOAuthStateCookiePath = "/api/dev/auth/github";
+
     private readonly LiveAuthDbContext _db;
     private readonly LightningService _ln;
     private readonly IConfiguration _config;
@@ -308,20 +312,30 @@ public class DevAuthController : ControllerBase
     public async Task<ActionResult<GitHubLoginResponse>> GitHubLogin(
         [FromQuery] string? code,
         [FromQuery] string? state,
+        [FromQuery] string? error,
+        [FromQuery(Name = "error_description")] string? errorDescription,
         CancellationToken ct)
     {
         try
         {
-            // Verify state
-            var stateCookie = Request.Cookies["github_oauth_state"];
-            if (string.IsNullOrEmpty(stateCookie) || state != stateCookie)
+            if (!string.IsNullOrWhiteSpace(error))
             {
-                return BadRequest("Invalid state parameter");
+                ClearGitHubOAuthStateCookies();
+                return RedirectToFrontendGitHubError(errorDescription ?? error);
+            }
+
+            // Verify state
+            var stateCookie = Request.Cookies[GitHubOAuthStateCookie];
+            if (string.IsNullOrEmpty(stateCookie) || !string.Equals(state, stateCookie, StringComparison.Ordinal))
+            {
+                ClearGitHubOAuthStateCookies();
+                return RedirectToFrontendGitHubError("invalid_state");
             }
 
             if (string.IsNullOrWhiteSpace(code))
             {
-                return BadRequest("No authorization code provided");
+                ClearGitHubOAuthStateCookies();
+                return RedirectToFrontendGitHubError("missing_code");
             }
 
             // Exchange code for access token
@@ -431,7 +445,7 @@ public class DevAuthController : ControllerBase
             var token = GenerateJwtForDeveloper(dev);
 
             // Clear the state cookie
-            Response.Cookies.Delete("github_oauth_state");
+            ClearGitHubOAuthStateCookies();
 
             // Redirect to frontend with token
             var frontendUrl = _config["App:FrontendUrl"] ?? "https://liveauth.app";
@@ -467,8 +481,8 @@ public class DevAuthController : ControllerBase
             return BadRequest(new { error = "GitHub OAuth not configured." });
         }
 
-        // Generate state for CSRF protection
-        var state = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+        // Generate URL-safe state for CSRF protection.
+        var state = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
         
         // Build the authorization URL with https callback
         var callbackUrl = $"https://api.liveauth.app/api/dev/auth/github/callback";
@@ -476,11 +490,13 @@ public class DevAuthController : ControllerBase
             $"?client_id={clientId}" +
             $"&redirect_uri={Uri.EscapeDataString(callbackUrl)}" +
             $"&scope={Uri.EscapeDataString("user:email")}" +
-            $"&state={state}";
+            $"&state={Uri.EscapeDataString(state)}";
 
         // Store state in cookie for verification later
-        Response.Cookies.Append("github_oauth_state", state, new CookieOptions
+        ClearGitHubOAuthStateCookies();
+        Response.Cookies.Append(GitHubOAuthStateCookie, state, new CookieOptions
         {
+            Path = GitHubOAuthStateCookiePath,
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.None,
@@ -728,8 +744,32 @@ public class DevAuthController : ControllerBase
     public ActionResult Logout()
     {
         // Clear the GitHub OAuth state cookie
-        Response.Cookies.Delete("github_oauth_state");
+        ClearGitHubOAuthStateCookies();
         return Ok(new { success = true });
+    }
+
+    private void ClearGitHubOAuthStateCookies()
+    {
+        Response.Cookies.Delete(GitHubOAuthStateCookie, new CookieOptions
+        {
+            Path = GitHubOAuthStateCookiePath,
+            Secure = true,
+            SameSite = SameSiteMode.None
+        });
+
+        // Clear the legacy path used before the cookie path was explicit.
+        Response.Cookies.Delete(GitHubOAuthStateCookie, new CookieOptions
+        {
+            Path = LegacyGitHubOAuthStateCookiePath,
+            Secure = true,
+            SameSite = SameSiteMode.None
+        });
+    }
+
+    private ActionResult RedirectToFrontendGitHubError(string error)
+    {
+        var frontendUrl = _config["App:FrontendUrl"] ?? "https://liveauth.app";
+        return Redirect($"{frontendUrl}/dev/projects?githubError={Uri.EscapeDataString(error)}");
     }
 
     /// <summary>

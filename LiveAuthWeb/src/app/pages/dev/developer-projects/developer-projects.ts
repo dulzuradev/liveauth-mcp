@@ -473,6 +473,15 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
       this.emailMode = authMode === 'register' ? 'register' : 'login';
     }
 
+    const githubError = urlParams.get('githubError');
+    if (githubError) {
+      this.devAuth.clearToken();
+      this.loggedIn = false;
+      this.selectedLoginTab = 'github';
+      this.error = this.githubLoginErrorMessage(githubError);
+      window.history.replaceState({}, '', '/dev/projects');
+    }
+
     const tokenFromUrl = urlParams.get('token');
     if (tokenFromUrl) {
       this.devAuth.saveToken(tokenFromUrl);
@@ -630,7 +639,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
 
   logout() {
     // Call the backend to clear the GitHub OAuth state cookie
-    this.http.post(`${this.devAuth.getApiUrl()}/api/dev/auth/logout`, {}).subscribe({
+    this.http.post(`${this.devAuth.getApiUrl()}/api/dev/auth/logout`, {}, { withCredentials: true }).subscribe({
       next: () => {
         // Clear local token and reset state
         this.devAuth.clearToken();
@@ -654,6 +663,18 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
         this.stopCountdown();
       }
     });
+  }
+
+  private githubLoginErrorMessage(error: string): string {
+    if (error === 'invalid_state') {
+      return 'GitHub sign-in expired. Please try again.';
+    }
+
+    if (error === 'missing_code') {
+      return 'GitHub did not return an authorization code. Please try again.';
+    }
+
+    return 'GitHub sign-in could not be completed. Please try again.';
   }
 
   // ---------------------------------------------------------------------------
