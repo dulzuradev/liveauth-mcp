@@ -56,11 +56,20 @@
       <h2 class="gradient-text">Connect Your Account</h2>
       <p>Sign in to access your developer dashboard</p>
 
-      <p-tabs [(value)]="selectedLoginTab">
+      <p-tabs [(value)]="selectedLoginTab" class="login-auth-tabs">
         <p-tablist>
-          <p-tab value="github">GitHub</p-tab>
-
-          <p-tab value="email">Email</p-tab>
+          <p-tab value="github">
+            <span class="login-tab-label">
+              <i class="pi pi-github"></i>
+              <span>GitHub</span>
+            </span>
+          </p-tab>
+          <p-tab value="email">
+            <span class="login-tab-label">
+              <i class="pi pi-envelope"></i>
+              <span>Email</span>
+            </span>
+          </p-tab>
         </p-tablist>
         <p-tabpanels>
 
