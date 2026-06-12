@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Start the MCP server
-const serverPath = join(__dirname, '../dist/index.js');
+const serverPath = join(__dirname, '../dist/cli.js');
 const server = spawn('node', [serverPath], {
   stdio: ['pipe', 'pipe', 'pipe'],
   env: { ...process.env }

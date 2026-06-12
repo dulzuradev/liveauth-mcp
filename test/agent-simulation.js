@@ -9,7 +9,7 @@ import { spawn } from 'child_process';
 import { Readable } from 'stream';
 
 // Start MCP server in demo mode
-const server = spawn('node', ['dist/index.js'], {
+const server = spawn('node', ['dist/cli.js'], {
   env: { ...process.env, LIVEAUTH_DEMO: 'true' },
   stdio: ['pipe', 'pipe', 'pipe']
 });

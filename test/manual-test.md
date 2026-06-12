@@ -32,10 +32,10 @@
    ```
    Can you list your available tools?
    ```
-   You should see `liveauth_get_challenge`, `liveauth_verify_pow`, and `liveauth_start_lightning`.
+   You should see `liveauth_mcp_start`, `liveauth_mcp_confirm`, `liveauth_mcp_charge`, `liveauth_mcp_usage`, `liveauth_mcp_status`, `liveauth_mcp_lnurl`, and `liveauth_mcp_refresh`.
 
    ```
-   Use liveauth_get_challenge with the public key: la_pk_wajRhFpfdc-cnS9Ekj6Otk4m
+   Use `liveauth_mcp_start` with no arguments for demo mode, or with `forceLightning` / `forceL402` for paid auth modes.
    ```
    Should return a PoW challenge with difficulty, target, and signature.
 
@@ -43,7 +43,7 @@
 
 ```bash
 cd liveauth-mcp
-node dist/index.js
+node dist/cli.js
 ```
 
 Then send JSON-RPC messages:
@@ -60,7 +60,7 @@ Then send JSON-RPC messages:
 
 **Get Challenge:**
 ```json
-{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"liveauth_get_challenge","arguments":{"projectPublicKey":"la_pk_wajRhFpfdc-cnS9Ekj6Otk4m"}}}
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"liveauth_mcp_start","arguments":{}}}
 ```
 
 ## Expected Results

@@ -7,14 +7,7 @@ import {
   ListToolsRequestSchema,
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import fetch from 'node-fetch';
-
-const LIVEAUTH_API_BASE = process.env.LIVEAUTH_API_BASE || 'https://api.liveauth.app';
-const LIVEAUTH_API_KEY = process.env.LIVEAUTH_API_KEY || '';
-const LIVEAUTH_DEMO = process.env.LIVEAUTH_DEMO === 'true' || !LIVEAUTH_API_KEY;
-
-// Store JWT after confirm (in-memory for the session)
-let cachedJwt: string | null = null;
+import nodeFetch from 'node-fetch';
 
 // Demo mode session tracking (in-memory)
 interface DemoSession {
@@ -25,15 +18,22 @@ interface DemoSession {
   paid: boolean;
   createdAt: number;
 }
-const demoSessions = new Map<string, DemoSession>();
+export interface LiveAuthMcpServerConfig {
+  apiBase?: string;
+  apiKey?: string;
+  demo?: boolean;
+  fetch?: typeof fetch;
+  now?: () => number;
+  random?: () => number;
+}
 
 // Helper to build auth headers (optional API key)
-function getAuthHeaders(): Record<string, string> {
+function getAuthHeaders(apiKey: string, demo: boolean): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (LIVEAUTH_API_KEY && !LIVEAUTH_DEMO) {
-    headers['X-LW-Public'] = LIVEAUTH_API_KEY;
+  if (apiKey && !demo) {
+    headers['X-LW-Public'] = apiKey;
   }
   return headers;
 }
@@ -184,6 +184,10 @@ const TOOLS: Tool[] = [
           type: 'string',
           description: 'Signature from the challenge (PoW only)',
         },
+        macaroon: {
+          type: 'string',
+          description: 'L402 bundle macaroon (L402 only)',
+        },
       },
       required: ['quoteId'],
     },
@@ -227,11 +231,25 @@ const TOOLS: Tool[] = [
   },
 ];
 
-// Create MCP server
-const server = new Server(
+export function createLiveAuthMcpServer(config: LiveAuthMcpServerConfig = {}): Server {
+  const LIVEAUTH_API_BASE = config.apiBase ?? process.env.LIVEAUTH_API_BASE ?? 'https://api.liveauth.app';
+  const LIVEAUTH_API_KEY = config.apiKey ?? process.env.LIVEAUTH_API_KEY ?? '';
+  const LIVEAUTH_DEMO = config.demo ?? (process.env.LIVEAUTH_DEMO === 'true' || !LIVEAUTH_API_KEY);
+  const fetchImpl = config.fetch ?? nodeFetch;
+  const now = config.now ?? (() => Date.now());
+  const random = config.random ?? (() => Math.random());
+
+  // Store JWT after confirm (in-memory for the session)
+  let cachedJwt: string | null = null;
+  let demoCallsUsed = 0;
+  let demoSatsUsed = 0;
+  const demoSessions = new Map<string, DemoSession>();
+
+  // Create MCP server
+  const server = new Server(
   {
     name: 'liveauth-mcp',
-    version: '0.2.0',
+    version: '1.0.3',
   },
   {
     capabilities: {
@@ -244,11 +262,6 @@ const server = new Server(
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools: TOOLS };
 });
-
-// Helper to check for errors in response
-function isError(response: unknown): response is McpErrorResponse {
-  return typeof response === 'object' && response !== null && 'error' in response;
-}
 
 // Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -264,9 +277,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ? `${LIVEAUTH_API_BASE}/api/public/demo/start`
           : `${LIVEAUTH_API_BASE}/api/mcp/start`;
         
-        const response = await fetch(endpoint, {
+        const response = await fetchImpl(endpoint, {
           method: 'POST',
-          headers: getAuthHeaders(),
+          headers: getAuthHeaders(LIVEAUTH_API_KEY, LIVEAUTH_DEMO),
           body: JSON.stringify({
             forceLightning: forceLightning ?? false,
             forceL402: forceL402 ?? false,
@@ -293,7 +306,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               amountSats: demoResult.invoice.amountSats || demoResult.amountSats || 0,
               paymentHash: demoResult.invoice.paymentHash || '',
               paid: false,
-              createdAt: Date.now(),
+              createdAt: now(),
             });
           }
           
@@ -329,7 +342,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'liveauth_mcp_confirm': {
-        const { quoteId, challengeHex, nonce, hashHex, expiresAtUnix, difficultyBits, signature } = args as {
+        const { quoteId, challengeHex, nonce, hashHex, expiresAtUnix, difficultyBits, signature, macaroon } = args as {
           quoteId: string;
           challengeHex?: string;
           nonce?: number;
@@ -337,6 +350,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           expiresAtUnix?: number;
           difficultyBits?: number;
           signature?: string;
+          macaroon?: string;
         };
 
         // Handle demo mode confirm
@@ -345,7 +359,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           session.paid = true;
           
           // Generate a demo JWT (in production, this would come from the API)
-          const demoJwt = `demo_jwt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const demoJwt = `demo_jwt_${now()}_${random().toString(36).substr(2, 9)}`;
           cachedJwt = demoJwt;
           
           return {
@@ -357,6 +371,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   expiresIn: 3600,
                   remainingBudgetSats: 1000,
                   paymentStatus: 'paid',
+                  refreshToken: `demo_refresh_${quoteId}`,
                   _demo: true,
                   _note: 'Demo mode - this is a simulated JWT',
                 }, null, 2),
@@ -374,10 +389,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (expiresAtUnix) body.expiresAtUnix = expiresAtUnix;
         if (difficultyBits) body.difficultyBits = difficultyBits;
         if (signature) body.sig = signature;
+        if (macaroon) body.macaroon = macaroon;
 
-        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/confirm`, {
+        const response = await fetchImpl(`${LIVEAUTH_API_BASE}/api/mcp/confirm`, {
           method: 'POST',
-          headers: getAuthHeaders(),
+          headers: getAuthHeaders(LIVEAUTH_API_KEY, LIVEAUTH_DEMO),
           body: JSON.stringify(body),
         });
 
@@ -423,12 +439,55 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'liveauth_mcp_charge': {
         const { callCostSats } = args as { callCostSats: number };
 
-        const authHeaders = getAuthHeaders();
+        if (LIVEAUTH_DEMO) {
+          if (!cachedJwt) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: 'Demo session is not confirmed. Call liveauth_mcp_confirm before charging.',
+                },
+              ],
+              isError: true,
+            };
+          }
+
+          if (demoSatsUsed + callCostSats > 1000) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Budget exceeded! Calls used: ${demoCallsUsed}, Sats used: ${demoSatsUsed}. Stop making API calls.`,
+                },
+              ],
+              isError: true,
+            };
+          }
+
+          demoCallsUsed += 1;
+          demoSatsUsed += callCostSats;
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  status: 'ok',
+                  callsUsed: demoCallsUsed,
+                  satsUsed: demoSatsUsed,
+                  _demo: true,
+                }, null, 2),
+              },
+            ],
+          };
+        }
+
+        const authHeaders = getAuthHeaders(LIVEAUTH_API_KEY, LIVEAUTH_DEMO);
         if (cachedJwt) {
           authHeaders['Authorization'] = `Bearer ${cachedJwt}`;
         }
 
-        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/charge`, {
+        const response = await fetchImpl(`${LIVEAUTH_API_BASE}/api/mcp/charge`, {
           method: 'POST',
           headers: authHeaders,
           body: JSON.stringify({
@@ -475,10 +534,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 type: 'text',
                 text: JSON.stringify({
                   status: 'active',
-                  callsUsed: 0,
-                  satsUsed: 0,
+                  callsUsed: demoCallsUsed,
+                  satsUsed: demoSatsUsed,
                   maxSatsPerDay: 1000,
-                  remainingBudgetSats: 1000,
+                  remainingBudgetSats: Math.max(0, 1000 - demoSatsUsed),
                   maxCallsPerMinute: 60,
                   _demo: true,
                 }, null, 2),
@@ -487,12 +546,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
 
-        const authHeaders = getAuthHeaders();
+        const authHeaders = getAuthHeaders(LIVEAUTH_API_KEY, LIVEAUTH_DEMO);
         if (cachedJwt) {
           authHeaders['Authorization'] = `Bearer ${cachedJwt}`;
         }
 
-        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/usage`, {
+        const response = await fetchImpl(`${LIVEAUTH_API_BASE}/api/mcp/usage`, {
           method: 'GET',
           headers: authHeaders,
         });
@@ -521,7 +580,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (LIVEAUTH_DEMO && demoSessions.has(quoteId)) {
           const session = demoSessions.get(quoteId)!;
           // In demo mode, auto-mark as paid after 2 seconds
-          if (!session.paid && Date.now() - session.createdAt > 2000) {
+          if (!session.paid && now() - session.createdAt > 2000) {
             session.paid = true;
           }
           return {
@@ -532,7 +591,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   quoteId: session.quoteId,
                   status: session.paid ? 'confirmed' : 'pending',
                   paymentStatus: session.paid ? 'paid' : 'pending',
-                  expiresAt: new Date(Date.now() + 300000).toISOString(),
+                  expiresAt: new Date(now() + 300000).toISOString(),
                   _demo: true,
                   _instructions: session.paid 
                     ? 'Payment confirmed in demo mode. Use liveauth_mcp_confirm to get JWT.'
@@ -543,9 +602,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
 
-        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/status/${quoteId}`, {
+        const response = await fetchImpl(`${LIVEAUTH_API_BASE}/api/mcp/status/${quoteId}`, {
           method: 'GET',
-          headers: getAuthHeaders(),
+          headers: getAuthHeaders(LIVEAUTH_API_KEY, LIVEAUTH_DEMO),
         });
 
         if (!response.ok) {
@@ -568,10 +627,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'liveauth_mcp_lnurl': {
         const { quoteId } = args as { quoteId: string };
 
+        if (LIVEAUTH_DEMO && demoSessions.has(quoteId)) {
+          const session = demoSessions.get(quoteId)!;
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  pr: session.invoice,
+                  routes: [],
+                  _demo: true,
+                }, null, 2),
+              },
+            ],
+          };
+        }
+
         // Use the new lnget-compatible endpoint
-        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/lnurl/${quoteId}`, {
+        const response = await fetchImpl(`${LIVEAUTH_API_BASE}/api/mcp/lnurl/${quoteId}`, {
           method: 'GET',
-          headers: getAuthHeaders(),
+          headers: getAuthHeaders(LIVEAUTH_API_KEY, LIVEAUTH_DEMO),
         });
 
         if (!response.ok) {
@@ -594,9 +669,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'liveauth_mcp_refresh': {
         const { refreshToken } = args as { refreshToken: string };
 
-        const response = await fetch(`${LIVEAUTH_API_BASE}/api/mcp/refresh`, {
+        if (LIVEAUTH_DEMO && refreshToken.startsWith('demo_refresh_')) {
+          const demoJwt = `demo_jwt_${now()}_${random().toString(36).substr(2, 9)}`;
+          cachedJwt = demoJwt;
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  jwt: demoJwt,
+                  expiresIn: 3600,
+                  remainingBudgetSats: Math.max(0, 1000 - demoSatsUsed),
+                  _demo: true,
+                }, null, 2),
+              },
+            ],
+          };
+        }
+
+        const response = await fetchImpl(`${LIVEAUTH_API_BASE}/api/mcp/refresh`, {
           method: 'POST',
-          headers: getAuthHeaders(),
+          headers: getAuthHeaders(LIVEAUTH_API_KEY, LIVEAUTH_DEMO),
           body: JSON.stringify({
             refreshToken,
           }),
@@ -638,14 +732,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
+  return server;
+}
+
 // Start server
 async function main() {
+  const server = createLiveAuthMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('LiveAuth MCP server running on stdio');
 }
 
-main().catch((error) => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
+}

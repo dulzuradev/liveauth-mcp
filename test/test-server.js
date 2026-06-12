@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Start the MCP server
-const serverPath = join(__dirname, '../dist/index.js');
+const serverPath = join(__dirname, '../dist/cli.js');
 const server = spawn('node', [serverPath], {
   stdio: ['pipe', 'pipe', 'pipe'],
 });
@@ -63,21 +63,19 @@ setTimeout(() => {
   server.stdin.write(JSON.stringify(listToolsRequest) + '\n');
 
   setTimeout(() => {
-    // Test get_challenge with demo public key
-    const getChallengeRequest = {
+    // Test the current session start tool in demo mode
+    const startRequest = {
       jsonrpc: '2.0',
       id: 3,
       method: 'tools/call',
       params: {
-        name: 'liveauth_get_challenge',
-        arguments: {
-          projectPublicKey: 'la_pk_wajRhFpfdc-cnS9Ekj6Otk4m',
-        },
+        name: 'liveauth_mcp_start',
+        arguments: {},
       },
     };
 
-    console.log('\n=== Test 3: Get Challenge ===');
-    server.stdin.write(JSON.stringify(getChallengeRequest) + '\n');
+    console.log('\n=== Test 3: Start MCP Session ===');
+    server.stdin.write(JSON.stringify(startRequest) + '\n');
 
     setTimeout(() => {
       console.log('\n=== Test Results ===');
@@ -93,21 +91,26 @@ setTimeout(() => {
         console.log('❌ Failed to list tools');
       }
 
-      const challengeResponse = responses.find(r => r.id === 3);
-      if (challengeResponse && challengeResponse.result) {
-        console.log('✅ Challenge request successful');
+      const startResponse = responses.find(r => r.id === 3);
+      if (startResponse && startResponse.result && !startResponse.result.isError) {
+        console.log('✅ Start request successful');
         try {
-          const content = challengeResponse.result.content[0].text;
-          const challenge = JSON.parse(content);
-          console.log(`   Challenge difficulty: ${challenge.difficultyBits} bits`);
-          console.log(`   Target: ${challenge.targetHex.substring(0, 20)}...`);
+          const content = startResponse.result.content[0].text;
+          const session = JSON.parse(content);
+          console.log(`   Quote ID: ${session.quoteId}`);
+          if (session.powChallenge) {
+            console.log(`   Challenge difficulty: ${session.powChallenge.difficultyBits} bits`);
+          }
+          if (session.invoice) {
+            console.log(`   Invoice amount: ${session.invoice.amountSats} sats`);
+          }
         } catch (e) {
-          console.log('   Response:', JSON.stringify(challengeResponse.result, null, 2));
+          console.log('   Response:', JSON.stringify(startResponse.result, null, 2));
         }
       } else {
-        console.log('❌ Challenge request failed');
-        if (challengeResponse) {
-          console.log('   Error:', JSON.stringify(challengeResponse, null, 2));
+        console.log('❌ Start request failed');
+        if (startResponse) {
+          console.log('   Error:', JSON.stringify(startResponse, null, 2));
         }
       }
 

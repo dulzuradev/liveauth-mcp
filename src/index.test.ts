@@ -109,6 +109,99 @@ describe('LiveAuth MCP SDK helpers', () => {
     }
   });
 
+  it('starts and confirms Lightning sessions with invoice callbacks', async () => {
+    const onInvoice = vi.fn();
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const invoice = {
+      bolt11: 'lnbc1lightning',
+      amountSats: 50,
+      expiresAtUnix: 1_800_000_000,
+      paymentHash: 'payment-hash',
+    };
+
+    const fakeFetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      calls.push({ url, init });
+
+      if (url.endsWith('/api/mcp/start')) {
+        return jsonResponse({
+          quoteId: 'quote-lightning',
+          powChallenge: null,
+          invoice,
+        });
+      }
+
+      return jsonResponse({
+        jwt: 'jwt-lightning',
+        expiresIn: 600,
+        remainingBudgetSats: 50,
+        paymentStatus: 'paid',
+        refreshToken: 'refresh-lightning',
+      });
+    });
+
+    const client = new LiveAuthMcpClient({
+      publicKey: 'la_pk_test',
+      baseUrl: API_BASE,
+      authMethod: 'lightning',
+      fetch: fakeFetch,
+      onInvoice,
+    });
+
+    const session = await client.start();
+    const token = await client.confirmLightning(session);
+
+    expect(session.method).toBe('lightning');
+    expect(onInvoice).toHaveBeenCalledWith(invoice);
+    expect(token.jwt).toBe('jwt-lightning');
+    expect(JSON.parse(String(calls[0]?.init?.body))).toMatchObject({ forceLightning: true });
+    expect(JSON.parse(String(calls[1]?.init?.body))).toEqual({ quoteId: 'quote-lightning' });
+    client.destroy();
+  });
+
+  it('starts and confirms L402 sessions with a macaroon', async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fakeFetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      calls.push({ url, init });
+
+      if (url.endsWith('/api/mcp/start')) {
+        return jsonResponse({
+          quoteId: 'quote-l402',
+          powChallenge: null,
+          invoice: null,
+          authHint: 'l402_bundle',
+        });
+      }
+
+      return jsonResponse({
+        jwt: 'jwt-l402',
+        expiresIn: 600,
+        remainingBudgetSats: 99,
+        paymentStatus: 'l402_paid',
+      });
+    });
+
+    const client = new LiveAuthMcpClient({
+      publicKey: 'la_pk_test',
+      baseUrl: API_BASE,
+      authMethod: 'l402',
+      fetch: fakeFetch,
+    });
+
+    const session = await client.start();
+    const token = await client.confirmL402('macaroon-test', session);
+
+    expect(session.method).toBe('l402');
+    expect(token.jwt).toBe('jwt-l402');
+    expect(JSON.parse(String(calls[0]?.init?.body))).toMatchObject({ forceL402: true });
+    expect(JSON.parse(String(calls[1]?.init?.body))).toEqual({
+      quoteId: 'quote-l402',
+      macaroon: 'macaroon-test',
+    });
+    client.destroy();
+  });
+
   it('exports factory helpers and an invoke alias for gated calls', async () => {
     const client = createMcpClient({
       publicKey: 'la_pk_test',

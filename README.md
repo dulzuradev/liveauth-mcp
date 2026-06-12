@@ -280,6 +280,7 @@ Start a new LiveAuth MCP session. Returns a PoW challenge by default, or a Light
 
 **Parameters:**
 - `forceLightning` (boolean, optional): If true, request Lightning invoice instead of PoW challenge
+- `forceL402` (boolean, optional): If true, start a session that should be confirmed with an L402 bundle macaroon
 
 **Returns (PoW):**
 ```json
@@ -312,18 +313,29 @@ Start a new LiveAuth MCP session. Returns a PoW challenge by default, or a Light
 }
 ```
 
+**Returns (L402 bundle):**
+```json
+{
+  "quoteId": "uuid-of-session",
+  "powChallenge": null,
+  "invoice": null,
+  "authHint": "l402_bundle"
+}
+```
+
 ### `liveauth_mcp_confirm`
 
-Submit the solved proof-of-work challenge to receive a JWT authentication token.
+Submit the solved proof-of-work challenge, poll a Lightning payment, or present an L402 macaroon to receive a JWT authentication token.
 
 **Parameters:**
 - `quoteId` (string): The quoteId from the start response
-- `challengeHex` (string): The challenge hex from the start response
-- `nonce` (number): The nonce that solves the PoW challenge
-- `hashHex` (string): The resulting hash (sha256 of `projectPublicKey:challengeHex:nonce`)
-- `expiresAtUnix` (number): Expiration timestamp from the challenge
-- `difficultyBits` (number): Difficulty bits from the challenge
-- `signature` (string): Signature from the challenge
+- `challengeHex` (string, PoW only): The challenge hex from the start response
+- `nonce` (number, PoW only): The nonce that solves the PoW challenge
+- `hashHex` (string, PoW only): The resulting hash (sha256 of `projectPublicKey:challengeHex:nonce`)
+- `expiresAtUnix` (number, PoW only): Expiration timestamp from the challenge
+- `difficultyBits` (number, PoW only): Difficulty bits from the challenge
+- `signature` (string, PoW only): Signature from the challenge
+- `macaroon` (string, L402 only): Bundle macaroon returned from the L402 bundle claim flow
 
 **Returns:**
 ```json
@@ -519,7 +531,7 @@ npm install
 npm run build
 
 # Run locally
-node dist/index.js
+node dist/cli.js
 ```
 
 ## Resources
