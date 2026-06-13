@@ -51,7 +51,13 @@ public class CreateBundleInvoiceResponse
     public string Invoice { get; set; } = string.Empty;
     public string Bolt11 { get; set; } = string.Empty;
     public string PaymentHash { get; set; } = string.Empty;
-    public int AmountSats { get; set; }
+    public long AmountSats { get; set; }
+    public long BaseAmountSats { get; set; }
+    public int MarkupBasisPoints { get; set; }
+    public long MarkupMinimumFeeSats { get; set; }
+    public long MarkupSats { get; set; }
+    public long TotalChargedSats { get; set; }
+    public long CreditAmountSats { get; set; }
     public long ExpiresAtUnix { get; set; }
     public string Tier { get; set; } = string.Empty;
     public int TotalCalls { get; set; }

@@ -169,6 +169,7 @@ public static class ServiceCollectionExtensions
         builder.Services.AddScoped<AuthEventService>();
         builder.Services.AddScoped<PowDifficultyService>();
         builder.Services.AddScoped<BillingService>();
+        builder.Services.AddScoped<LightningFeeSettingsService>();
         builder.Services.AddScoped<PowReplayService>();
         builder.Services.AddScoped<WebhookService>();
         builder.Services.AddScoped<SatsPrinterService>();

@@ -19,11 +19,16 @@ public class BillingUsageController : ControllerBase
 {
     private readonly LiveAuthDbContext _db;
     private readonly LightningService _lightning;
+    private readonly LightningFeeSettingsService _feeSettings;
 
-    public BillingUsageController(LiveAuthDbContext db, LightningService lightning)
+    public BillingUsageController(
+        LiveAuthDbContext db,
+        LightningService lightning,
+        LightningFeeSettingsService feeSettings)
     {
         _db = db;
         _lightning = lightning;
+        _feeSettings = feeSettings;
     }
 
     private Guid GetDeveloperId()
@@ -127,10 +132,17 @@ public class BillingUsageController : ControllerBase
                 return NotFound("No active project found");
         }
 
+        var settings = await _feeSettings.GetCurrentAsync(ct);
+        var invoiceFeeSats = BasisPointFeeMath.CalculateFeeSats(
+            req.AmountSats,
+            settings.InvoiceFeeBasisPoints,
+            settings.InvoiceMinimumFeeSats);
+        var totalChargedSats = req.AmountSats + invoiceFeeSats;
+
         // Create Lightning invoice
         var invoice = await _lightning.CreateLoginInvoiceAsync(
             email: $"l402-purchase-{devId:N}",
-            amountSats: req.AmountSats,
+            amountSats: totalChargedSats,
             expiryMinutes: 30,
             project: project
         );
@@ -140,7 +152,13 @@ public class BillingUsageController : ControllerBase
         {
             ProjectId = project.Id,
             DeveloperId = devId,
-            AmountSats = req.AmountSats,
+            AmountSats = totalChargedSats,
+            BaseAmountSats = req.AmountSats,
+            InvoiceFeeBasisPoints = settings.InvoiceFeeBasisPoints,
+            InvoiceFeeMinimumSats = settings.InvoiceMinimumFeeSats,
+            InvoiceFeeSats = invoiceFeeSats,
+            TotalChargedSats = totalChargedSats,
+            CreditAmountSats = req.AmountSats,
             InvoiceId = invoice.InvoiceId, // hex r_hash
             Bolt11 = invoice.Bolt11,
             ExpiresAtUnix = invoice.ExpiresAtUnix,
@@ -152,9 +170,15 @@ public class BillingUsageController : ControllerBase
         return Ok(new PurchaseResponse(
             PurchaseId: purchase.Id,
             Bolt11: invoice.Bolt11,
-            AmountSats: req.AmountSats,
+            AmountSats: totalChargedSats,
             ExpiresAtUnix: invoice.ExpiresAtUnix,
-            Status: "pending"
+            Status: "pending",
+            BaseAmountSats: req.AmountSats,
+            InvoiceFeeBasisPoints: settings.InvoiceFeeBasisPoints,
+            InvoiceFeeMinimumSats: settings.InvoiceMinimumFeeSats,
+            InvoiceFeeSats: invoiceFeeSats,
+            TotalChargedSats: totalChargedSats,
+            CreditAmountSats: req.AmountSats
         ));
     }
 
@@ -189,7 +213,13 @@ public class BillingUsageController : ControllerBase
                 Status: "settled",
                 AmountSats: purchase.AmountSats,
                 NewBalanceSats: proj?.L402BalanceSats,
-                Bolt11: purchase.Bolt11
+                Bolt11: purchase.Bolt11,
+                BaseAmountSats: GetPurchaseBaseAmount(purchase),
+                InvoiceFeeBasisPoints: purchase.InvoiceFeeBasisPoints,
+                InvoiceFeeMinimumSats: purchase.InvoiceFeeMinimumSats,
+                InvoiceFeeSats: purchase.InvoiceFeeSats,
+                TotalChargedSats: GetPurchaseTotalCharged(purchase),
+                CreditAmountSats: GetPurchaseCreditAmount(purchase)
             ));
         }
 
@@ -203,7 +233,13 @@ public class BillingUsageController : ControllerBase
                 Status: "expired",
                 AmountSats: purchase.AmountSats,
                 NewBalanceSats: null,
-                Bolt11: purchase.Bolt11
+                Bolt11: purchase.Bolt11,
+                BaseAmountSats: GetPurchaseBaseAmount(purchase),
+                InvoiceFeeBasisPoints: purchase.InvoiceFeeBasisPoints,
+                InvoiceFeeMinimumSats: purchase.InvoiceFeeMinimumSats,
+                InvoiceFeeSats: purchase.InvoiceFeeSats,
+                TotalChargedSats: GetPurchaseTotalCharged(purchase),
+                CreditAmountSats: GetPurchaseCreditAmount(purchase)
             ));
         }
 
@@ -221,7 +257,7 @@ public class BillingUsageController : ControllerBase
 
             if (project != null)
             {
-                project.L402BalanceSats += purchase.AmountSats;
+                project.L402BalanceSats += GetPurchaseCreditAmount(purchase);
                 purchase.Status = "settled";
                 purchase.SettledAt = DateTime.UtcNow;
             }
@@ -233,7 +269,13 @@ public class BillingUsageController : ControllerBase
                 Status: "settled",
                 AmountSats: purchase.AmountSats,
                 NewBalanceSats: project?.L402BalanceSats,
-                Bolt11: purchase.Bolt11
+                Bolt11: purchase.Bolt11,
+                BaseAmountSats: GetPurchaseBaseAmount(purchase),
+                InvoiceFeeBasisPoints: purchase.InvoiceFeeBasisPoints,
+                InvoiceFeeMinimumSats: purchase.InvoiceFeeMinimumSats,
+                InvoiceFeeSats: purchase.InvoiceFeeSats,
+                TotalChargedSats: GetPurchaseTotalCharged(purchase),
+                CreditAmountSats: GetPurchaseCreditAmount(purchase)
             ));
         }
 
@@ -243,7 +285,13 @@ public class BillingUsageController : ControllerBase
             Status: purchase.Status,
             AmountSats: purchase.AmountSats,
             NewBalanceSats: null,
-            Bolt11: purchase.Bolt11
+            Bolt11: purchase.Bolt11,
+            BaseAmountSats: GetPurchaseBaseAmount(purchase),
+            InvoiceFeeBasisPoints: purchase.InvoiceFeeBasisPoints,
+            InvoiceFeeMinimumSats: purchase.InvoiceFeeMinimumSats,
+            InvoiceFeeSats: purchase.InvoiceFeeSats,
+            TotalChargedSats: GetPurchaseTotalCharged(purchase),
+            CreditAmountSats: GetPurchaseCreditAmount(purchase)
         ));
     }
 
@@ -304,4 +352,13 @@ public class BillingUsageController : ControllerBase
             NewBalance: project.L402BalanceSats
         ));
     }
+
+    private static long GetPurchaseBaseAmount(L402Purchase purchase)
+        => purchase.BaseAmountSats > 0 ? purchase.BaseAmountSats : purchase.AmountSats;
+
+    private static long GetPurchaseCreditAmount(L402Purchase purchase)
+        => purchase.CreditAmountSats > 0 ? purchase.CreditAmountSats : GetPurchaseBaseAmount(purchase);
+
+    private static long GetPurchaseTotalCharged(L402Purchase purchase)
+        => purchase.TotalChargedSats > 0 ? purchase.TotalChargedSats : purchase.AmountSats;
 }

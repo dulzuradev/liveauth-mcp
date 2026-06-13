@@ -25,6 +25,13 @@ public class L402Purchase
     /// </summary>
     public long AmountSats { get; set; }
 
+    public long BaseAmountSats { get; set; }
+    public int InvoiceFeeBasisPoints { get; set; }
+    public long InvoiceFeeMinimumSats { get; set; }
+    public long InvoiceFeeSats { get; set; }
+    public long TotalChargedSats { get; set; }
+    public long CreditAmountSats { get; set; }
+
     /// <summary>
     /// LND r_hash (hex) — used to look up invoice status.
     /// </summary>

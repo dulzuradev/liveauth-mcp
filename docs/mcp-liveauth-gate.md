@@ -50,6 +50,8 @@ Response for proof-of-work:
 
 Set `forceLightning: true` to request a Lightning invoice. Set `forceL402: true` to start a session that will be confirmed with an L402 macaroon.
 
+Lightning invoices show the total amount up front. LiveAuth keeps a configurable Lightning auth invoice fee, currently 2%, minimum 1 sat. The MCP session budget is based on the underlying credits purchased, not on the fee. If the invoice fee basis points are configured as 0, the minimum fee does not apply.
+
 ### 2. Confirm the Session
 
 ```http
@@ -290,7 +292,15 @@ platformFeeSats = max(1, floor(grossSats * 500 / 10000))
 netSats = grossSats - platformFeeSats
 ```
 
-For example, a 5 sat call records a 1 sat platform fee and 4 sats net.
+For example, a 5 sat call records a 1 sat platform fee and 4 sats net. Paid MCP tool calls are separate from Lightning auth invoice fees and L402 bundle markup.
+
+LiveAuth also applies configurable fees to Lightning auth invoices and L402 bundle purchases:
+
+- Lightning auth invoices: default 200 bps, minimum 1 sat. The purchased auth/session credits remain separate from this fee.
+- L402 bundles: default 1500 bps markup, minimum 1 sat. The markup is included in the bundle purchase invoice; it does not grant additional calls or credits.
+- Paid MCP tool calls: 500 bps, minimum 1 sat, recorded per revenue event.
+
+Runtime fee settings are DB-backed and can be updated by admins without restarting the API. Config/env fallbacks are `LightningAuthFees:InvoiceFeeBps`, `LightningAuthFees:InvoiceMinimumFeeSats`, `LightningAuthFees:BundleMarkupBps`, and `LightningAuthFees:BundleMarkupMinimumFeeSats`. The aliases `L402:InvoiceFeeBps` and `L402:BundleMarkupBps` are also accepted for deployments that already use `L402:*` keys. When any fee bps value is 0, the corresponding minimum fee is ignored.
 
 ---
 

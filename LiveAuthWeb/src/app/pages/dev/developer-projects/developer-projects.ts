@@ -34,7 +34,8 @@ import {
   McpToolRevenueOverviewResponse,
   McpToolRevenueSummaryResponse,
   CreateMcpToolRequest,
-  TestMcpToolChargeResponse
+  TestMcpToolChargeResponse,
+  LightningFeeSettingsResponse
 } from '../../../services/developer-projects.service';
 
 import {
@@ -279,6 +280,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   mcpTestError = '';
   mcpWebhookEvents: WebhookEventDto[] | null = null;
   loadingMcpWebhookEvents = false;
+  lightningFeeSettings: LightningFeeSettingsResponse | null = null;
 
   // Tabs
   _projectDialogTab: 'overview' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' = 'overview';
@@ -301,6 +303,15 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
       default:
         return 'Last 24 hours';
     }
+  }
+
+  get feeDisclosureText(): string {
+    const settings = this.lightningFeeSettings;
+    if (!settings) {
+      return 'LiveAuth charges 2% on Lightning auth invoices, minimum 1 sat, 15% on bundle purchases, and 5% on paid MCP tool calls.';
+    }
+
+    return `LiveAuth charges ${this.formatFee(settings.invoiceFeeBasisPoints, settings.invoiceMinimumFeeSats)} on Lightning auth invoices, ${this.formatFee(settings.bundleMarkupBasisPoints, settings.bundleMarkupMinimumFeeSats)} on bundle purchases, and ${this.formatFee(settings.mcpPaidToolFeeBasisPoints, settings.mcpPaidToolMinimumFeeSats)} on paid MCP tool calls.`;
   }
 
   // Called by (valueChange) on <p-tabs>
@@ -840,6 +851,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   loadMcpTools(): void {
     this.loadingMcpTools = true;
     const previousSelectedToolId = this.selectedMcpToolId;
+    this.loadLightningFeeSettings();
 
     this.devService.listMcpTools().subscribe({
       next: (res) => {
@@ -930,6 +942,30 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
         console.warn('Failed to load MCP revenue events:', err);
       }
     });
+  }
+
+  private loadLightningFeeSettings(): void {
+    this.devService.getLightningFeeSettings().subscribe({
+      next: (settings) => {
+        this.lightningFeeSettings = settings;
+      },
+      error: (err) => {
+        console.warn('Failed to load Lightning fee settings:', err);
+      }
+    });
+  }
+
+  private formatFee(basisPoints: number, minimumFeeSats: number): string {
+    if (basisPoints <= 0) return '0%';
+
+    const percent = basisPoints / 100;
+    const percentText = Number.isInteger(percent)
+      ? percent.toFixed(0)
+      : percent.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+
+    return minimumFeeSats > 0
+      ? `${percentText}%, minimum ${minimumFeeSats} sat${minimumFeeSats === 1 ? '' : 's'}`
+      : `${percentText}%`;
   }
 
   get selectedMcpTool(): McpToolDto | null {

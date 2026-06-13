@@ -113,6 +113,51 @@
       </article>
     </section>
 
+    <section class="panel fee-settings-panel" *ngIf="lightningFees">
+      <header class="section-header">
+        <div>
+          <h2>Lightning Auth Fees</h2>
+          <span *ngIf="lightningFees.updatedAt">Updated {{ lightningFees.updatedAt | date:'short' }}</span>
+        </div>
+      </header>
+
+      <div class="fee-settings-grid">
+        <label>
+          <span>Invoice fee bps</span>
+          <input type="number" min="0" step="1" [(ngModel)]="feeForm.invoiceFeeBasisPoints" />
+        </label>
+
+        <label>
+          <span>Invoice minimum sats</span>
+          <input type="number" min="0" step="1" [(ngModel)]="feeForm.invoiceMinimumFeeSats" />
+        </label>
+
+        <label>
+          <span>Bundle markup bps</span>
+          <input type="number" min="0" step="1" [(ngModel)]="feeForm.bundleMarkupBasisPoints" />
+        </label>
+
+        <label>
+          <span>Bundle minimum sats</span>
+          <input type="number" min="0" step="1" [(ngModel)]="feeForm.bundleMarkupMinimumFeeSats" />
+        </label>
+      </div>
+
+      <div class="fee-settings-footer">
+        <span>Paid MCP tools remain {{ lightningFees.mcpPaidToolFeeBasisPoints }} bps, minimum {{ lightningFees.mcpPaidToolMinimumFeeSats }} sat.</span>
+        <button
+          type="button"
+          class="nav-button"
+          [disabled]="savingFees"
+          (click)="saveFeeSettings()">
+          <i class="pi" [class.pi-save]="!savingFees" [class.pi-spinner]="savingFees" [class.pi-spin]="savingFees"></i>
+          Save Fees
+        </button>
+      </div>
+
+      <p class="fee-message" *ngIf="feeMessage">{{ feeMessage }}</p>
+    </section>
+
     <section class="panel funnel-panel" *ngIf="data.funnel">
       <header class="section-header">
         <div>

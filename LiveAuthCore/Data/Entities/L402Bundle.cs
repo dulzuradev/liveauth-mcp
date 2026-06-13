@@ -65,6 +65,13 @@ public class L402Bundle
     /// </summary>
     public long AmountSats { get; set; }
 
+    public long BaseAmountSats { get; set; }
+    public int MarkupBasisPoints { get; set; }
+    public long MarkupMinimumFeeSats { get; set; }
+    public long MarkupSats { get; set; }
+    public long TotalChargedSats { get; set; }
+    public long CreditAmountSats { get; set; }
+
     /// <summary>
     /// pending → paid → active → expired | depleted
     /// </summary>

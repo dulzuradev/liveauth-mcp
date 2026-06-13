@@ -17,6 +17,12 @@ public class McpGateSession
 
     public string? LightningInvoice { get; set; }
     public string? LightningPaymentHash { get; set; }
+    public long LightningBaseAmountSats { get; set; }
+    public int LightningInvoiceFeeBasisPoints { get; set; }
+    public long LightningInvoiceFeeMinimumSats { get; set; }
+    public long LightningInvoiceFeeSats { get; set; }
+    public long LightningTotalChargedSats { get; set; }
+    public long LightningCreditAmountSats { get; set; }
 
     // Budgeting / charging
     public int SatsPerCallAtStart { get; set; }

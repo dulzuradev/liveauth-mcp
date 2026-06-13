@@ -16,6 +16,12 @@ public sealed class PublicStartAuthResponse
     public Guid SessionId { get; set; }
     public string? Invoice { get; set; }        // BOLT11, null in TEST
     public long AmountSats { get; set; }
+    public long BaseAmountSats { get; set; }
+    public int InvoiceFeeBasisPoints { get; set; }
+    public long InvoiceFeeMinimumSats { get; set; }
+    public long InvoiceFeeSats { get; set; }
+    public long TotalChargedSats { get; set; }
+    public long CreditAmountSats { get; set; }
     public long ExpiresAtUnix { get; set; }
     public string Mode { get; set; } = "TEST";  // "TEST" | "LIVE"
 }
@@ -64,6 +70,12 @@ public class PublicAuthStartResponse
     // Only populated when PaymentRequired = true
     public string? Invoice { get; set; }        // BOLT11
     public long AmountSats { get; set; }
+    public long BaseAmountSats { get; set; }
+    public int InvoiceFeeBasisPoints { get; set; }
+    public long InvoiceFeeMinimumSats { get; set; }
+    public long InvoiceFeeSats { get; set; }
+    public long TotalChargedSats { get; set; }
+    public long CreditAmountSats { get; set; }
     public long ExpiresAtUnix { get; set; }
 
     // For UI:

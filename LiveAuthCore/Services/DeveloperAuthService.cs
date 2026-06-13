@@ -10,12 +10,18 @@ public class DeveloperAuthService
     private readonly LiveAuthDbContext _db;
     private readonly LightningService _ln;
     private readonly IConfiguration _cfg;
+    private readonly LightningFeeSettingsService _feeSettings;
 
-    public DeveloperAuthService(LiveAuthDbContext db, LightningService ln, IConfiguration cfg)
+    public DeveloperAuthService(
+        LiveAuthDbContext db,
+        LightningService ln,
+        IConfiguration cfg,
+        LightningFeeSettingsService feeSettings)
     {
         _db = db;
         _ln = ln;
         _cfg = cfg;
+        _feeSettings = feeSettings;
     }
 
     public async Task<DeveloperLoginSession> StartLoginAsync(string email, long amountSats = 1)
@@ -35,9 +41,16 @@ public class DeveloperAuthService
         var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
         var memo = $"LiveAuth Developer Login - {email} - nonce:{nonce}";
 
+        var settings = await _feeSettings.GetCurrentAsync();
+        var invoiceFeeSats = BasisPointFeeMath.CalculateFeeSats(
+            amountSats,
+            settings.InvoiceFeeBasisPoints,
+            settings.InvoiceMinimumFeeSats);
+        var totalChargedSats = amountSats + invoiceFeeSats;
+
         var inv = await _ln.CreateInvoice(
             userId: dev.Id.ToString(),
-            amountSats: amountSats,
+            amountSats: totalChargedSats,
             memo: memo
         );
 
@@ -45,7 +58,13 @@ public class DeveloperAuthService
         {
             DeveloperId = dev.Id,
             DeveloperEmail = email,
-            AmountSats = amountSats,
+            AmountSats = totalChargedSats,
+            BaseAmountSats = amountSats,
+            InvoiceFeeBasisPoints = settings.InvoiceFeeBasisPoints,
+            InvoiceFeeMinimumSats = settings.InvoiceMinimumFeeSats,
+            InvoiceFeeSats = invoiceFeeSats,
+            TotalChargedSats = totalChargedSats,
+            CreditAmountSats = amountSats,
             PaymentHashB64 = inv.RHash,
             Invoice = inv.PaymentRequest,
             ExpiresAt = DateTime.UtcNow.AddMinutes(10)

@@ -86,12 +86,20 @@ curl -X POST https://api.liveauth.app/api/public/l402/bundle/invoice \
   "bundleId": "bundle_starter_a1b2c3d4e5f6",
   "invoice": "lnbc1p...",
   "paymentHash": "abc123...",
-  "amountSats": 50,
+  "amountSats": 57,
+  "baseAmountSats": 50,
+  "markupBasisPoints": 1500,
+  "markupMinimumFeeSats": 1,
+  "markupSats": 7,
+  "totalChargedSats": 57,
+  "creditAmountSats": 50,
   "expiresAtUnix": 1745032800,
   "tier": "starter",
   "totalCalls": 100
 }
 ```
+
+`baseAmountSats` is the bundle value that grants calls. `markupSats` is LiveAuth revenue and is included in the invoice total; it does not grant extra calls or credits. With default settings LiveAuth charges 15% on bundle purchases, minimum 1 sat. If bundle markup bps is configured as 0, the minimum does not apply.
 
 **Pay the invoice** (any Lightning wallet), then:
 
@@ -287,7 +295,7 @@ The signed receipt is derived from the persisted revenue event, so it is stable 
 }
 ```
 
-The v1 platform fee is 500 basis points (5%), with a 1 sat minimum fee whenever gross sats are positive.
+The v1 platform fee is 500 basis points (5%), minimum 1 sat whenever gross sats are positive. Lightning auth invoices are separate and default to 2%, minimum 1 sat. L402 bundle purchases default to a 15% markup, minimum 1 sat, included in the bundle invoice total.
 
 If the registered tool has a `webhookUrl`, every successful new paid call also queues a `liveauth.mcp.tool.paid_call` webhook to that URL. If the tool does not have its own webhook URL, LiveAuth falls back to the project's webhook URL. The payload includes the tool identity, gross/platform/net sats, revenue event ID, metadata, and the signed receipt. Idempotent retries return the original charge without queuing a duplicate paid-call webhook.
 
@@ -374,6 +382,8 @@ curl "https://api.liveauth.app/api/public/l402/bundle/status?bundleId=bundle_sta
 | Growth | 1,000 | 400 sats | 0.4 sat/call |
 | Scale | 10,000 | 3,000 sats | 0.3 sat/call |
 | Enterprise | 100,000 | 20,000 sats | 0.2 sat/call |
+
+The listed tier price is the base bundle value used for calls. The invoice may be higher when bundle markup is enabled; the buyer still receives the listed calls.
 
 ---
 

@@ -3,7 +3,7 @@ import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { catchError, forkJoin, interval, of, startWith, Subject, switchMap, takeUntil } from 'rxjs';
-import { AdminAnalyticsService } from '../../services/admin-analytics';
+import { AdminAnalyticsService, LightningFeeSettingsResponse } from '../../services/admin-analytics';
 import { AdminAuthService } from '../../services/admin-auth';
 import {
   AdminAnalyticsOverviewResponse,
@@ -53,6 +53,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   projectUsage: AdminProjectUsageDto[] = [];
   subscriptions: AdminSubscriptionDto[] = [];
   authEvents: AdminAuthEventDto[] = [];
+  lightningFees?: LightningFeeSettingsResponse;
+  feeForm = {
+    invoiceFeeBasisPoints: 200,
+    invoiceMinimumFeeSats: 1,
+    bundleMarkupBasisPoints: 1500,
+    bundleMarkupMinimumFeeSats: 1
+  };
+  savingFees = false;
+  feeMessage = '';
 
   projectSearch = '';
   subscriptionSearch = '';
@@ -210,6 +219,28 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.downloadCSV(data, tableType);
   }
 
+  saveFeeSettings(): void {
+    this.savingFees = true;
+    this.feeMessage = '';
+
+    this.analytics.updateLightningFeeSettings({
+      invoiceFeeBasisPoints: Math.max(0, Number(this.feeForm.invoiceFeeBasisPoints) || 0),
+      invoiceMinimumFeeSats: Math.max(0, Number(this.feeForm.invoiceMinimumFeeSats) || 0),
+      bundleMarkupBasisPoints: Math.max(0, Number(this.feeForm.bundleMarkupBasisPoints) || 0),
+      bundleMarkupMinimumFeeSats: Math.max(0, Number(this.feeForm.bundleMarkupMinimumFeeSats) || 0)
+    }).subscribe({
+      next: settings => {
+        this.applyFeeSettings(settings);
+        this.savingFees = false;
+        this.feeMessage = 'Fee settings saved.';
+      },
+      error: () => {
+        this.savingFees = false;
+        this.feeMessage = 'Failed to save fee settings.';
+      }
+    });
+  }
+
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
@@ -227,7 +258,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           return forkJoin({
             overview: this.analytics.getOverview(this.windowHours),
             projects: this.analytics.getProjects(this.windowHours),
-            subscriptions: this.analytics.getSubscriptions()
+            subscriptions: this.analytics.getSubscriptions(),
+            lightningFees: this.analytics.getLightningFeeSettings()
           }).pipe(
             catchError(() => {
               this.error = 'Failed to load admin analytics. Check the API, token, and selected time window.';
@@ -242,6 +274,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           this.data = result.overview;
           this.projectUsage = result.projects;
           this.subscriptions = result.subscriptions;
+          this.applyFeeSettings(result.lightningFees);
           this.authEvents = result.overview.recentEvents ?? [];
           this.reconcileSelectedProject();
         }
@@ -257,6 +290,16 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   private percent(value: number, total: number): number {
     return total > 0 ? Number(((value / total) * 100).toFixed(1)) : 0;
+  }
+
+  private applyFeeSettings(settings: LightningFeeSettingsResponse): void {
+    this.lightningFees = settings;
+    this.feeForm = {
+      invoiceFeeBasisPoints: settings.invoiceFeeBasisPoints,
+      invoiceMinimumFeeSats: settings.invoiceMinimumFeeSats,
+      bundleMarkupBasisPoints: settings.bundleMarkupBasisPoints,
+      bundleMarkupMinimumFeeSats: settings.bundleMarkupMinimumFeeSats
+    };
   }
 
   private normalizeSearch(value: string): string {

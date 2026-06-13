@@ -17,6 +17,12 @@ public class DeveloperLoginSession
     public string DeveloperEmail { get; set; } = string.Empty;
 
     public long AmountSats { get; set; } = 1;
+    public long BaseAmountSats { get; set; }
+    public int InvoiceFeeBasisPoints { get; set; }
+    public long InvoiceFeeMinimumSats { get; set; }
+    public long InvoiceFeeSats { get; set; }
+    public long TotalChargedSats { get; set; }
+    public long CreditAmountSats { get; set; }
     public string PaymentHashB64 { get; set; } = string.Empty;
     public string Invoice { get; set; } = string.Empty;
 

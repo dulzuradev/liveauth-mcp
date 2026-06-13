@@ -11,5 +11,11 @@ public record McpInvoice(
     string? Bolt11,
     long AmountSats,
     long ExpiresAtUnix,
-    string? PaymentHash
+    string? PaymentHash,
+    long BaseAmountSats = 0,
+    int InvoiceFeeBasisPoints = 0,
+    long InvoiceFeeMinimumSats = 0,
+    long InvoiceFeeSats = 0,
+    long TotalChargedSats = 0,
+    long CreditAmountSats = 0
 );

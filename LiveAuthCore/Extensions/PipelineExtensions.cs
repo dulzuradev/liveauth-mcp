@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using LiveAuthCore.Auth;
 using LiveAuthCore.Data;
+using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Middleware;
+using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,6 +24,7 @@ public static class PipelineExtensions
 
         if (!db.Database.IsRelational())
         {
+            await SeedLightningFeeSettingsAsync(db, app.Configuration);
             await SeedFirstPartyMcpToolsAsync(db, app.Configuration);
             return;
         }
@@ -37,6 +40,7 @@ public static class PipelineExtensions
         // Run column migrations separately (ALTER TABLE is not idempotent in SQLite)
         await RunColumnMigrationsAsync(connection);
 
+        await SeedLightningFeeSettingsAsync(db, app.Configuration);
         await SeedFirstPartyMcpToolsAsync(db, app.Configuration);
     }
 
@@ -49,9 +53,57 @@ public static class PipelineExtensions
         await EnsureColumnAsync(connection, "Projects", "McpMaxCallsPerMinute", "INTEGER NOT NULL DEFAULT 60");
         await EnsureColumnAsync(connection, "WebhookEvents", "DestinationUrl", "TEXT");
 
-        // Add remaining table creations from GetSqliteMigrations that need separate handling
-        // (CREATE TABLE IF NOT EXISTS is already in the SQL; these just need table-check guard)
         await RunTableMigrationsAsync(connection);
+
+        await EnsureColumnAsync(connection, "AuthSessions", "BaseAmountSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "AuthSessions", "InvoiceFeeBasisPoints", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "AuthSessions", "InvoiceFeeMinimumSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "AuthSessions", "InvoiceFeeSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "AuthSessions", "TotalChargedSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "AuthSessions", "CreditAmountSats", "INTEGER NOT NULL DEFAULT 0");
+
+        await EnsureColumnAsync(connection, "VerificationSessions", "BaseAmountSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "VerificationSessions", "InvoiceFeeBasisPoints", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "VerificationSessions", "InvoiceFeeMinimumSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "VerificationSessions", "InvoiceFeeSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "VerificationSessions", "TotalChargedSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "VerificationSessions", "CreditAmountSats", "INTEGER NOT NULL DEFAULT 0");
+
+        await EnsureColumnAsync(connection, "DevLoginSessions", "BaseAmountSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "DevLoginSessions", "InvoiceFeeBasisPoints", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "DevLoginSessions", "InvoiceFeeMinimumSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "DevLoginSessions", "InvoiceFeeSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "DevLoginSessions", "TotalChargedSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "DevLoginSessions", "CreditAmountSats", "INTEGER NOT NULL DEFAULT 0");
+
+        await EnsureColumnAsync(connection, "DeveloperLoginSessions", "BaseAmountSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "DeveloperLoginSessions", "InvoiceFeeBasisPoints", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "DeveloperLoginSessions", "InvoiceFeeMinimumSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "DeveloperLoginSessions", "InvoiceFeeSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "DeveloperLoginSessions", "TotalChargedSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "DeveloperLoginSessions", "CreditAmountSats", "INTEGER NOT NULL DEFAULT 0");
+
+        await EnsureColumnAsync(connection, "McpGateSessions", "LightningBaseAmountSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "McpGateSessions", "LightningInvoiceFeeBasisPoints", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "McpGateSessions", "LightningInvoiceFeeMinimumSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "McpGateSessions", "LightningInvoiceFeeSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "McpGateSessions", "LightningTotalChargedSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "McpGateSessions", "LightningCreditAmountSats", "INTEGER NOT NULL DEFAULT 0");
+
+        await EnsureColumnAsync(connection, "L402Purchases", "BaseAmountSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "L402Purchases", "InvoiceFeeBasisPoints", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "L402Purchases", "InvoiceFeeMinimumSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "L402Purchases", "InvoiceFeeSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "L402Purchases", "TotalChargedSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "L402Purchases", "CreditAmountSats", "INTEGER NOT NULL DEFAULT 0");
+
+        await EnsureColumnAsync(connection, "L402Bundles", "BaseAmountSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "L402Bundles", "MarkupBasisPoints", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "L402Bundles", "MarkupMinimumFeeSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "L402Bundles", "MarkupSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "L402Bundles", "TotalChargedSats", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "L402Bundles", "CreditAmountSats", "INTEGER NOT NULL DEFAULT 0");
+
     }
 
     private static async Task EnsureColumnAsync(
@@ -60,6 +112,12 @@ public static class PipelineExtensions
         string columnName,
         string definition)
     {
+        using var tableCheck = connection.CreateCommand();
+        tableCheck.CommandText = $"SELECT name FROM sqlite_master WHERE type='table' AND name='{tableName}' LIMIT 1";
+        var tableExists = await tableCheck.ExecuteScalarAsync();
+        if (tableExists == null)
+            return;
+
         using var checkCmd = connection.CreateCommand();
         checkCmd.CommandText = $"SELECT 1 FROM pragma_table_info('{tableName}') WHERE name='{columnName}' LIMIT 1";
         var exists = await checkCmd.ExecuteScalarAsync();
@@ -73,6 +131,39 @@ public static class PipelineExtensions
 
     private static async Task RunTableMigrationsAsync(System.Data.Common.DbConnection connection)
     {
+        await EnsureTableAsync(connection, "LightningFeeSettings", @"
+            CREATE TABLE LightningFeeSettings (
+                Id INTEGER NOT NULL PRIMARY KEY,
+                InvoiceFeeBasisPoints INTEGER NOT NULL,
+                InvoiceMinimumFeeSats INTEGER NOT NULL,
+                BundleMarkupBasisPoints INTEGER NOT NULL,
+                BundleMarkupMinimumFeeSats INTEGER NOT NULL,
+                CreatedAt TEXT NOT NULL,
+                UpdatedAt TEXT NOT NULL
+            )"
+        );
+
+        await EnsureTableAsync(connection, "L402Purchases", @"
+            CREATE TABLE L402Purchases (
+                Id TEXT NOT NULL PRIMARY KEY,
+                ProjectId TEXT NOT NULL,
+                DeveloperId TEXT NOT NULL,
+                AmountSats INTEGER NOT NULL,
+                BaseAmountSats INTEGER NOT NULL DEFAULT 0,
+                InvoiceFeeBasisPoints INTEGER NOT NULL DEFAULT 0,
+                InvoiceFeeMinimumSats INTEGER NOT NULL DEFAULT 0,
+                InvoiceFeeSats INTEGER NOT NULL DEFAULT 0,
+                TotalChargedSats INTEGER NOT NULL DEFAULT 0,
+                CreditAmountSats INTEGER NOT NULL DEFAULT 0,
+                InvoiceId TEXT NOT NULL,
+                Bolt11 TEXT NOT NULL,
+                ExpiresAtUnix INTEGER NOT NULL,
+                Status TEXT NOT NULL,
+                CreatedAt TEXT NOT NULL,
+                SettledAt TEXT
+            )"
+        );
+
         // L402Bundles — check via pragma
         await EnsureTableAsync(connection, "L402Bundles", @"
             CREATE TABLE L402Bundles (
@@ -88,6 +179,12 @@ public static class PipelineExtensions
                 PaymentHash TEXT,
                 Bolt11 TEXT,
                 AmountSats INTEGER NOT NULL,
+                BaseAmountSats INTEGER NOT NULL DEFAULT 0,
+                MarkupBasisPoints INTEGER NOT NULL DEFAULT 0,
+                MarkupMinimumFeeSats INTEGER NOT NULL DEFAULT 0,
+                MarkupSats INTEGER NOT NULL DEFAULT 0,
+                TotalChargedSats INTEGER NOT NULL DEFAULT 0,
+                CreditAmountSats INTEGER NOT NULL DEFAULT 0,
                 Status TEXT NOT NULL,
                 AgentId TEXT
             )"
@@ -207,6 +304,28 @@ public static class PipelineExtensions
         using var create = connection.CreateCommand();
         create.CommandText = createSql;
         await create.ExecuteNonQueryAsync();
+    }
+
+    private static async Task SeedLightningFeeSettingsAsync(LiveAuthDbContext db, IConfiguration configuration)
+    {
+        if (await db.LightningFeeSettings.AnyAsync(s => s.Id == LightningFeeSettingsService.SettingsRowId))
+            return;
+
+        var snapshot = LightningFeeSettingsService.GetFallbackSnapshot(configuration);
+        var now = DateTime.UtcNow;
+
+        db.LightningFeeSettings.Add(new LightningFeeSettings
+        {
+            Id = LightningFeeSettingsService.SettingsRowId,
+            InvoiceFeeBasisPoints = snapshot.InvoiceFeeBasisPoints,
+            InvoiceMinimumFeeSats = snapshot.InvoiceMinimumFeeSats,
+            BundleMarkupBasisPoints = snapshot.BundleMarkupBasisPoints,
+            BundleMarkupMinimumFeeSats = snapshot.BundleMarkupMinimumFeeSats,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+
+        await db.SaveChangesAsync();
     }
 
     private static async Task SeedFirstPartyMcpToolsAsync(LiveAuthDbContext db, IConfiguration configuration)

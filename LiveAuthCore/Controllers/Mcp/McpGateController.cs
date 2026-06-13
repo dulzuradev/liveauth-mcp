@@ -29,6 +29,7 @@ public class McpGateController : ControllerBase
     private readonly L402Service _l402;
     private readonly McpReceiptService _receiptService;
     private readonly WebhookService _webhooks;
+    private readonly LightningFeeSettingsService _feeSettings;
 
     public McpGateController(
         LiveAuthDbContext db,
@@ -41,7 +42,8 @@ public class McpGateController : ControllerBase
         ILogger<McpGateController> logger,
         L402Service l402,
         McpReceiptService receiptService,
-        WebhookService webhooks)
+        WebhookService webhooks,
+        LightningFeeSettingsService feeSettings)
     {
         _db = db;
         _lightning = lightning;
@@ -54,6 +56,7 @@ public class McpGateController : ControllerBase
         _l402 = l402;
         _receiptService = receiptService;
         _webhooks = webhooks;
+        _feeSettings = feeSettings;
     }
 
     private Project? GetProject()
@@ -168,10 +171,16 @@ public class McpGateController : ControllerBase
         {
             // Generate Lightning invoice
             var satsAmount = mcpConfig.SatsPerCall * mcpConfig.InvoiceCallCredits;
+            var settings = await _feeSettings.GetCurrentAsync(ct);
+            var invoiceFeeSats = BasisPointFeeMath.CalculateFeeSats(
+                satsAmount,
+                settings.InvoiceFeeBasisPoints,
+                settings.InvoiceMinimumFeeSats);
+            var totalChargedSats = satsAmount + invoiceFeeSats;
             
             var invoiceResult = await _lightning.CreateLoginInvoiceAsync(
                 $"mcp:{project.Id}",
-                satsAmount,
+                totalChargedSats,
                 10,
                 project
             );
@@ -181,6 +190,12 @@ public class McpGateController : ControllerBase
                 ProjectId = project.Id,
                 LightningInvoice = invoiceResult.Bolt11,
                 LightningPaymentHash = invoiceResult.InvoiceId,
+                LightningBaseAmountSats = satsAmount,
+                LightningInvoiceFeeBasisPoints = settings.InvoiceFeeBasisPoints,
+                LightningInvoiceFeeMinimumSats = settings.InvoiceMinimumFeeSats,
+                LightningInvoiceFeeSats = invoiceFeeSats,
+                LightningTotalChargedSats = totalChargedSats,
+                LightningCreditAmountSats = satsAmount,
                 SatsPerCallAtStart = mcpConfig.SatsPerCall,
                 Status = "pending",
                 CreatedAt = DateTime.UtcNow,
@@ -191,7 +206,13 @@ public class McpGateController : ControllerBase
                 Bolt11: invoiceResult.Bolt11,
                 AmountSats: invoiceResult.AmountSats,
                 ExpiresAtUnix: invoiceResult.ExpiresAtUnix,
-                PaymentHash: invoiceResult.InvoiceId
+                PaymentHash: invoiceResult.InvoiceId,
+                BaseAmountSats: satsAmount,
+                InvoiceFeeBasisPoints: settings.InvoiceFeeBasisPoints,
+                InvoiceFeeMinimumSats: settings.InvoiceMinimumFeeSats,
+                InvoiceFeeSats: invoiceFeeSats,
+                TotalChargedSats: totalChargedSats,
+                CreditAmountSats: satsAmount
             );
         }
         else
@@ -387,7 +408,9 @@ public class McpGateController : ControllerBase
                 CallsUsed = 0,
                 SatsUsed = 0,
                 MaxCallsPerMinute = mcpConfig.MaxCallsPerMinute,
-                MaxSatsPerDay = session.SatsPerCallAtStart * mcpConfig.InvoiceCallCredits,
+                MaxSatsPerDay = session.LightningCreditAmountSats > 0
+                    ? session.LightningCreditAmountSats
+                    : session.SatsPerCallAtStart * mcpConfig.InvoiceCallCredits,
                 DayWindowStart = DateTime.UtcNow.Date,
                 Status = "active"
             };
@@ -1016,10 +1039,11 @@ public class McpGateController : ControllerBase
 
     private static (int PlatformFeeSats, int NetSats, int FeeBasisPoints) CalculatePlatformFee(int grossSats)
     {
-        const int feeBasisPoints = 500;
-        var platformFeeSats = grossSats > 0
-            ? Math.Max(1, grossSats * feeBasisPoints / 10_000)
-            : 0;
+        const int feeBasisPoints = LightningFeeSettingsService.McpPaidToolFeeBasisPoints;
+        var platformFeeSats = (int)BasisPointFeeMath.CalculateFeeSats(
+            grossSats,
+            feeBasisPoints,
+            LightningFeeSettingsService.McpPaidToolMinimumFeeSats);
 
         return (platformFeeSats, grossSats - platformFeeSats, feeBasisPoints);
     }

@@ -247,6 +247,16 @@ export interface McpToolRevenueEventsResponse {
   events: McpToolRevenueEventDto[];
 }
 
+export interface LightningFeeSettingsResponse {
+  invoiceFeeBasisPoints: number;
+  invoiceMinimumFeeSats: number;
+  bundleMarkupBasisPoints: number;
+  bundleMarkupMinimumFeeSats: number;
+  mcpPaidToolFeeBasisPoints: number;
+  mcpPaidToolMinimumFeeSats: number;
+  updatedAt?: string | null;
+}
+
 export interface McpChargeResponse {
   status: string;
   callsUsed: number;
@@ -513,6 +523,13 @@ export class DeveloperProjectsService {
   listMcpTools(): Observable<McpToolListResponse> {
     return this.http.get<McpToolListResponse>(
       `${this.baseUrl}/api/dev/mcp-tools`,
+      this.devAuth.authHeaders()
+    );
+  }
+
+  getLightningFeeSettings(): Observable<LightningFeeSettingsResponse> {
+    return this.http.get<LightningFeeSettingsResponse>(
+      `${this.baseUrl}/api/dev/settings/lightning-fees`,
       this.devAuth.authHeaders()
     );
   }

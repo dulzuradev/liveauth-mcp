@@ -47,6 +47,12 @@ public class AuthController : ControllerBase
             Invoice = session.Invoice,
             PaymentHash = session.PaymentHashB64,
             AmountSats = session.AmountSats,
+            BaseAmountSats = session.BaseAmountSats,
+            InvoiceFeeBasisPoints = session.InvoiceFeeBasisPoints,
+            InvoiceFeeMinimumSats = session.InvoiceFeeMinimumSats,
+            InvoiceFeeSats = session.InvoiceFeeSats,
+            TotalChargedSats = session.TotalChargedSats,
+            CreditAmountSats = session.CreditAmountSats,
             ExpiresAtUnix = new DateTimeOffset(session.ExpiresAt).ToUnixTimeSeconds()
         });
     }

@@ -25,6 +25,7 @@ public class LiveAuthDbContext : DbContext
     public DbSet<AuthSession> AuthSessions => Set<AuthSession>();
     public DbSet<AuthEvent> AuthEvents => Set<AuthEvent>();
     public DbSet<McpProxy> McpProxies => Set<McpProxy>();
+    public DbSet<LightningFeeSettings> LightningFeeSettings => Set<LightningFeeSettings>();
     
     public DbSet<BillingSubscription> BillingSubscriptions => Set<BillingSubscription>();
     public DbSet<AdminLoginSession> AdminLoginSessions => Set<AdminLoginSession>();

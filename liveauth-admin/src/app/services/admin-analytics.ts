@@ -13,6 +13,23 @@ import {
 } from '../admin-analytics.models';
 import { AdminAuthService } from './admin-auth';
 
+export interface LightningFeeSettingsResponse {
+  invoiceFeeBasisPoints: number;
+  invoiceMinimumFeeSats: number;
+  bundleMarkupBasisPoints: number;
+  bundleMarkupMinimumFeeSats: number;
+  mcpPaidToolFeeBasisPoints: number;
+  mcpPaidToolMinimumFeeSats: number;
+  updatedAt?: string | null;
+}
+
+export interface UpdateLightningFeeSettingsRequest {
+  invoiceFeeBasisPoints: number;
+  invoiceMinimumFeeSats: number;
+  bundleMarkupBasisPoints: number;
+  bundleMarkupMinimumFeeSats: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminAnalyticsService {
   private baseUrl = 'https://api.liveauth.app';
@@ -156,6 +173,23 @@ export class AdminAnalyticsService {
   getUser(id: string): Observable<AdminUserDetailResponse> {
     return this.http.get<AdminUserDetailResponse>(
       `${this.baseUrl}/api/admin/users/${id}`,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  getLightningFeeSettings(): Observable<LightningFeeSettingsResponse> {
+    return this.http.get<LightningFeeSettingsResponse>(
+      `${this.baseUrl}/api/admin/settings/lightning-fees`,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  updateLightningFeeSettings(
+    request: UpdateLightningFeeSettingsRequest
+  ): Observable<LightningFeeSettingsResponse> {
+    return this.http.put<LightningFeeSettingsResponse>(
+      `${this.baseUrl}/api/admin/settings/lightning-fees`,
+      request,
       { headers: this.getAuthHeaders() }
     );
   }

@@ -31,19 +31,22 @@ public class DevAuthController : ControllerBase
     private readonly IConfiguration _config;
     private readonly AuthEventService _authEvents;
     private readonly EmailService _email;
+    private readonly LightningFeeSettingsService _feeSettings;
 
     public DevAuthController(
         LiveAuthDbContext db,
         LightningService ln,
         IConfiguration config,
         AuthEventService authEvents,
-        EmailService email)
+        EmailService email,
+        LightningFeeSettingsService feeSettings)
     {
         _db = db;
         _ln = ln;
         _config = config;
         _authEvents = authEvents;
         _email = email;
+        _feeSettings = feeSettings;
     }
 
     // POST /api/dev/auth/start
@@ -73,12 +76,19 @@ public class DevAuthController : ControllerBase
         if (expiryMinutes <= 0)
             expiryMinutes = 10;
 
+        var settings = await _feeSettings.GetCurrentAsync(ct);
+        var invoiceFeeSats = BasisPointFeeMath.CalculateFeeSats(
+            amountSats,
+            settings.InvoiceFeeBasisPoints,
+            settings.InvoiceMinimumFeeSats);
+        var totalChargedSats = amountSats + invoiceFeeSats;
+
         // ─────────────────────────────────────────────
         // Create Lightning invoice for the login request
         // (uses real LND, or mock if enabled)
         // ─────────────────────────────────────────────
         var invoiceResult =
-            await _ln.CreateLoginInvoiceAsync(email, amountSats, expiryMinutes);
+            await _ln.CreateLoginInvoiceAsync(email, totalChargedSats, expiryMinutes);
 
         var session = new DevLoginSession
         {
@@ -89,7 +99,13 @@ public class DevAuthController : ControllerBase
             InvoiceId     = invoiceResult.InvoiceId,
             InvoiceBolt11 = invoiceResult.Bolt11,
 
-            AmountSats = amountSats,
+            AmountSats = totalChargedSats,
+            BaseAmountSats = amountSats,
+            InvoiceFeeBasisPoints = settings.InvoiceFeeBasisPoints,
+            InvoiceFeeMinimumSats = settings.InvoiceMinimumFeeSats,
+            InvoiceFeeSats = invoiceFeeSats,
+            TotalChargedSats = totalChargedSats,
+            CreditAmountSats = amountSats,
             ExpiresAt  = DateTime.UtcNow.AddMinutes(expiryMinutes),
             IsPaid     = false
         };
@@ -101,7 +117,13 @@ public class DevAuthController : ControllerBase
         {
             SessionId     = session.Id,
             Invoice       = session.InvoiceBolt11,
-            AmountSats    = amountSats,
+            AmountSats    = totalChargedSats,
+            BaseAmountSats = amountSats,
+            InvoiceFeeBasisPoints = settings.InvoiceFeeBasisPoints,
+            InvoiceFeeMinimumSats = settings.InvoiceMinimumFeeSats,
+            InvoiceFeeSats = invoiceFeeSats,
+            TotalChargedSats = totalChargedSats,
+            CreditAmountSats = amountSats,
             ExpiresAtUnix = new DateTimeOffset(session.ExpiresAt).ToUnixTimeSeconds()
         });
     }

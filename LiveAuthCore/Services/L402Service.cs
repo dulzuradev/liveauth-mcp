@@ -43,16 +43,26 @@ public class L402Service
     /// <summary>
     /// Create an invoice for L402 payment.
     /// </summary>
-    public async Task<L402InvoiceResponse> CreateInvoiceAsync(string? destination, int? amountSats = null, Project? project = null)
+    public async Task<L402InvoiceResponse> CreateInvoiceAsync(
+        string? destination,
+        int? amountSats = null,
+        Project? project = null,
+        LightningFeeSettingsSnapshot? feeSettings = null)
     {
-        var sats = amountSats ?? DefaultSatsPerRequest;
+        var sats = Math.Max(0, amountSats ?? DefaultSatsPerRequest);
+        var settings = feeSettings ?? LightningFeeSettingsService.GetFallbackSnapshot(_config);
+        var feeSats = BasisPointFeeMath.CalculateFeeSats(
+            sats,
+            settings.InvoiceFeeBasisPoints,
+            settings.InvoiceMinimumFeeSats);
+        var totalSats = sats + feeSats;
         var memo = string.IsNullOrEmpty(destination) 
             ? "LiveAuth L402 access" 
             : $"LiveAuth L402 access for {destination}";
         
         var result = await _lightning.CreateLoginInvoiceAsync(
             email: destination ?? "anonymous",
-            amountSats: sats,
+            amountSats: totalSats,
             expiryMinutes: 10, // Invoice expires in 10 min, but token valid for 1hr once paid
             project: project
         );
@@ -63,7 +73,13 @@ public class L402Service
         {
             PaymentHash = result.InvoiceId, // base64 r_hash
             Bolt11 = result.Bolt11,
-            AmountSats = sats,
+            AmountSats = totalSats,
+            BaseAmountSats = sats,
+            InvoiceFeeBasisPoints = settings.InvoiceFeeBasisPoints,
+            InvoiceFeeMinimumSats = settings.InvoiceMinimumFeeSats,
+            InvoiceFeeSats = feeSats,
+            TotalChargedSats = totalSats,
+            CreditAmountSats = sats,
             ExpiresAtUnix = result.ExpiresAtUnix,
             // Token will be derived from preimage once invoice is paid
             Token = null 
@@ -501,7 +517,13 @@ public class L402InvoiceResponse
 {
     public string PaymentHash { get; set; } = string.Empty;
     public string Bolt11 { get; set; } = string.Empty;
-    public int AmountSats { get; set; }
+    public long AmountSats { get; set; }
+    public long BaseAmountSats { get; set; }
+    public int InvoiceFeeBasisPoints { get; set; }
+    public long InvoiceFeeMinimumSats { get; set; }
+    public long InvoiceFeeSats { get; set; }
+    public long TotalChargedSats { get; set; }
+    public long CreditAmountSats { get; set; }
     public long ExpiresAtUnix { get; set; }
     public string? Token { get; set; } // Filled after payment verification
 }

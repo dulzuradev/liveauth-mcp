@@ -15,12 +15,18 @@ public class L402Controller : ControllerBase
     private readonly L402Service _l402;
     private readonly LightningService _lightning;
     private readonly LiveAuthDbContext _db;
+    private readonly LightningFeeSettingsService _feeSettings;
 
-    public L402Controller(L402Service l402, LightningService lightning, LiveAuthDbContext db)
+    public L402Controller(
+        L402Service l402,
+        LightningService lightning,
+        LiveAuthDbContext db,
+        LightningFeeSettingsService feeSettings)
     {
         _l402 = l402;
         _lightning = lightning;
         _db = db;
+        _feeSettings = feeSettings;
     }
 
     /// <summary>
@@ -41,7 +47,8 @@ public class L402Controller : ControllerBase
             if (project == null)
                 return Unauthorized(new { error = "invalid_public_key", message = "A valid active project public key is required." });
 
-            var response = await _l402.CreateInvoiceAsync(destination, amountSats, project);
+            var settings = await _feeSettings.GetCurrentAsync(ct);
+            var response = await _l402.CreateInvoiceAsync(destination, amountSats, project, settings);
             _l402.BindInvoiceToProject(response.PaymentHash, project.Id);
 
             return Ok(new
@@ -49,6 +56,12 @@ public class L402Controller : ControllerBase
                 paymentHash = response.PaymentHash,
                 bolt11 = response.Bolt11,
                 amountSats = response.AmountSats,
+                baseAmountSats = response.BaseAmountSats,
+                invoiceFeeBasisPoints = response.InvoiceFeeBasisPoints,
+                invoiceFeeMinimumSats = response.InvoiceFeeMinimumSats,
+                invoiceFeeSats = response.InvoiceFeeSats,
+                totalChargedSats = response.TotalChargedSats,
+                creditAmountSats = response.CreditAmountSats,
                 expiresAtUnix = response.ExpiresAtUnix,
                 tokenScope = "allowance_scoped_bearer",
                 tokenScopeDescription = "Validated payments issue an L402 bearer token bound to this project and valid for the configured token TTL or call allowance, whichever is exhausted first.",
@@ -169,12 +182,18 @@ public class L402Controller : ControllerBase
         if (!L402BundleTiers.TryGetTier(req.Tier, out var tier))
             return BadRequest(new { error = $"Unknown tier '{req.Tier}'. Valid: starter, growth, scale, enterprise" });
 
+        var settings = await _feeSettings.GetCurrentAsync(ct);
+        var markupSats = BasisPointFeeMath.CalculateFeeSats(
+            tier.PriceSats,
+            settings.BundleMarkupBasisPoints,
+            settings.BundleMarkupMinimumFeeSats);
+        var totalChargedSats = tier.PriceSats + markupSats;
         var bundleId = $"bundle_{req.Tier}_{Guid.NewGuid().ToString("N")[..12]}";
         var memo = $"LiveAuth {tier.Name} bundle — {tier.TotalCalls} calls";
 
         var result = await _lightning.CreateLoginInvoiceAsync(
             email: req.AgentId ?? "bundle-purchase",
-            amountSats: tier.PriceSats,
+            amountSats: totalChargedSats,
             expiryMinutes: 10,
             project: project
         );
@@ -188,7 +207,13 @@ public class L402Controller : ControllerBase
             Tier = tier.Name,
             TotalCalls = tier.TotalCalls,
             RemainingCalls = tier.TotalCalls,
-            AmountSats = tier.PriceSats,
+            AmountSats = totalChargedSats,
+            BaseAmountSats = tier.PriceSats,
+            MarkupBasisPoints = settings.BundleMarkupBasisPoints,
+            MarkupMinimumFeeSats = settings.BundleMarkupMinimumFeeSats,
+            MarkupSats = markupSats,
+            TotalChargedSats = totalChargedSats,
+            CreditAmountSats = tier.PriceSats,
             ExpiresAtUnix = result.ExpiresAtUnix,
             PaymentHash = result.InvoiceId,
             Bolt11 = result.Bolt11,
@@ -205,7 +230,13 @@ public class L402Controller : ControllerBase
             Invoice = result.Bolt11,
             Bolt11 = result.Bolt11,
             PaymentHash = result.InvoiceId,
-            AmountSats = tier.PriceSats,
+            AmountSats = totalChargedSats,
+            BaseAmountSats = tier.PriceSats,
+            MarkupBasisPoints = settings.BundleMarkupBasisPoints,
+            MarkupMinimumFeeSats = settings.BundleMarkupMinimumFeeSats,
+            MarkupSats = markupSats,
+            TotalChargedSats = totalChargedSats,
+            CreditAmountSats = tier.PriceSats,
             ExpiresAtUnix = result.ExpiresAtUnix,
             Tier = tier.Name,
             TotalCalls = tier.TotalCalls

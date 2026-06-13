@@ -19,17 +19,20 @@ public class PublicAuthController : ControllerBase
     private readonly LightningService _lightning;
     private readonly IConfiguration _configuration;
     private readonly WebhookService _webhooks;
+    private readonly LightningFeeSettingsService _feeSettings;
 
     public PublicAuthController(
         LiveAuthDbContext db,
         LightningService lightning,
         IConfiguration configuration,
-        WebhookService webhooks)
+        WebhookService webhooks,
+        LightningFeeSettingsService feeSettings)
     {
         _db = db;
         _lightning = lightning;
         _configuration = configuration;
         _webhooks = webhooks;
+        _feeSettings = feeSettings;
     }
 
     private Project? GetCurrentProject()
@@ -181,21 +184,31 @@ public class PublicAuthController : ControllerBase
             }
         }
 
-        long satsPerLogin = env == "TEST"
+        long baseAmountSats = env == "TEST"
             ? 21
             : (project.SatsPerLogin > 0 ? project.SatsPerLogin : 21L);
 
         var expiryMinutes = 10;
         string? bolt11 = null;
         string? rHashHex = null;
+        var invoiceRequired = (env == "LIVE" && baseAmountSats > 0) ||
+                              (request.UserHint != null && request.UserHint == "demo-user");
+        var settings = await _feeSettings.GetCurrentAsync(ct);
+        var invoiceFeeSats = invoiceRequired
+            ? BasisPointFeeMath.CalculateFeeSats(
+                baseAmountSats,
+                settings.InvoiceFeeBasisPoints,
+                settings.InvoiceMinimumFeeSats)
+            : 0;
+        var totalChargedSats = baseAmountSats + invoiceFeeSats;
 
-        if ((env == "LIVE" && satsPerLogin > 0) || (request.UserHint != null && request.UserHint == "demo-user"))
+        if (invoiceRequired)
         {
             var memo = $"LightningWall login – project {project.Name}";
             // CENTRALIZED: Use new method that returns hex payment hash
             var invoiceResult = await _lightning.CreateInvoiceWithHashAsync(
                 project.Id.ToString(),
-                satsPerLogin,
+                totalChargedSats,
                 memo,
                 60,
                 project);
@@ -210,7 +223,13 @@ public class PublicAuthController : ControllerBase
             ProjectId = project.Id,
             Environment = env,
             UserHint = request.UserHint?.Trim(),
-            AmountSats = satsPerLogin,
+            AmountSats = totalChargedSats,
+            BaseAmountSats = baseAmountSats,
+            InvoiceFeeBasisPoints = invoiceRequired ? settings.InvoiceFeeBasisPoints : 0,
+            InvoiceFeeMinimumSats = invoiceRequired ? settings.InvoiceMinimumFeeSats : 0,
+            InvoiceFeeSats = invoiceFeeSats,
+            TotalChargedSats = totalChargedSats,
+            CreditAmountSats = baseAmountSats,
             InvoiceRHash = rHashHex,
             InvoiceBolt11 = bolt11,
             ExpiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes),
@@ -243,7 +262,13 @@ public class PublicAuthController : ControllerBase
         {
             SessionId = session.Id,
             Invoice = bolt11, // null in TEST
-            AmountSats = satsPerLogin,
+            AmountSats = totalChargedSats,
+            BaseAmountSats = baseAmountSats,
+            InvoiceFeeBasisPoints = invoiceRequired ? settings.InvoiceFeeBasisPoints : 0,
+            InvoiceFeeMinimumSats = invoiceRequired ? settings.InvoiceMinimumFeeSats : 0,
+            InvoiceFeeSats = invoiceFeeSats,
+            TotalChargedSats = totalChargedSats,
+            CreditAmountSats = baseAmountSats,
             ExpiresAtUnix = new DateTimeOffset(session.ExpiresAt).ToUnixTimeSeconds(),
             Mode = env
         });
@@ -468,10 +493,16 @@ public class PublicAuthController : ControllerBase
 
         const long demoSats = 3;
         const int expiryMinutes = 15;
+        var settings = await _feeSettings.GetCurrentAsync(ct);
+        var invoiceFeeSats = BasisPointFeeMath.CalculateFeeSats(
+            demoSats,
+            settings.InvoiceFeeBasisPoints,
+            settings.InvoiceMinimumFeeSats);
+        var totalChargedSats = demoSats + invoiceFeeSats;
 
         var invoice = await _lightning.CreateLoginInvoiceAsync(
             "demo@liveauth.app",
-            demoSats,
+            totalChargedSats,
             expiryMinutes);
 
         var session = new AuthSession
@@ -479,7 +510,13 @@ public class PublicAuthController : ControllerBase
             Id = Guid.NewGuid(),
             ProjectId = project.Id,
             Environment = "DEMO",
-            AmountSats = demoSats,
+            AmountSats = totalChargedSats,
+            BaseAmountSats = demoSats,
+            InvoiceFeeBasisPoints = settings.InvoiceFeeBasisPoints,
+            InvoiceFeeMinimumSats = settings.InvoiceMinimumFeeSats,
+            InvoiceFeeSats = invoiceFeeSats,
+            TotalChargedSats = totalChargedSats,
+            CreditAmountSats = demoSats,
             InvoiceRHash = invoice.InvoiceId,
             InvoiceBolt11 = invoice.Bolt11,
             ExpiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes),
@@ -509,7 +546,13 @@ public class PublicAuthController : ControllerBase
         {
             SessionId = session.Id,
             Invoice = invoice.Bolt11,
-            AmountSats = demoSats,
+            AmountSats = totalChargedSats,
+            BaseAmountSats = demoSats,
+            InvoiceFeeBasisPoints = settings.InvoiceFeeBasisPoints,
+            InvoiceFeeMinimumSats = settings.InvoiceMinimumFeeSats,
+            InvoiceFeeSats = invoiceFeeSats,
+            TotalChargedSats = totalChargedSats,
+            CreditAmountSats = demoSats,
             ExpiresAtUnix = invoice.ExpiresAtUnix,
             Mode = "DEMO"
         });
@@ -591,6 +634,12 @@ public class PublicAuthController : ControllerBase
             satsPaid,
             reason,
             paidAt = session.PaidAt,
+            baseAmountSats = GetAuthBaseAmount(session),
+            invoiceFeeBasisPoints = session.InvoiceFeeBasisPoints,
+            invoiceFeeMinimumSats = session.InvoiceFeeMinimumSats,
+            invoiceFeeSats = session.InvoiceFeeSats,
+            totalChargedSats = GetAuthTotalCharged(session),
+            creditAmountSats = GetAuthCreditAmount(session),
             clientIp = session.ClientIp,
             createdAt = DateTime.UtcNow
         };
@@ -617,4 +666,13 @@ public class PublicAuthController : ControllerBase
             expiresUtc: DateTime.UtcNow.AddMinutes(30)
         );
     }
+
+    private static long GetAuthBaseAmount(AuthSession session)
+        => session.BaseAmountSats > 0 ? session.BaseAmountSats : session.AmountSats;
+
+    private static long GetAuthCreditAmount(AuthSession session)
+        => session.CreditAmountSats > 0 ? session.CreditAmountSats : GetAuthBaseAmount(session);
+
+    private static long GetAuthTotalCharged(AuthSession session)
+        => session.TotalChargedSats > 0 ? session.TotalChargedSats : session.AmountSats;
 }

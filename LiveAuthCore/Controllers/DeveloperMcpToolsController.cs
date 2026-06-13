@@ -666,10 +666,11 @@ public class DeveloperMcpToolsController : ControllerBase
 
     private static (int PlatformFeeSats, int NetSats, int FeeBasisPoints) CalculatePlatformFee(int grossSats)
     {
-        const int feeBasisPoints = 500;
-        var platformFeeSats = grossSats > 0
-            ? Math.Max(1, grossSats * feeBasisPoints / 10_000)
-            : 0;
+        const int feeBasisPoints = LightningFeeSettingsService.McpPaidToolFeeBasisPoints;
+        var platformFeeSats = (int)BasisPointFeeMath.CalculateFeeSats(
+            grossSats,
+            feeBasisPoints,
+            LightningFeeSettingsService.McpPaidToolMinimumFeeSats);
 
         return (platformFeeSats, grossSats - platformFeeSats, feeBasisPoints);
     }

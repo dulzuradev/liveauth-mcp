@@ -210,6 +210,54 @@
   padding: 16px;
 }
 
+.fee-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fee-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.fee-settings-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.fee-settings-grid input {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+}
+
+.fee-settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.fee-message {
+  margin: 0;
+  color: var(--orange);
+  font-size: 0.86rem;
+}
+
 .funnel {
   display: grid;
   grid-template-columns: repeat(5, minmax(120px, 1fr));

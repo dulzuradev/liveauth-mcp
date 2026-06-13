@@ -152,6 +152,8 @@ See it in action at [docs.liveauth.app/demo.html](https://docs.liveauth.app/demo
 
 For AI agent tool calls, use LiveAuth MCP sessions. Agents can authenticate with proof-of-work, Lightning, or an L402 bundle, then your MCP server can meter generic usage with `/api/mcp/charge` or record paid tool revenue with `/api/mcp/tools/{toolId}/charge`. See **Add LiveAuth to MCP Tools** and **MCP Gate Design** in the sidebar.
 
+LiveAuth keeps pricing signals separate from platform fees. Project sats-per-login, MCP sats-per-call, and L402 bundle tiers define auth prices or credits. LiveAuth fees are shown separately: by default 2% on Lightning auth invoices, minimum 1 sat; 15% markup included in L402 bundle purchase invoices, minimum 1 sat; and 5% on paid MCP tool calls, minimum 1 sat.
+
 ---
 
 ## Need Help?

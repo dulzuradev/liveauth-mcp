@@ -12,6 +12,13 @@ public class AuthSession
 
     public long AmountSats { get; set; }
 
+    public long BaseAmountSats { get; set; }
+    public int InvoiceFeeBasisPoints { get; set; }
+    public long InvoiceFeeMinimumSats { get; set; }
+    public long InvoiceFeeSats { get; set; }
+    public long TotalChargedSats { get; set; }
+    public long CreditAmountSats { get; set; }
+
     public string? InvoiceRHash { get; set; }    // base64 r_hash from LND
     public string? InvoiceBolt11 { get; set; }   // payment_request
 
