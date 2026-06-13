@@ -167,7 +167,9 @@ In the developer dashboard, open **MCP Tool Revenue**, choose **Register MCP too
 - Minimum, default, and maximum sats per call.
 - Optional paid-call webhook URL.
 
-The dashboard returns a tool ID and an integration snippet. Use that tool ID as `LIVEAUTH_TOOL_ID`, or use the globally unique slug as `toolName` when you want LiveAuth to resolve pricing through the generic charge endpoint.
+The dashboard returns a tool ID, `createMcpGate` snippets for `toolId` and `toolName`, and curl examples for both charge endpoints. Use the tool ID as `LIVEAUTH_TOOL_ID`, or use the globally unique slug as `toolName` when you want LiveAuth to resolve pricing through the generic charge endpoint.
+
+Before sending real traffic, use **Test Paid Call** in the dashboard. It generates a signed test receipt and queues a `liveauth.mcp.tool.paid_call.test` webhook without creating revenue ledger rows. Tool-level webhook URLs are used first; when no tool URL is set, LiveAuth falls back to the project webhook URL.
 
 You can also register through the developer API:
 

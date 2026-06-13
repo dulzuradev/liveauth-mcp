@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using FluentAssertions;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
@@ -211,7 +212,86 @@ public class DeveloperMcpToolsControllerTests : IClassFixture<LiveAuthWebApplica
             t.GrossSats == 7);
     }
 
-    private async Task<(Guid DeveloperId, Guid ProjectId)> SeedDeveloperProjectAsync()
+    [Fact]
+    public async Task TestCharge_QueuesTestWebhookWithoutRecordingRevenue()
+    {
+        const string projectWebhookUrl = "https://project.example.com/hooks/liveauth";
+        const string toolWebhookUrl = "https://seller.example.com/liveauth/mcp";
+        var seed = await SeedDeveloperProjectAsync(projectWebhookUrl);
+        Authorize(seed.DeveloperId);
+
+        var create = await _client.PostAsJsonAsync("/api/dev/mcp-tools", new
+        {
+            projectId = seed.ProjectId,
+            name = "Dashboard Test Tool",
+            slug = $"dashboard-test-{Guid.NewGuid():N}",
+            description = "Tool for dashboard setup testing",
+            visibility = "Private",
+            status = "Draft",
+            defaultCostSats = 6,
+            minCostSats = 1,
+            maxCostSats = 20,
+            webhookUrl = toolWebhookUrl
+        });
+
+        create.StatusCode.Should().Be(HttpStatusCode.Created);
+        var tool = (await create.Content.ReadFromJsonAsync<McpToolResponse>())!;
+
+        var test = await _client.PostAsJsonAsync($"/api/dev/mcp-tools/{tool.Id}/test-charge", new
+        {
+            projectId = seed.ProjectId,
+            callCostSats = 6,
+            toolMethodName = "dashboard_test",
+            agentId = "agent-test",
+            metadata = new { source = "dashboard" }
+        });
+
+        test.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await test.Content.ReadFromJsonAsync<TestMcpToolChargeResponse>();
+        body.Should().NotBeNull();
+        body!.Charge.Status.Should().Be("ok");
+        body.Charge.GrossSats.Should().Be(6);
+        body.Charge.PlatformFeeSats.Should().Be(1);
+        body.Charge.NetSats.Should().Be(5);
+        body.Charge.Receipt.Should().NotBeNull();
+        body.Charge.Receipt!.Body.Status.Should().Be("Test");
+        body.Charge.Receipt.Body.McpToolId.Should().Be(tool.Id);
+        body.Charge.Receipt.Body.PayingProjectId.Should().Be(seed.ProjectId);
+        body.WebhookQueued.Should().BeTrue();
+        body.WebhookEventId.Should().NotBeNull();
+        var webhookEventId = body.WebhookEventId.GetValueOrDefault();
+        body.WebhookEventType.Should().Be("liveauth.mcp.tool.paid_call.test");
+        body.WebhookDestinationUrl.Should().Be(toolWebhookUrl);
+        body.WebhookStatus.Should().Be("Pending");
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        db.McpToolRevenueEvents.Count(e => e.McpToolId == tool.Id).Should().Be(0);
+
+        var webhook = db.WebhookEvents.Single(e =>
+            e.ProjectId == seed.ProjectId &&
+            e.EventType == "liveauth.mcp.tool.paid_call.test");
+        webhook.Id.Should().Be(webhookEventId);
+        webhook.DestinationUrl.Should().Be(toolWebhookUrl);
+
+        using var payload = JsonDocument.Parse(webhook.PayloadJson);
+        var root = payload.RootElement;
+        root.GetProperty("type").GetString().Should().Be("liveauth.mcp.tool.paid_call.test");
+        root.GetProperty("testMode").GetBoolean().Should().BeTrue();
+        root.GetProperty("mcpToolId").GetString().Should().Be(tool.Id.ToString());
+        root.GetProperty("toolMethodName").GetString().Should().Be("dashboard_test");
+        root.GetProperty("grossSats").GetInt32().Should().Be(6);
+        root.GetProperty("metadata").GetProperty("source").GetString().Should().Be("dashboard");
+        root.GetProperty("receipt").GetProperty("body").GetProperty("status").GetString().Should().Be("Test");
+
+        var summary = await _client.GetFromJsonAsync<McpRevenueSummaryResponse>(
+            $"/api/dev/mcp-tools/{tool.Id}/revenue?windowHours=24");
+        summary.Should().NotBeNull();
+        summary!.Calls.Should().Be(0);
+        summary.GrossSats.Should().Be(0);
+    }
+
+    private async Task<(Guid DeveloperId, Guid ProjectId)> SeedDeveloperProjectAsync(string? projectWebhookUrl = null)
     {
         var developerId = Guid.NewGuid();
         var projectId = Guid.NewGuid();
@@ -234,6 +314,8 @@ public class DeveloperMcpToolsControllerTests : IClassFixture<LiveAuthWebApplica
             PublicKey = $"la_pk_{projectId:N}",
             SecretKeyHash = $"hash_{projectId:N}",
             IsActive = true,
+            WebhookUrl = projectWebhookUrl,
+            WebhookSecret = "test-webhook-secret",
             CreatedAt = DateTime.UtcNow
         });
 
@@ -379,4 +461,44 @@ public class DeveloperMcpToolsControllerTests : IClassFixture<LiveAuthWebApplica
         long NetSats,
         long DeniedCharges,
         double AverageGrossSatsPerCall);
+
+    private sealed record TestMcpToolChargeResponse(
+        TestMcpChargeResponseBody Charge,
+        bool WebhookQueued,
+        Guid? WebhookEventId,
+        string? WebhookEventType,
+        string? WebhookDestinationUrl,
+        string? WebhookStatus,
+        string Message);
+
+    private sealed record TestMcpChargeResponseBody(
+        string Status,
+        long CallsUsed,
+        long SatsUsed,
+        int? GrossSats,
+        int? PlatformFeeSats,
+        int? NetSats,
+        int? FeeBasisPoints,
+        Guid? RevenueEventId,
+        McpSignedReceiptResponse? Receipt,
+        Guid? ToolId,
+        string? ToolName,
+        string? ToolSlug);
+
+    private sealed record McpSignedReceiptResponse(
+        string Version,
+        string Payload,
+        string Signature,
+        string SignatureAlgorithm,
+        string KeyId,
+        McpCallReceiptResponse Body);
+
+    private sealed record McpCallReceiptResponse(
+        Guid RevenueEventId,
+        Guid McpToolId,
+        string ToolName,
+        string ToolSlug,
+        string ToolMethodName,
+        Guid? PayingProjectId,
+        string Status);
 }

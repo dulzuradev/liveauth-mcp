@@ -1,9 +1,11 @@
 using System.Security.Claims;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Data.Entities.Mcp;
 using LiveAuthCore.Models.Mcp;
+using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -33,10 +35,17 @@ public class DeveloperMcpToolsController : ControllerBase
     };
 
     private readonly LiveAuthDbContext _db;
+    private readonly McpReceiptService _receiptService;
+    private readonly WebhookService _webhooks;
 
-    public DeveloperMcpToolsController(LiveAuthDbContext db)
+    public DeveloperMcpToolsController(
+        LiveAuthDbContext db,
+        McpReceiptService receiptService,
+        WebhookService webhooks)
     {
         _db = db;
+        _receiptService = receiptService;
+        _webhooks = webhooks;
     }
 
     private bool IsAdmin() => User.IsInRole("Admin");
@@ -397,6 +406,122 @@ public class DeveloperMcpToolsController : ControllerBase
         ));
     }
 
+    [HttpPost("{id:guid}/test-charge")]
+    public async Task<ActionResult<TestMcpToolChargeResponse>> TestCharge(
+        Guid id,
+        [FromBody] TestMcpToolChargeRequest req,
+        CancellationToken ct = default)
+    {
+        var tool = await FindMutableToolAsync(id, ct);
+        if (tool == null)
+            return NotFound();
+
+        var projectResult = await ResolveProjectForTestChargeAsync(tool, req.ProjectId, ct);
+        if (projectResult.Error != null)
+            return projectResult.Error;
+
+        var project = projectResult.Project!;
+        var callCostSats = req.CallCostSats ?? tool.DefaultCostSats;
+
+        if (callCostSats < tool.MinCostSats)
+            return BadRequest($"callCostSats must be at least {tool.MinCostSats} for this tool");
+
+        if (tool.MaxCostSats > 0 && callCostSats > tool.MaxCostSats)
+            return BadRequest($"callCostSats must be no more than {tool.MaxCostSats} for this tool");
+
+        var fee = CalculatePlatformFee(callCostSats);
+        var methodName = string.IsNullOrWhiteSpace(req.ToolMethodName)
+            ? tool.Slug
+            : req.ToolMethodName.Trim();
+
+        var revenueEvent = new McpToolRevenueEvent
+        {
+            Id = Guid.NewGuid(),
+            McpToolId = tool.Id,
+            PayingProjectId = project.Id,
+            AgentId = TrimOrNull(req.AgentId),
+            ToolMethodName = methodName,
+            GrossSats = callCostSats,
+            PlatformFeeSats = fee.PlatformFeeSats,
+            NetSats = fee.NetSats,
+            FeeBasisPoints = fee.FeeBasisPoints,
+            Status = "Test",
+            RequestId = HttpContext.TraceIdentifier,
+            MetadataJson = req.Metadata.HasValue ? JsonSerializer.Serialize(req.Metadata.Value) : null,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var receipt = _receiptService.CreateReceipt(revenueEvent, tool);
+        var webhookEventType = "liveauth.mcp.tool.paid_call.test";
+        var webhookDestinationUrl = (string.IsNullOrWhiteSpace(tool.WebhookUrl)
+            ? project.WebhookUrl
+            : tool.WebhookUrl)?.Trim();
+
+        Guid? webhookEventId = null;
+        if (!string.IsNullOrWhiteSpace(webhookDestinationUrl))
+        {
+            var payload = new
+            {
+                type = webhookEventType,
+                testMode = true,
+                createdAt = revenueEvent.CreatedAt,
+                projectId = project.Id,
+                payingProjectId = revenueEvent.PayingProjectId,
+                mcpToolId = tool.Id,
+                toolName = tool.Name,
+                toolSlug = tool.Slug,
+                toolMethodName = revenueEvent.ToolMethodName,
+                revenueEventId = revenueEvent.Id,
+                mcpGateTokenId = revenueEvent.McpGateTokenId,
+                mcpGateSessionId = revenueEvent.McpGateSessionId,
+                agentId = revenueEvent.AgentId,
+                grossSats = revenueEvent.GrossSats,
+                platformFeeSats = revenueEvent.PlatformFeeSats,
+                netSats = revenueEvent.NetSats,
+                feeBasisPoints = revenueEvent.FeeBasisPoints,
+                status = revenueEvent.Status,
+                idempotencyKey = revenueEvent.IdempotencyKey,
+                requestId = revenueEvent.RequestId,
+                metadata = DeserializeMetadataJson(revenueEvent.MetadataJson),
+                receipt
+            };
+
+            webhookEventId = await _webhooks.EnqueueAsync(
+                project,
+                webhookEventType,
+                payload,
+                tool.WebhookUrl,
+                ct);
+        }
+
+        var charge = new McpChargeResponse(
+            "ok",
+            CallsUsed: 0,
+            SatsUsed: 0,
+            GrossSats: revenueEvent.GrossSats,
+            PlatformFeeSats: revenueEvent.PlatformFeeSats,
+            NetSats: revenueEvent.NetSats,
+            FeeBasisPoints: revenueEvent.FeeBasisPoints,
+            RevenueEventId: revenueEvent.Id,
+            Receipt: receipt,
+            ToolId: tool.Id,
+            ToolName: tool.Name,
+            ToolSlug: tool.Slug);
+
+        var message = webhookEventId.HasValue
+            ? "Test paid-call receipt generated and webhook queued. No revenue was recorded."
+            : "Test paid-call receipt generated. Configure a tool webhook URL or project webhook URL to queue delivery.";
+
+        return Ok(new TestMcpToolChargeResponse(
+            Charge: charge,
+            WebhookQueued: webhookEventId.HasValue,
+            WebhookEventId: webhookEventId,
+            WebhookEventType: webhookEventId.HasValue ? webhookEventType : null,
+            WebhookDestinationUrl: webhookDestinationUrl,
+            WebhookStatus: webhookEventId.HasValue ? WebhookEventStatus.Pending.ToString() : null,
+            Message: message));
+    }
+
     private async Task<McpTool?> FindAccessibleToolAsync(Guid toolId, CancellationToken ct)
     {
         return await AccessibleTools()
@@ -501,6 +626,67 @@ public class DeveloperMcpToolsController : ControllerBase
 
         var devId = GetDeveloperId();
         return await _db.Projects.AnyAsync(p => p.Id == projectId && p.DeveloperId == devId && !p.IsDeleted, ct);
+    }
+
+    private async Task<(Project? Project, ActionResult? Error)> ResolveProjectForTestChargeAsync(
+        McpTool tool,
+        Guid? requestedProjectId,
+        CancellationToken ct)
+    {
+        var projectId = requestedProjectId ?? tool.ProjectId;
+
+        if (projectId.HasValue)
+        {
+            if (!await CanUseProjectAsync(projectId.Value, ct))
+                return (null, NotFound("Project not found."));
+
+            var project = await _db.Projects
+                .FirstOrDefaultAsync(p => p.Id == projectId.Value && !p.IsDeleted, ct);
+
+            return project == null
+                ? (null, NotFound("Project not found."))
+                : (project, null);
+        }
+
+        var projects = _db.Projects.Where(p => !p.IsDeleted);
+        if (!IsAdmin())
+        {
+            var devId = GetDeveloperId();
+            projects = projects.Where(p => p.DeveloperId == devId);
+        }
+
+        var fallbackProject = await projects
+            .OrderByDescending(p => p.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+
+        return fallbackProject == null
+            ? (null, BadRequest("Create a project before testing a paid MCP tool."))
+            : (fallbackProject, null);
+    }
+
+    private static (int PlatformFeeSats, int NetSats, int FeeBasisPoints) CalculatePlatformFee(int grossSats)
+    {
+        const int feeBasisPoints = 500;
+        var platformFeeSats = grossSats > 0
+            ? Math.Max(1, grossSats * feeBasisPoints / 10_000)
+            : 0;
+
+        return (platformFeeSats, grossSats - platformFeeSats, feeBasisPoints);
+    }
+
+    private static object? DeserializeMetadataJson(string? metadataJson)
+    {
+        if (string.IsNullOrWhiteSpace(metadataJson))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<JsonElement>(metadataJson);
+        }
+        catch (JsonException)
+        {
+            return metadataJson;
+        }
     }
 
     private static McpToolDto ToDto(McpTool tool) => new(

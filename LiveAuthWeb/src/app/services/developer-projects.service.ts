@@ -247,6 +247,40 @@ export interface McpToolRevenueEventsResponse {
   events: McpToolRevenueEventDto[];
 }
 
+export interface McpChargeResponse {
+  status: string;
+  callsUsed: number;
+  satsUsed: number;
+  grossSats?: number | null;
+  platformFeeSats?: number | null;
+  netSats?: number | null;
+  feeBasisPoints?: number | null;
+  revenueEventId?: string | null;
+  reason?: string | null;
+  receipt?: any;
+  toolId?: string | null;
+  toolName?: string | null;
+  toolSlug?: string | null;
+}
+
+export interface TestMcpToolChargeRequest {
+  projectId?: string | null;
+  callCostSats?: number | null;
+  toolMethodName?: string | null;
+  agentId?: string | null;
+  metadata?: any;
+}
+
+export interface TestMcpToolChargeResponse {
+  charge: McpChargeResponse;
+  webhookQueued: boolean;
+  webhookEventId?: string | null;
+  webhookEventType?: string | null;
+  webhookDestinationUrl?: string | null;
+  webhookStatus?: string | null;
+  message: string;
+}
+
 export interface CreateMcpToolRequest {
   projectId?: string | null;
   clearProject?: boolean | null;
@@ -553,6 +587,17 @@ export class DeveloperProjectsService {
         params,
         ...this.devAuth.authHeaders()
       }
+    );
+  }
+
+  testMcpToolCharge(
+    toolId: string,
+    req: TestMcpToolChargeRequest
+  ): Observable<TestMcpToolChargeResponse> {
+    return this.http.post<TestMcpToolChargeResponse>(
+      `${this.baseUrl}/api/dev/mcp-tools/${toolId}/test-charge`,
+      req,
+      this.devAuth.authHeaders()
     );
   }
 }

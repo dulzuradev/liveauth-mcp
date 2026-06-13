@@ -33,7 +33,8 @@ import {
   McpToolRevenueEventDto,
   McpToolRevenueOverviewResponse,
   McpToolRevenueSummaryResponse,
-  CreateMcpToolRequest
+  CreateMcpToolRequest,
+  TestMcpToolChargeResponse
 } from '../../../services/developer-projects.service';
 
 import {
@@ -269,7 +270,15 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   editingMcpTool: McpToolDto | null = null;
   savingMcpTool = false;
   copiedMcpSnippet = false;
+  copiedMcpSnippetKey = '';
   mcpToolForm: McpToolForm = this.createEmptyMcpToolForm();
+  mcpTestProjectId = '';
+  mcpTestCostSats: number | null = null;
+  testingMcpTool = false;
+  mcpTestResult: TestMcpToolChargeResponse | null = null;
+  mcpTestError = '';
+  mcpWebhookEvents: WebhookEventDto[] | null = null;
+  loadingMcpWebhookEvents = false;
 
   // Tabs
   _projectDialogTab: 'overview' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' = 'overview';
@@ -817,13 +826,20 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
     this.mcpRevenueOverview = null;
     this.mcpRevenue = null;
     this.mcpRevenueEvents = null;
+    this.mcpWebhookEvents = null;
+    this.mcpTestResult = null;
+    this.mcpTestError = '';
+    this.mcpTestProjectId = '';
+    this.mcpTestCostSats = null;
     this.loadingMcpTools = false;
     this.loadingMcpRevenueOverview = false;
     this.loadingMcpRevenue = false;
+    this.loadingMcpWebhookEvents = false;
   }
 
   loadMcpTools(): void {
     this.loadingMcpTools = true;
+    const previousSelectedToolId = this.selectedMcpToolId;
 
     this.devService.listMcpTools().subscribe({
       next: (res) => {
@@ -843,6 +859,10 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
           this.selectedMcpToolId = this.mcpTools[0].id;
         }
 
+        if (this.selectedMcpToolId !== previousSelectedToolId || !this.mcpTestProjectId) {
+          this.resetMcpSetupStateForSelectedTool();
+        }
+
         this.loadMcpRevenue();
       },
       error: (err) => {
@@ -857,6 +877,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   selectMcpTool(tool: McpToolDto): void {
     if (this.selectedMcpToolId === tool.id) return;
     this.selectedMcpToolId = tool.id;
+    this.resetMcpSetupStateForSelectedTool();
     this.loadMcpRevenue();
   }
 
@@ -921,13 +942,24 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
     this.selectMcpTool(tool);
   }
 
-  get mcpToolIntegrationSnippet(): string {
+  get selectedMcpProject(): UiProject | null {
     const tool = this.selectedMcpTool;
-    const project = this.projects.find(p => p.projectId === tool?.projectId) ?? this.projects[0];
+    return this.projects.find(p => p.projectId === (this.mcpTestProjectId || tool?.projectId)) ??
+      this.projects.find(p => p.projectId === tool?.projectId) ??
+      this.projects[0] ??
+      null;
+  }
+
+  get mcpToolIntegrationSnippet(): string {
+    return this.mcpToolIdIntegrationSnippet;
+  }
+
+  get mcpToolIdIntegrationSnippet(): string {
+    const tool = this.selectedMcpTool;
+    const project = this.selectedMcpProject;
     const publicKey = project?.publicKey || 'la_pk_your_project_public_key';
     const toolId = tool?.id || 'your-tool-id';
-    const methodName = (tool?.slug || 'my_tool').replace(/-/g, '_');
-    const cost = tool?.defaultCostSats || 1;
+    const methodName = this.selectedMcpMethodName;
 
     return `import { createMcpGate } from '@liveauth-labs/mcp-server';
 
@@ -935,7 +967,6 @@ const gate = createMcpGate({
   publicKey: process.env.LIVEAUTH_PUBLIC_KEY ?? '${publicKey}',
   baseUrl: process.env.LIVEAUTH_API_URL ?? 'https://api.liveauth.app',
   toolId: process.env.LIVEAUTH_TOOL_ID ?? '${toolId}',
-  defaultCostSats: ${cost},
 });
 
 const result = await gate.invoke(
@@ -944,12 +975,93 @@ const result = await gate.invoke(
   async (args) => runYourTool(args),
   { requestId },
   {
-    costSats: ${cost},
     toolMethodName: '${methodName}',
     idempotencyKey: requestId,
     metadata: { operation: '${methodName}' },
   }
 );`;
+  }
+
+  get mcpToolNameIntegrationSnippet(): string {
+    const tool = this.selectedMcpTool;
+    const project = this.selectedMcpProject;
+    const publicKey = project?.publicKey || 'la_pk_your_project_public_key';
+    const toolName = tool?.slug || 'paid-research-tool';
+    const methodName = this.selectedMcpMethodName;
+
+    return `import { createMcpGate } from '@liveauth-labs/mcp-server';
+
+const gate = createMcpGate({
+  publicKey: process.env.LIVEAUTH_PUBLIC_KEY ?? '${publicKey}',
+  baseUrl: process.env.LIVEAUTH_API_URL ?? 'https://api.liveauth.app',
+  toolName: '${toolName}',
+});
+
+const result = await gate.invoke(
+  liveAuthJwt,
+  input,
+  async (args) => runYourTool(args),
+  { requestId },
+  {
+    toolMethodName: '${methodName}',
+    idempotencyKey: requestId,
+    metadata: { operation: '${methodName}' },
+  }
+);`;
+  }
+
+  get mcpToolChargeByIdCurlSnippet(): string {
+    const tool = this.selectedMcpTool;
+    const project = this.selectedMcpProject;
+    const publicKey = project?.publicKey || 'la_pk_your_project_public_key';
+    const toolId = tool?.id || 'your-tool-id';
+    const methodName = this.selectedMcpMethodName;
+    const cost = tool?.defaultCostSats || 1;
+
+    return `curl -X POST https://api.liveauth.app/api/mcp/tools/${toolId}/charge \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $LIVEAUTH_MCP_JWT" \\
+  -H "X-LW-Public: ${publicKey}" \\
+  -d '{
+    "toolMethodName": "${methodName}",
+    "callCostSats": ${cost},
+    "idempotencyKey": "request-or-call-id",
+    "metadata": {
+      "operation": "${methodName}"
+    }
+  }'`;
+  }
+
+  get mcpToolChargeByNameCurlSnippet(): string {
+    const tool = this.selectedMcpTool;
+    const project = this.selectedMcpProject;
+    const publicKey = project?.publicKey || 'la_pk_your_project_public_key';
+    const toolName = tool?.slug || 'paid-research-tool';
+    const methodName = this.selectedMcpMethodName;
+
+    return `curl -X POST https://api.liveauth.app/api/mcp/charge \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $LIVEAUTH_MCP_JWT" \\
+  -H "X-LW-Public: ${publicKey}" \\
+  -d '{
+    "toolName": "${toolName}",
+    "toolMethodName": "${methodName}",
+    "idempotencyKey": "request-or-call-id"
+  }'`;
+  }
+
+  get mcpTestResultJson(): string {
+    return this.mcpTestResult ? JSON.stringify(this.mcpTestResult, null, 2) : '';
+  }
+
+  get mcpPaidWebhookEvents(): WebhookEventDto[] {
+    return (this.mcpWebhookEvents ?? [])
+      .filter(e => e.eventType.includes('mcp.tool.paid_call'))
+      .slice(0, 5);
+  }
+
+  private get selectedMcpMethodName(): string {
+    return (this.selectedMcpTool?.slug || 'my_tool').replace(/-/g, '_');
   }
 
   openCreateMcpToolDialog(): void {
@@ -1020,9 +1132,121 @@ const result = await gate.invoke(
   }
 
   copyMcpIntegrationSnippet(): void {
-    navigator.clipboard.writeText(this.mcpToolIntegrationSnippet);
+    this.copyMcpText(this.mcpToolIdIntegrationSnippet, 'tool-id-snippet');
+  }
+
+  copyMcpText(text: string, key: string): void {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
     this.copiedMcpSnippet = true;
-    setTimeout(() => (this.copiedMcpSnippet = false), 1500);
+    this.copiedMcpSnippetKey = key;
+    setTimeout(() => {
+      this.copiedMcpSnippet = false;
+      if (this.copiedMcpSnippetKey === key) {
+        this.copiedMcpSnippetKey = '';
+      }
+    }, 1500);
+  }
+
+  onMcpTestProjectChange(): void {
+    this.mcpTestResult = null;
+    this.mcpTestError = '';
+    this.loadMcpWebhookEvents();
+  }
+
+  testSelectedMcpToolPaidCall(): void {
+    const tool = this.selectedMcpTool;
+    if (!tool) return;
+
+    const projectId = this.mcpTestProjectId || tool.projectId || this.projects[0]?.projectId || '';
+    if (!projectId) {
+      this.mcpTestError = 'Create a project before testing a paid MCP tool.';
+      return;
+    }
+
+    const callCostSats = Number(this.mcpTestCostSats ?? tool.defaultCostSats);
+    if (callCostSats < tool.minCostSats || (tool.maxCostSats > 0 && callCostSats > tool.maxCostSats)) {
+      this.mcpTestError = `Test cost must be between ${tool.minCostSats} and ${tool.maxCostSats} sats.`;
+      return;
+    }
+
+    this.testingMcpTool = true;
+    this.mcpTestError = '';
+    this.mcpTestResult = null;
+
+    this.devService.testMcpToolCharge(tool.id, {
+      projectId,
+      callCostSats,
+      toolMethodName: this.selectedMcpMethodName,
+      agentId: 'dashboard-test',
+      metadata: {
+        source: 'developer-dashboard',
+        toolSlug: tool.slug
+      }
+    }).subscribe({
+      next: (res) => {
+        this.testingMcpTool = false;
+        this.mcpTestResult = res;
+        this.loadMcpWebhookEvents(projectId);
+      },
+      error: (err) => {
+        this.testingMcpTool = false;
+        this.mcpTestError = this.extractErrorMessage(err) || 'Failed to run test paid call.';
+      }
+    });
+  }
+
+  private resetMcpSetupStateForSelectedTool(): void {
+    const tool = this.selectedMcpTool;
+    this.mcpTestResult = null;
+    this.mcpTestError = '';
+    this.mcpTestCostSats = tool?.defaultCostSats ?? null;
+    this.mcpTestProjectId = tool?.projectId ?? this.projects[0]?.projectId ?? '';
+    this.mcpWebhookEvents = null;
+    this.loadMcpWebhookEvents();
+  }
+
+  loadMcpWebhookEvents(projectId: string = this.mcpTestProjectId): void {
+    if (!projectId) {
+      this.mcpWebhookEvents = [];
+      return;
+    }
+
+    this.loadingMcpWebhookEvents = true;
+    this.devService.getProjectWebhooks(projectId, 50).subscribe({
+      next: (res) => {
+        this.mcpWebhookEvents = res.events ?? [];
+        this.loadingMcpWebhookEvents = false;
+      },
+      error: (err) => {
+        this.mcpWebhookEvents = [];
+        this.loadingMcpWebhookEvents = false;
+        console.warn('Failed to load MCP webhook events:', err);
+      }
+    });
+  }
+
+  getMcpToolWebhookMode(tool: McpToolDto): string {
+    return tool.webhookUrl ? 'Tool webhook' : 'Project fallback';
+  }
+
+  getMcpToolWebhookDestinationLabel(tool: McpToolDto): string {
+    return tool.webhookUrl || 'Uses the project webhook URL when configured';
+  }
+
+  getWebhookStatusSeverity(status: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
+    switch ((status || '').toLowerCase()) {
+      case 'delivered':
+        return 'success';
+      case 'dead':
+      case 'failed':
+        return 'danger';
+      case 'inprogress':
+      case 'pending':
+        return 'warn';
+      default:
+        return 'info';
+    }
   }
 
   private createEmptyMcpToolForm(): McpToolForm {

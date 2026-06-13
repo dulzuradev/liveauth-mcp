@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace LiveAuthCore.Models.Mcp;
 
 public record McpToolListResponse(
@@ -116,4 +118,22 @@ public record McpToolRevenueEventDto(
     string? MetadataJson,
     DateTime CreatedAt,
     Guid? ReversalOfEventId
+);
+
+public record TestMcpToolChargeRequest(
+    Guid? ProjectId,
+    int? CallCostSats,
+    string? ToolMethodName,
+    string? AgentId,
+    JsonElement? Metadata
+);
+
+public record TestMcpToolChargeResponse(
+    McpChargeResponse Charge,
+    bool WebhookQueued,
+    Guid? WebhookEventId,
+    string? WebhookEventType,
+    string? WebhookDestinationUrl,
+    string? WebhookStatus,
+    string Message
 );

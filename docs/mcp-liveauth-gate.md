@@ -305,12 +305,13 @@ GET /api/dev/mcp-tools/revenue?projectId=<optional-project-guid>&windowHours=24
 GET /api/dev/mcp-tools/{toolId}
 PATCH /api/dev/mcp-tools/{toolId}
 DELETE /api/dev/mcp-tools/{toolId}
+POST /api/dev/mcp-tools/{toolId}/test-charge
 GET /api/dev/mcp-tools/{toolId}/revenue?windowHours=24
 GET /api/dev/mcp-tools/{toolId}/revenue/events?limit=50
 GET /api/admin/analytics/mcp?windowHours=24
 ```
 
-The dashboard uses these endpoints to register and edit developer-owned tools, show gross sats, LiveAuth platform fees, developer net sats, call count, denied attempts, top tools, and recent revenue events. Non-admin developers only see tools they own directly or through one of their projects; admins can see first-party tools such as LiveAuth Web Fetch MCP. Deleting a tool is a soft delete: the tool is removed from active listings, but existing revenue events remain in the ledger.
+The dashboard uses these endpoints to register and edit developer-owned tools, show gross sats, LiveAuth platform fees, developer net sats, call count, denied attempts, top tools, recent revenue events, setup snippets, curl examples, and safe test paid calls. `test-charge` generates a signed receipt with status `Test` and can queue a `liveauth.mcp.tool.paid_call.test` webhook, but it does not write `McpToolRevenueEvent` rows or affect revenue totals. Non-admin developers only see tools they own directly or through one of their projects; admins can see first-party tools such as LiveAuth Web Fetch MCP. Deleting a tool is a soft delete: the tool is removed from active listings, but existing revenue events remain in the ledger.
 
 Successful new paid tool calls can also enqueue `liveauth.mcp.tool.paid_call` webhooks. A tool-level webhook URL takes priority; if it is absent, LiveAuth falls back to the owning project's webhook URL. The payload includes tool identity, revenue accounting, metadata, and the signed receipt, and the project Webhooks tab shows delivery status, retry count, HTTP result, and destination URL.
 

@@ -14,14 +14,14 @@ public class WebhookService
         _db = db;
     }
 
-    public async Task EnqueueAsync(Project project, string eventType, object payload, CancellationToken ct = default)
+    public async Task<Guid?> EnqueueAsync(Project project, string eventType, object payload, CancellationToken ct = default)
         => await EnqueueAsync(project, eventType, payload, destinationUrl: null, ct);
 
     /// <summary>
     /// Enqueue a webhook event for the given project.
     /// If no destination or project webhook URL is configured, this is a no-op.
     /// </summary>
-    public async Task EnqueueAsync(
+    public async Task<Guid?> EnqueueAsync(
         Project project,
         string eventType,
         object payload,
@@ -35,7 +35,7 @@ public class WebhookService
         if (string.IsNullOrWhiteSpace(targetUrl))
         {
             // No webhook configured – nothing to do
-            return;
+            return null;
         }
 
         var json = JsonSerializer.Serialize(
@@ -43,10 +43,11 @@ public class WebhookService
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
         var now = DateTime.UtcNow;
+        var eventId = Guid.NewGuid();
 
         var evt = new WebhookEvent
         {
-            Id = Guid.NewGuid(),
+            Id = eventId,
             ProjectId = project.Id,
             EventType = eventType,
             PayloadJson = json,
@@ -59,5 +60,6 @@ public class WebhookService
 
         _db.WebhookEvents.Add(evt);
         await _db.SaveChangesAsync(ct);
+        return eventId;
     }
 }
