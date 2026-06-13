@@ -37,15 +37,18 @@ public class DeveloperMcpToolsController : ControllerBase
     private readonly LiveAuthDbContext _db;
     private readonly McpReceiptService _receiptService;
     private readonly WebhookService _webhooks;
+    private readonly LightningFeeSettingsService _feeSettings;
 
     public DeveloperMcpToolsController(
         LiveAuthDbContext db,
         McpReceiptService receiptService,
-        WebhookService webhooks)
+        WebhookService webhooks,
+        LightningFeeSettingsService feeSettings)
     {
         _db = db;
         _receiptService = receiptService;
         _webhooks = webhooks;
+        _feeSettings = feeSettings;
     }
 
     private bool IsAdmin() => User.IsInRole("Admin");
@@ -429,7 +432,7 @@ public class DeveloperMcpToolsController : ControllerBase
         if (tool.MaxCostSats > 0 && callCostSats > tool.MaxCostSats)
             return BadRequest($"callCostSats must be no more than {tool.MaxCostSats} for this tool");
 
-        var fee = CalculatePlatformFee(callCostSats);
+        var fee = await _feeSettings.CalculateMcpPaidToolFeeAsync(callCostSats, ct);
         var methodName = string.IsNullOrWhiteSpace(req.ToolMethodName)
             ? tool.Slug
             : req.ToolMethodName.Trim();
@@ -662,17 +665,6 @@ public class DeveloperMcpToolsController : ControllerBase
         return fallbackProject == null
             ? (null, BadRequest("Create a project before testing a paid MCP tool."))
             : (fallbackProject, null);
-    }
-
-    private static (int PlatformFeeSats, int NetSats, int FeeBasisPoints) CalculatePlatformFee(int grossSats)
-    {
-        const int feeBasisPoints = LightningFeeSettingsService.McpPaidToolFeeBasisPoints;
-        var platformFeeSats = (int)BasisPointFeeMath.CalculateFeeSats(
-            grossSats,
-            feeBasisPoints,
-            LightningFeeSettingsService.McpPaidToolMinimumFeeSats);
-
-        return (platformFeeSats, grossSats - platformFeeSats, feeBasisPoints);
     }
 
     private static object? DeserializeMetadataJson(string? metadataJson)

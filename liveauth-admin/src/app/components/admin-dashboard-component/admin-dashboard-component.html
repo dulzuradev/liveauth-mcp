@@ -1,15 +1,22 @@
 <div class="admin-shell">
   <header class="admin-header">
     <div class="title-block">
-      <span class="eyebrow">Operations Monitor</span>
+      <span class="eyebrow">Operator Command Center</span>
       <h1>LiveAuth Admin</h1>
       <div class="status-row">
-        <span class="status ok">
-          <i class="pi pi-check-circle"></i>
-          Connected
+        <span
+          class="status"
+          [class.ok]="statusTone === 'ok'"
+          [class.warn]="statusTone === 'warn'"
+          [class.danger]="statusTone === 'danger'">
+          <i
+            class="pi"
+            [class.pi-check-circle]="statusTone === 'ok'"
+            [class.pi-exclamation-triangle]="statusTone !== 'ok'"></i>
+          {{ statusText }}
         </span>
-        <span class="last-updated" *ngIf="data">
-          Updated {{ data.generatedAtUtc | date:'shortTime' }}
+        <span class="last-updated" *ngIf="commandCenter">
+          Updated {{ commandCenter.generatedAtUtc | date:'shortTime' }}
         </span>
       </div>
     </div>
@@ -45,9 +52,9 @@
     </div>
   </header>
 
-  <section *ngIf="loading && !data" class="state-panel">
+  <section *ngIf="loading && !commandCenter" class="state-panel">
     <p-progressSpinner></p-progressSpinner>
-    <span>Loading analytics</span>
+    <span>Loading command center</span>
   </section>
 
   <section *ngIf="error" class="state-panel error">
@@ -55,157 +62,137 @@
     <span>{{ error }}</span>
   </section>
 
-  <main *ngIf="data" class="dashboard-content">
+  <main *ngIf="commandCenter as cc" class="dashboard-content">
+    <section class="top-grid">
+      <article class="panel revenue-panel">
+        <header class="section-header">
+          <div>
+            <h2>Revenue</h2>
+            <span>{{ windowHours }} hour fee revenue</span>
+          </div>
+          <i class="pi pi-bolt panel-icon"></i>
+        </header>
+
+        <div class="revenue-total">
+          <strong>{{ cc.revenue.totalSats | number }} sats</strong>
+          <span *ngIf="cc.revenue.totalUsd !== null">${{ cc.revenue.totalUsd | number:'1.2-2' }}</span>
+          <span *ngIf="cc.revenue.totalUsd === null">USD unavailable</span>
+        </div>
+
+        <div class="target-row">
+          <div>
+            <span>Monthly run rate</span>
+            <strong *ngIf="cc.revenue.projectedMonthlyUsd !== null">${{ cc.revenue.projectedMonthlyUsd | number:'1.0-0' }}</strong>
+            <strong *ngIf="cc.revenue.projectedMonthlyUsd === null">-</strong>
+          </div>
+          <div>
+            <span>Target</span>
+            <strong>${{ cc.revenue.targetMinMonthlyUsd | number }}-${{ cc.revenue.targetMaxMonthlyUsd | number }}</strong>
+          </div>
+        </div>
+
+        <div class="progress-track" aria-hidden="true">
+          <span [style.width.%]="targetProgressPercent"></span>
+        </div>
+
+        <div class="revenue-breakdown">
+          <div>
+            <span>Auth fee</span>
+            <strong>{{ cc.revenue.lightningAuthFeeSats | number }}</strong>
+          </div>
+          <div>
+            <span>L402 invoice fee</span>
+            <strong>{{ cc.revenue.l402InvoiceFeeSats | number }}</strong>
+          </div>
+          <div>
+            <span>Bundle markup</span>
+            <strong>{{ cc.revenue.l402BundleMarkupSats | number }}</strong>
+          </div>
+          <div>
+            <span>MCP platform fee</span>
+            <strong>{{ cc.revenue.mcpPaidToolPlatformFeeSats | number }}</strong>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel attention-panel">
+        <header class="section-header">
+          <div>
+            <h2>Needs Attention</h2>
+            <span>{{ cc.attention.length | number }} active signals</span>
+          </div>
+          <i class="pi pi-shield panel-icon"></i>
+        </header>
+
+        <div class="attention-list" *ngIf="cc.attention.length > 0">
+          <div class="attention-item" *ngFor="let alert of cc.attention">
+            <p-tag [value]="alert.severity.toUpperCase()" [severity]="getAlertSeverity(alert.severity)"></p-tag>
+            <div>
+              <strong>{{ alert.title }}</strong>
+              <span>{{ alert.detail }}</span>
+            </div>
+            <em>{{ alert.count | number }}</em>
+          </div>
+        </div>
+
+        <div class="empty-state compact" *ngIf="cc.attention.length === 0">
+          <i class="pi pi-check-circle"></i>
+          <span>No active alerts</span>
+        </div>
+      </article>
+    </section>
+
     <section class="metrics-grid">
       <article class="metric-card">
+        <span class="metric-label">Auth Health</span>
+        <strong>{{ cc.auth.successRate | number:'1.0-1' }}%</strong>
+        <small>{{ cc.auth.authSuccesses | number }} ok, {{ cc.auth.authFailures | number }} failed</small>
+      </article>
+
+      <article class="metric-card">
         <span class="metric-label">Projects</span>
-        <strong>{{ data.totalProjects | number }}</strong>
-        <small>{{ data.activeProjects | number }} active, {{ data.proProjects | number }} pro</small>
+        <strong>{{ cc.auth.totalProjects | number }}</strong>
+        <small>{{ cc.auth.activeProjects | number }} active, {{ cc.auth.proProjects | number }} pro</small>
       </article>
 
       <article class="metric-card">
-        <span class="metric-label">Auth Requests</span>
-        <strong>{{ data.totalAuths | number }}</strong>
-        <small>{{ successRate }}% success, {{ failureRate }}% failed</small>
+        <span class="metric-label">MCP Gate</span>
+        <strong>{{ cc.mcp.paidToolCalls | number }}</strong>
+        <small>{{ cc.mcp.paidToolGrossSats | number }} gross, {{ cc.mcp.deniedCharges | number }} denied</small>
       </article>
 
-      <article class="metric-card accent">
-        <span class="metric-label">Total Earned</span>
-        <strong>{{ totalSatsEarned | number }} sats</strong>
-        <small *ngIf="totalSatsEarnedUsd !== null">≈ ${{ totalSatsEarnedUsd | number:'1.2-2' }}</small>
-        <small *ngIf="totalSatsEarnedUsd === null">BTC/USD unavailable</small>
-      </article>
-
-      <article class="metric-card">
-        <span class="metric-label">Paid Auths</span>
-        <strong>{{ data.paidAuths | number }}</strong>
-        <small>{{ data.totalSatsPaid | number }} sats, {{ avgSatsPerPaidAuth | number:'1.0-1' }} avg</small>
-      </article>
-
-      <article class="metric-card warn">
-        <span class="metric-label">Rate Limits</span>
-        <strong>{{ data.rateLimitHits | number }}</strong>
-        <small>{{ rateLimitPercent }}% of auth requests</small>
+      <article class="metric-card" [class.warn]="cc.webhooks.failed > 0" [class.danger]="cc.webhooks.dead > 0">
+        <span class="metric-label">Webhooks</span>
+        <strong>{{ cc.webhooks.dueNow | number }}</strong>
+        <small>{{ cc.webhooks.failed | number }} failed, {{ cc.webhooks.dead | number }} dead</small>
       </article>
 
       <article class="metric-card">
-        <span class="metric-label">MCP</span>
-        <strong>{{ data.mcpSessionsTotal | number }}</strong>
-        <small>{{ data.mcpSessionsActive | number }} active, {{ data.mcpSatsEarned | number }} sats</small>
-      </article>
-
-      <article class="metric-card">
-        <span class="metric-label">MCP Paid Tools</span>
-        <strong>{{ data.mcpPaidToolCalls | number }}</strong>
-        <small>{{ data.mcpPaidToolSatsCharged | number }} sats, {{ data.mcpDeniedToolCharges | number }} denied</small>
-      </article>
-
-      <article class="metric-card">
-        <span class="metric-label">L402</span>
-        <strong>{{ data.l402PaymentsReceived | number }}</strong>
-        <small>{{ data.l402InvoicesCreated | number }} invoices, {{ data.l402SatsEarned | number }} sats</small>
+        <span class="metric-label">L402 Bundles</span>
+        <strong>{{ cc.l402.bundlesActive | number }}</strong>
+        <small>{{ cc.l402.bundleCallsRemaining | number }} calls remaining</small>
       </article>
 
       <article class="metric-card">
         <span class="metric-label">Pending Invoices</span>
-        <strong>{{ data.pendingInvoices | number }}</strong>
-        <small>{{ data.activeAuthSessions | number }} active auth sessions</small>
+        <strong>{{ cc.auth.pendingInvoices | number }}</strong>
+        <small>{{ cc.auth.activeAuthSessions | number }} active auth sessions</small>
       </article>
     </section>
 
-    <section class="panel fee-settings-panel" *ngIf="lightningFees">
-      <header class="section-header">
-        <div>
-          <h2>Lightning Auth Fees</h2>
-          <span *ngIf="lightningFees.updatedAt">Updated {{ lightningFees.updatedAt | date:'short' }}</span>
-        </div>
-      </header>
-
-      <div class="fee-settings-grid">
-        <label>
-          <span>Invoice fee bps</span>
-          <input type="number" min="0" step="1" [(ngModel)]="feeForm.invoiceFeeBasisPoints" />
-        </label>
-
-        <label>
-          <span>Invoice minimum sats</span>
-          <input type="number" min="0" step="1" [(ngModel)]="feeForm.invoiceMinimumFeeSats" />
-        </label>
-
-        <label>
-          <span>Bundle markup bps</span>
-          <input type="number" min="0" step="1" [(ngModel)]="feeForm.bundleMarkupBasisPoints" />
-        </label>
-
-        <label>
-          <span>Bundle minimum sats</span>
-          <input type="number" min="0" step="1" [(ngModel)]="feeForm.bundleMarkupMinimumFeeSats" />
-        </label>
-      </div>
-
-      <div class="fee-settings-footer">
-        <span>Paid MCP tools remain {{ lightningFees.mcpPaidToolFeeBasisPoints }} bps, minimum {{ lightningFees.mcpPaidToolMinimumFeeSats }} sat.</span>
-        <button
-          type="button"
-          class="nav-button"
-          [disabled]="savingFees"
-          (click)="saveFeeSettings()">
-          <i class="pi" [class.pi-save]="!savingFees" [class.pi-spinner]="savingFees" [class.pi-spin]="savingFees"></i>
-          Save Fees
-        </button>
-      </div>
-
-      <p class="fee-message" *ngIf="feeMessage">{{ feeMessage }}</p>
-    </section>
-
-    <section class="panel funnel-panel" *ngIf="data.funnel">
-      <header class="section-header">
-        <div>
-          <h2>Auth Funnel</h2>
-          <span>{{ windowHours }} hour window</span>
-        </div>
-      </header>
-
-      <div class="funnel">
-        <div class="funnel-stage">
-          <strong>{{ data.funnel.challengesIssued | number }}</strong>
-          <span>Challenges</span>
-        </div>
-        <div class="funnel-stage">
-          <strong>{{ data.funnel.authsStarted | number }}</strong>
-          <span>Started</span>
-        </div>
-        <div class="funnel-stage">
-          <strong>{{ data.funnel.authsPaid | number }}</strong>
-          <span>Paid</span>
-          <small>{{ data.funnel.startToPaidRate | number:'1.0-1' }}%</small>
-        </div>
-        <div class="funnel-stage">
-          <strong>{{ data.funnel.authsVerified | number }}</strong>
-          <span>Verified</span>
-          <small>{{ data.funnel.paidToVerifiedRate | number:'1.0-1' }}%</small>
-        </div>
-        <div class="funnel-stage">
-          <strong>{{ data.funnel.tokensUsed | number }}</strong>
-          <span>Tokens Used</span>
-          <small>{{ data.funnel.verifiedToUsedRate | number:'1.0-1' }}%</small>
-        </div>
-      </div>
-    </section>
-
-    <section class="charts-grid">
+    <section class="ops-grid">
       <article class="panel chart-panel wide">
         <header class="section-header">
           <div>
             <h2>Authentication Activity</h2>
-            <span>{{ data.successfulAuths | number }} successful, {{ data.failedAuths | number }} failed</span>
+            <span>{{ cc.auth.authRequests | number }} events, {{ cc.auth.rateLimitHits | number }} rate limits</span>
           </div>
         </header>
 
         <div class="chart-wrapper">
           <admin-auths-line-chart
             *ngIf="!isAuthSeriesEmpty"
-            [series]="data.authsOverTime">
+            [series]="cc.auth.authsOverTime">
           </admin-auths-line-chart>
 
           <div *ngIf="isAuthSeriesEmpty" class="empty-state">
@@ -215,20 +202,190 @@
         </div>
       </article>
 
+      <article class="panel">
+        <header class="section-header">
+          <div>
+            <h2>Webhook Queue</h2>
+            <span>{{ cc.webhooks.pending | number }} pending, {{ cc.webhooks.inProgress | number }} in progress</span>
+          </div>
+        </header>
+
+        <div class="queue-grid">
+          <div>
+            <span>Pending</span>
+            <strong>{{ cc.webhooks.pending | number }}</strong>
+          </div>
+          <div>
+            <span>Failed</span>
+            <strong class="warning">{{ cc.webhooks.failed | number }}</strong>
+          </div>
+          <div>
+            <span>Dead</span>
+            <strong class="danger">{{ cc.webhooks.dead | number }}</strong>
+          </div>
+          <div>
+            <span>Due now</span>
+            <strong>{{ cc.webhooks.dueNow | number }}</strong>
+          </div>
+        </div>
+
+        <div class="timestamp-list">
+          <span>Oldest pending {{ cc.webhooks.oldestPendingAt ? (cc.webhooks.oldestPendingAt | date:'short') : '-' }}</span>
+          <span>Next attempt {{ cc.webhooks.oldestNextAttemptAt ? (cc.webhooks.oldestNextAttemptAt | date:'short') : '-' }}</span>
+        </div>
+      </article>
+
+      <article class="panel">
+        <header class="section-header">
+          <div>
+            <h2>MCP Paid Tools</h2>
+            <span>{{ cc.mcp.activeTools | number }} active, {{ cc.mcp.nonActiveTools | number }} not active</span>
+          </div>
+        </header>
+
+        <div class="money-list">
+          <div>
+            <span>Gross</span>
+            <strong>{{ cc.mcp.paidToolGrossSats | number }} sats</strong>
+          </div>
+          <div>
+            <span>Platform fee</span>
+            <strong>{{ cc.mcp.paidToolPlatformFeeSats | number }} sats</strong>
+          </div>
+          <div>
+            <span>Net</span>
+            <strong>{{ cc.mcp.paidToolNetSats | number }} sats</strong>
+          </div>
+          <div>
+            <span>Inactive denials</span>
+            <strong>{{ cc.mcp.inactiveToolDenials | number }}</strong>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel fee-settings-panel" *ngIf="lightningFees">
+        <header class="section-header">
+          <div>
+            <h2>Live Fees</h2>
+            <span *ngIf="lightningFees.updatedAt">Updated {{ lightningFees.updatedAt | date:'short' }}</span>
+          </div>
+        </header>
+
+        <div class="fee-settings-grid">
+          <label>
+            <span>Auth invoice bps</span>
+            <input type="number" min="0" step="1" [(ngModel)]="feeForm.invoiceFeeBasisPoints" />
+          </label>
+
+          <label>
+            <span>Auth min sats</span>
+            <input type="number" min="0" step="1" [(ngModel)]="feeForm.invoiceMinimumFeeSats" />
+          </label>
+
+          <label>
+            <span>Bundle markup bps</span>
+            <input type="number" min="0" step="1" [(ngModel)]="feeForm.bundleMarkupBasisPoints" />
+          </label>
+
+          <label>
+            <span>Bundle min sats</span>
+            <input type="number" min="0" step="1" [(ngModel)]="feeForm.bundleMarkupMinimumFeeSats" />
+          </label>
+
+          <label>
+            <span>MCP fee bps</span>
+            <input type="number" min="0" step="1" [(ngModel)]="feeForm.mcpPaidToolFeeBasisPoints" />
+          </label>
+
+          <label>
+            <span>MCP min sats</span>
+            <input type="number" min="0" step="1" [(ngModel)]="feeForm.mcpPaidToolMinimumFeeSats" />
+          </label>
+        </div>
+
+        <div class="fee-chip-row">
+          <span>{{ bpsToPercent(feeForm.invoiceFeeBasisPoints) }} auth</span>
+          <span>{{ bpsToPercent(feeForm.bundleMarkupBasisPoints) }} bundle</span>
+          <span>{{ bpsToPercent(feeForm.mcpPaidToolFeeBasisPoints) }} MCP</span>
+        </div>
+
+        <div class="fee-settings-footer">
+          <button
+            type="button"
+            class="nav-button"
+            [disabled]="savingFees"
+            (click)="saveFeeSettings()">
+            <i class="pi" [class.pi-save]="!savingFees" [class.pi-spinner]="savingFees" [class.pi-spin]="savingFees"></i>
+            Save Fees
+          </button>
+          <p class="fee-message" *ngIf="feeMessage">{{ feeMessage }}</p>
+        </div>
+      </article>
+
+      <article class="panel">
+        <header class="section-header">
+          <div>
+            <h2>L402</h2>
+            <span>{{ cc.l402.macaroonsActive | number }} active macaroons</span>
+          </div>
+        </header>
+
+        <div class="queue-grid">
+          <div>
+            <span>Purchases pending</span>
+            <strong>{{ cc.l402.purchasesPending | number }}</strong>
+          </div>
+          <div>
+            <span>Settling</span>
+            <strong>{{ cc.l402.purchasesSettling | number }}</strong>
+          </div>
+          <div>
+            <span>Bundles active</span>
+            <strong>{{ cc.l402.bundlesActive | number }}</strong>
+          </div>
+          <div>
+            <span>Revoked</span>
+            <strong>{{ cc.l402.macaroonsRevoked | number }}</strong>
+          </div>
+        </div>
+      </article>
+
       <article class="panel chart-panel">
         <header class="section-header">
           <div>
             <h2>Project Mix</h2>
-            <span>{{ data.proProjects | number }} pro, {{ data.freeProjects | number }} free</span>
+            <span>{{ cc.auth.proProjects | number }} pro, {{ cc.auth.freeProjects | number }} free</span>
           </div>
         </header>
 
         <div class="chart-wrapper">
           <admin-projects-donut
-            [proFree]="{ pro: data.proProjects, free: data.freeProjects }">
+            [proFree]="{ pro: cc.auth.proProjects, free: cc.auth.freeProjects }">
           </admin-projects-donut>
         </div>
       </article>
+    </section>
+
+    <section class="panel top-tools-panel" *ngIf="cc.topMcpTools.length > 0">
+      <header class="section-header">
+        <div>
+          <h2>Top MCP Tools</h2>
+          <span>{{ cc.topMcpTools.length | number }} tools in window</span>
+        </div>
+      </header>
+
+      <div class="tool-list">
+        <div class="tool-row" *ngFor="let tool of cc.topMcpTools">
+          <div>
+            <strong>{{ tool.toolName }}</strong>
+            <span>{{ tool.toolSlug }}</span>
+          </div>
+          <p-tag [value]="tool.toolStatus" [severity]="getToolStatusSeverity(tool.toolStatus)"></p-tag>
+          <div class="numeric">{{ tool.calls | number }} calls</div>
+          <div class="numeric">{{ tool.platformFeeSats | number }} fee sats</div>
+          <div class="numeric danger" *ngIf="tool.deniedCharges > 0">{{ tool.deniedCharges | number }} denied</div>
+        </div>
+      </div>
     </section>
 
     <nav class="tabs" aria-label="Admin dashboard tables">
@@ -243,6 +400,10 @@
       <button type="button" class="tab" [class.active]="activeTab === 'events'" (click)="selectTab('events')">
         <i class="pi pi-history"></i>
         Events
+      </button>
+      <button type="button" class="tab" [class.active]="activeTab === 'webhooks'" (click)="selectTab('webhooks')">
+        <i class="pi pi-send"></i>
+        Webhooks
       </button>
     </nav>
 
@@ -453,6 +614,74 @@
         </ng-template>
       </p-table>
     </section>
+
+    <section class="panel table-panel" *ngIf="activeTab === 'webhooks'">
+      <header class="table-header">
+        <div>
+          <h2>Webhook Failures</h2>
+          <span>{{ filteredWebhookFailures.length | number }} of {{ webhookFailures.length | number }} queue events</span>
+        </div>
+
+        <div class="table-tools">
+          <label class="search-field">
+            <i class="pi pi-search"></i>
+            <input type="search" [(ngModel)]="webhookSearch" placeholder="Search project, status, error" />
+          </label>
+          <button type="button" class="icon-button" title="Export webhooks" (click)="exportTable('webhooks')">
+            <i class="pi pi-download"></i>
+          </button>
+        </div>
+      </header>
+
+      <p-table
+        [value]="filteredWebhookFailures"
+        [scrollable]="true"
+        scrollHeight="520px"
+        [paginator]="true"
+        [rows]="20"
+        [rowsPerPageOptions]="[20, 50, 100]"
+        sortMode="multiple"
+        dataKey="id"
+        styleClass="p-datatable-sm p-datatable-gridlines">
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="createdAt">Created <p-sortIcon field="createdAt"></p-sortIcon></th>
+            <th pSortableColumn="projectName">Project <p-sortIcon field="projectName"></p-sortIcon></th>
+            <th pSortableColumn="eventType">Event <p-sortIcon field="eventType"></p-sortIcon></th>
+            <th pSortableColumn="status">Status <p-sortIcon field="status"></p-sortIcon></th>
+            <th pSortableColumn="attemptCount">Attempts <p-sortIcon field="attemptCount"></p-sortIcon></th>
+            <th>Next</th>
+            <th>Error</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-w>
+          <tr>
+            <td>{{ w.createdAt | date:'short' }}</td>
+            <td>
+              {{ w.projectName }}
+              <span class="id-text">{{ w.projectId }}</span>
+            </td>
+            <td>{{ w.eventType }}</td>
+            <td>
+              <p-tag [value]="w.status" [severity]="getWebhookStatusSeverity(w.status)"></p-tag>
+            </td>
+            <td class="numeric">{{ w.attemptCount | number }}</td>
+            <td>{{ w.nextAttemptAt | date:'short' }}</td>
+            <td>
+              <span *ngIf="w.lastStatusCode">HTTP {{ w.lastStatusCode }} </span>
+              {{ w.lastError || '-' }}
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="7" class="empty-message">No webhook failures</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </section>
   </main>
 
   <div class="modal-overlay" *ngIf="selectedProject" (click)="closeProjectModal()">
@@ -527,8 +756,8 @@
     </section>
   </div>
 
-  <footer *ngIf="data" class="dashboard-footer">
-    <span>Generated {{ data.generatedAtUtc | date:'medium' }}</span>
+  <footer *ngIf="commandCenter" class="dashboard-footer">
+    <span>Generated {{ commandCenter.generatedAtUtc | date:'medium' }}</span>
     <span>Viewing {{ windowHours }}h window</span>
   </footer>
 </div>

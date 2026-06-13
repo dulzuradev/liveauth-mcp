@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { map, Observable } from 'rxjs';
 import {
   AdminAnalyticsOverviewResponse,
+  AdminCommandCenterResponse,
   AdminAuthEventDto,
   AdminProjectUsageDto,
   AdminSubscriptionDto,
@@ -28,6 +29,8 @@ export interface UpdateLightningFeeSettingsRequest {
   invoiceMinimumFeeSats: number;
   bundleMarkupBasisPoints: number;
   bundleMarkupMinimumFeeSats: number;
+  mcpPaidToolFeeBasisPoints: number;
+  mcpPaidToolMinimumFeeSats: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -118,6 +121,35 @@ export class AdminAnalyticsService {
 
           recentEvents: Array.isArray(raw.recentEvents)
             ? raw.recentEvents.map((e: any) => ({
+              id: e.id ?? crypto.randomUUID(),
+              timestamp: e.timestamp,
+              projectId: e.projectId,
+              projectName: e.projectName ?? '(unknown)',
+              eventType: e.eventType,
+              success: !!e.success,
+              satsPaid: e.satsPaid ?? undefined,
+              reason: e.reason ?? undefined,
+              clientIpMasked: e.clientIpMasked ?? undefined
+            }))
+            : []
+        }))
+      );
+  }
+
+  getCommandCenter(windowHours = 24): Observable<AdminCommandCenterResponse> {
+    return this.http
+      .get<AdminCommandCenterResponse>(`${this.baseUrl}/api/admin/analytics/command-center`, {
+        params: { windowHours },
+        headers: this.getAuthHeaders()
+      })
+      .pipe(
+        map(raw => ({
+          ...raw,
+          attention: raw.attention ?? [],
+          topMcpTools: raw.topMcpTools ?? [],
+          webhookFailures: raw.webhookFailures ?? [],
+          recentAuthEvents: Array.isArray(raw.recentAuthEvents)
+            ? raw.recentAuthEvents.map((e: any) => ({
               id: e.id ?? crypto.randomUUID(),
               timestamp: e.timestamp,
               projectId: e.projectId,

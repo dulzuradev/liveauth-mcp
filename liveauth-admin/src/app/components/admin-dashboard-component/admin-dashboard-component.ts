@@ -6,8 +6,9 @@ import { catchError, forkJoin, interval, of, startWith, Subject, switchMap, take
 import { AdminAnalyticsService, LightningFeeSettingsResponse } from '../../services/admin-analytics';
 import { AdminAuthService } from '../../services/admin-auth';
 import {
-  AdminAnalyticsOverviewResponse,
   AdminAuthEventDto,
+  AdminCommandCenterResponse,
+  AdminCommandCenterWebhookItem,
   AdminProjectUsageDto,
   AdminSubscriptionDto
 } from '../../admin-analytics.models';
@@ -19,7 +20,7 @@ import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
-type DashboardTab = 'projects' | 'subscriptions' | 'events';
+type DashboardTab = 'projects' | 'subscriptions' | 'events' | 'webhooks';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -42,7 +43,7 @@ type DashboardTab = 'projects' | 'subscriptions' | 'events';
   styleUrls: ['./admin-dashboard-component.css']
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
-  data?: AdminAnalyticsOverviewResponse;
+  commandCenter?: AdminCommandCenterResponse;
   loading = true;
   refreshing = false;
   error?: string;
@@ -53,12 +54,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   projectUsage: AdminProjectUsageDto[] = [];
   subscriptions: AdminSubscriptionDto[] = [];
   authEvents: AdminAuthEventDto[] = [];
+  webhookFailures: AdminCommandCenterWebhookItem[] = [];
   lightningFees?: LightningFeeSettingsResponse;
   feeForm = {
     invoiceFeeBasisPoints: 200,
     invoiceMinimumFeeSats: 1,
     bundleMarkupBasisPoints: 1500,
-    bundleMarkupMinimumFeeSats: 1
+    bundleMarkupMinimumFeeSats: 1,
+    mcpPaidToolFeeBasisPoints: 500,
+    mcpPaidToolMinimumFeeSats: 1
   };
   savingFees = false;
   feeMessage = '';
@@ -66,6 +70,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   projectSearch = '';
   subscriptionSearch = '';
   eventSearch = '';
+  webhookSearch = '';
 
   selectedProject: AdminProjectUsageDto | null = null;
 
@@ -85,7 +90,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   ) {}
 
   get authSeries() {
-    return this.data?.authsOverTime ?? [];
+    return this.commandCenter?.auth.authsOverTime ?? [];
   }
 
   get isAuthSeriesEmpty(): boolean {
@@ -93,33 +98,38 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       this.authSeries.every(point => point.successful === 0 && point.failed === 0);
   }
 
-  get successRate(): number {
-    return this.percent(this.data?.successfulAuths ?? 0, this.data?.totalAuths ?? 0);
+  get statusTone(): 'ok' | 'warn' | 'danger' {
+    const attention = this.commandCenter?.attention ?? [];
+    if (attention.some(item => item.severity === 'danger')) return 'danger';
+    if (attention.some(item => item.severity === 'warn')) return 'warn';
+    return 'ok';
   }
 
-  get failureRate(): number {
-    return this.percent(this.data?.failedAuths ?? 0, this.data?.totalAuths ?? 0);
-  }
-
-  get rateLimitPercent(): number {
-    return this.percent(this.data?.rateLimitHits ?? 0, this.data?.totalAuths ?? 0);
-  }
-
-  get avgSatsPerPaidAuth(): number {
-    const paidAuths = this.data?.paidAuths ?? 0;
-    return paidAuths > 0 ? (this.data?.totalSatsPaid ?? 0) / paidAuths : 0;
+  get statusText(): string {
+    if (this.statusTone === 'danger') return 'Needs attention';
+    if (this.statusTone === 'warn') return 'Watchlist';
+    return 'Nominal';
   }
 
   get totalSatsEarned(): number {
-    if (!this.data) return 0;
-    return this.data.totalSatsPaid + this.data.mcpSatsEarned + this.data.l402SatsEarned;
+    return this.commandCenter?.revenue.totalSats ?? 0;
   }
 
   get totalSatsEarnedUsd(): number | null {
-    if (!this.data) return null;
-    if (this.data.totalSatsEarnedUsd != null) return this.data.totalSatsEarnedUsd;
-    if (this.data.btcUsdRate == null) return null;
-    return this.totalSatsEarned / 100_000_000 * this.data.btcUsdRate;
+    return this.commandCenter?.revenue.totalUsd ?? null;
+  }
+
+  get projectedMonthlyUsd(): number | null {
+    return this.commandCenter?.revenue.projectedMonthlyUsd ?? null;
+  }
+
+  get targetProgressPercent(): number {
+    return Math.min(this.commandCenter?.revenue.targetMinProgressPercent ?? 0, 100);
+  }
+
+  get avgSatsPerPaidAuth(): number {
+    const paidAuths = this.commandCenter?.auth.paidAuths ?? 0;
+    return paidAuths > 0 ? (this.commandCenter?.revenue.lightningAuthGrossSats ?? 0) / paidAuths : 0;
   }
 
   get filteredProjects(): AdminProjectUsageDto[] {
@@ -154,6 +164,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       event.reason,
       event.clientIpMasked,
       event.success ? 'success ok' : 'failed fail'
+    ].some(value => this.matches(value, query)));
+  }
+
+  get filteredWebhookFailures(): AdminCommandCenterWebhookItem[] {
+    const query = this.normalizeSearch(this.webhookSearch);
+    if (!query) return this.webhookFailures;
+    return this.webhookFailures.filter(event => [
+      event.projectName,
+      event.projectId,
+      event.eventType,
+      event.status,
+      event.lastStatusCode,
+      event.lastError
     ].some(value => this.matches(value, query)));
   }
 
@@ -201,6 +224,32 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return this.isExpiringSoon(subscription.expiresAt) ? 'warn' : 'success';
   }
 
+  getAlertSeverity(severity: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
+    if (severity === 'danger') return 'danger';
+    if (severity === 'warn') return 'warn';
+    return 'info';
+  }
+
+  getWebhookStatusSeverity(status: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
+    if (status === 'Dead') return 'danger';
+    if (status === 'Failed') return 'warn';
+    if (status === 'InProgress') return 'info';
+    if (status === 'Delivered') return 'success';
+    return 'secondary';
+  }
+
+  getToolStatusSeverity(status: string): 'success' | 'warn' | 'secondary' {
+    return status.toLowerCase() === 'active'
+      ? 'success'
+      : status.toLowerCase() === 'paused'
+        ? 'warn'
+        : 'secondary';
+  }
+
+  bpsToPercent(bps: number): string {
+    return `${(bps / 100).toFixed(2).replace(/\.?0+$/, '')}%`;
+  }
+
   isExpiringSoon(expiresAt: string): boolean {
     const expiry = new Date(expiresAt).getTime();
     const now = Date.now();
@@ -213,7 +262,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       ? this.filteredProjects
       : tableType === 'subscriptions'
         ? this.filteredSubscriptions
-        : this.filteredEvents;
+        : tableType === 'events'
+          ? this.filteredEvents
+          : this.filteredWebhookFailures;
 
     if (data.length === 0) return;
     this.downloadCSV(data, tableType);
@@ -227,12 +278,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       invoiceFeeBasisPoints: Math.max(0, Number(this.feeForm.invoiceFeeBasisPoints) || 0),
       invoiceMinimumFeeSats: Math.max(0, Number(this.feeForm.invoiceMinimumFeeSats) || 0),
       bundleMarkupBasisPoints: Math.max(0, Number(this.feeForm.bundleMarkupBasisPoints) || 0),
-      bundleMarkupMinimumFeeSats: Math.max(0, Number(this.feeForm.bundleMarkupMinimumFeeSats) || 0)
+      bundleMarkupMinimumFeeSats: Math.max(0, Number(this.feeForm.bundleMarkupMinimumFeeSats) || 0),
+      mcpPaidToolFeeBasisPoints: Math.max(0, Number(this.feeForm.mcpPaidToolFeeBasisPoints) || 0),
+      mcpPaidToolMinimumFeeSats: Math.max(0, Number(this.feeForm.mcpPaidToolMinimumFeeSats) || 0)
     }).subscribe({
       next: settings => {
         this.applyFeeSettings(settings);
         this.savingFees = false;
         this.feeMessage = 'Fee settings saved.';
+        this.reload(this.windowHours);
       },
       error: () => {
         this.savingFees = false;
@@ -251,18 +305,17 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       .pipe(
         startWith(undefined),
         switchMap(() => {
-          this.loading = !this.data;
-          this.refreshing = !!this.data;
+          this.loading = !this.commandCenter;
+          this.refreshing = !!this.commandCenter;
           this.error = undefined;
 
           return forkJoin({
-            overview: this.analytics.getOverview(this.windowHours),
+            commandCenter: this.analytics.getCommandCenter(this.windowHours),
             projects: this.analytics.getProjects(this.windowHours),
-            subscriptions: this.analytics.getSubscriptions(),
-            lightningFees: this.analytics.getLightningFeeSettings()
+            subscriptions: this.analytics.getSubscriptions()
           }).pipe(
             catchError(() => {
-              this.error = 'Failed to load admin analytics. Check the API, token, and selected time window.';
+              this.error = 'Failed to load admin command center. Check the API, token, and selected time window.';
               return of(null);
             })
           );
@@ -271,11 +324,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       )
       .subscribe(result => {
         if (result) {
-          this.data = result.overview;
+          this.commandCenter = result.commandCenter;
           this.projectUsage = result.projects;
           this.subscriptions = result.subscriptions;
-          this.applyFeeSettings(result.lightningFees);
-          this.authEvents = result.overview.recentEvents ?? [];
+          this.applyFeeSettings(result.commandCenter.fees);
+          this.authEvents = result.commandCenter.recentAuthEvents ?? [];
+          this.webhookFailures = result.commandCenter.webhookFailures ?? [];
           this.reconcileSelectedProject();
         }
 
@@ -283,7 +337,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         this.refreshing = false;
       });
 
-    interval(30_000)
+    interval(10_000)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => this.refresh$.next());
   }
@@ -298,7 +352,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       invoiceFeeBasisPoints: settings.invoiceFeeBasisPoints,
       invoiceMinimumFeeSats: settings.invoiceMinimumFeeSats,
       bundleMarkupBasisPoints: settings.bundleMarkupBasisPoints,
-      bundleMarkupMinimumFeeSats: settings.bundleMarkupMinimumFeeSats
+      bundleMarkupMinimumFeeSats: settings.bundleMarkupMinimumFeeSats,
+      mcpPaidToolFeeBasisPoints: settings.mcpPaidToolFeeBasisPoints,
+      mcpPaidToolMinimumFeeSats: settings.mcpPaidToolMinimumFeeSats
     };
   }
 

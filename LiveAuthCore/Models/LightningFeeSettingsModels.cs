@@ -15,4 +15,6 @@ public class UpdateLightningFeeSettingsRequest
     public long InvoiceMinimumFeeSats { get; set; }
     public int BundleMarkupBasisPoints { get; set; }
     public long BundleMarkupMinimumFeeSats { get; set; }
+    public int? McpPaidToolFeeBasisPoints { get; set; }
+    public long? McpPaidToolMinimumFeeSats { get; set; }
 }

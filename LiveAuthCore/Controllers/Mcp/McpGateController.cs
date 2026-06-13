@@ -734,7 +734,7 @@ public class McpGateController : ControllerBase
                 ToolSlug: tool.Slug));
         }
 
-        var fee = CalculatePlatformFee(callCostSats);
+        var fee = await _feeSettings.CalculateMcpPaidToolFeeAsync(callCostSats, ct);
         var metadataJson = CreateMetadataJson(req);
 
         var revenueEvent = new McpToolRevenueEvent
@@ -1035,17 +1035,6 @@ public class McpGateController : ControllerBase
         gateToken.SatsUsed += callCostSats;
 
         return new McpChargeResponse("ok", gateToken.CallsUsed, gateToken.SatsUsed);
-    }
-
-    private static (int PlatformFeeSats, int NetSats, int FeeBasisPoints) CalculatePlatformFee(int grossSats)
-    {
-        const int feeBasisPoints = LightningFeeSettingsService.McpPaidToolFeeBasisPoints;
-        var platformFeeSats = (int)BasisPointFeeMath.CalculateFeeSats(
-            grossSats,
-            feeBasisPoints,
-            LightningFeeSettingsService.McpPaidToolMinimumFeeSats);
-
-        return (platformFeeSats, grossSats - platformFeeSats, feeBasisPoints);
     }
 
     private readonly record struct McpProjectConfig(

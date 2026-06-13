@@ -52,6 +52,8 @@ public static class PipelineExtensions
         await EnsureColumnAsync(connection, "Projects", "McpMaxSatsPerDay", "INTEGER NOT NULL DEFAULT 10000");
         await EnsureColumnAsync(connection, "Projects", "McpMaxCallsPerMinute", "INTEGER NOT NULL DEFAULT 60");
         await EnsureColumnAsync(connection, "WebhookEvents", "DestinationUrl", "TEXT");
+        await EnsureColumnAsync(connection, "LightningFeeSettings", "McpPaidToolFeeBasisPoints", "INTEGER NOT NULL DEFAULT 500");
+        await EnsureColumnAsync(connection, "LightningFeeSettings", "McpPaidToolMinimumFeeSats", "INTEGER NOT NULL DEFAULT 1");
 
         await RunTableMigrationsAsync(connection);
 
@@ -138,6 +140,8 @@ public static class PipelineExtensions
                 InvoiceMinimumFeeSats INTEGER NOT NULL,
                 BundleMarkupBasisPoints INTEGER NOT NULL,
                 BundleMarkupMinimumFeeSats INTEGER NOT NULL,
+                McpPaidToolFeeBasisPoints INTEGER NOT NULL DEFAULT 500,
+                McpPaidToolMinimumFeeSats INTEGER NOT NULL DEFAULT 1,
                 CreatedAt TEXT NOT NULL,
                 UpdatedAt TEXT NOT NULL
             )"
@@ -321,6 +325,8 @@ public static class PipelineExtensions
             InvoiceMinimumFeeSats = snapshot.InvoiceMinimumFeeSats,
             BundleMarkupBasisPoints = snapshot.BundleMarkupBasisPoints,
             BundleMarkupMinimumFeeSats = snapshot.BundleMarkupMinimumFeeSats,
+            McpPaidToolFeeBasisPoints = snapshot.McpPaidToolFeeBasisPoints,
+            McpPaidToolMinimumFeeSats = snapshot.McpPaidToolMinimumFeeSats,
             CreatedAt = now,
             UpdatedAt = now
         });

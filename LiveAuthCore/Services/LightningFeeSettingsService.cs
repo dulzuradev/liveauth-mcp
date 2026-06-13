@@ -10,6 +10,8 @@ public sealed record LightningFeeSettingsSnapshot(
     long InvoiceMinimumFeeSats,
     int BundleMarkupBasisPoints,
     long BundleMarkupMinimumFeeSats,
+    int McpPaidToolFeeBasisPoints,
+    long McpPaidToolMinimumFeeSats,
     DateTime? UpdatedAt = null);
 
 public class LightningFeeSettingsService
@@ -21,8 +23,8 @@ public class LightningFeeSettingsService
     public const int DefaultBundleMarkupBasisPoints = 1500;
     public const long DefaultBundleMarkupMinimumFeeSats = 1;
 
-    public const int McpPaidToolFeeBasisPoints = 500;
-    public const long McpPaidToolMinimumFeeSats = 1;
+    public const int DefaultMcpPaidToolFeeBasisPoints = 500;
+    public const long DefaultMcpPaidToolMinimumFeeSats = 1;
 
     private readonly LiveAuthDbContext _db;
     private readonly IConfiguration _configuration;
@@ -58,6 +60,9 @@ public class LightningFeeSettingsService
 
         var settings = await _db.LightningFeeSettings
             .SingleOrDefaultAsync(s => s.Id == SettingsRowId, ct);
+        var current = settings == null
+            ? GetFallbackSnapshot(_configuration)
+            : ToSnapshot(settings);
 
         var now = DateTime.UtcNow;
         if (settings == null)
@@ -74,6 +79,8 @@ public class LightningFeeSettingsService
         settings.InvoiceMinimumFeeSats = request.InvoiceMinimumFeeSats;
         settings.BundleMarkupBasisPoints = request.BundleMarkupBasisPoints;
         settings.BundleMarkupMinimumFeeSats = request.BundleMarkupMinimumFeeSats;
+        settings.McpPaidToolFeeBasisPoints = request.McpPaidToolFeeBasisPoints ?? current.McpPaidToolFeeBasisPoints;
+        settings.McpPaidToolMinimumFeeSats = request.McpPaidToolMinimumFeeSats ?? current.McpPaidToolMinimumFeeSats;
         settings.UpdatedAt = now;
 
         await _db.SaveChangesAsync(ct);
@@ -106,7 +113,19 @@ public class LightningFeeSettingsService
                 DefaultBundleMarkupMinimumFeeSats,
                 "LightningAuthFees:BundleMarkupMinimumFeeSats",
                 "LightningFees:BundleMarkupMinimumFeeSats",
-                "L402:BundleMarkupMinimumFeeSats"));
+                "L402:BundleMarkupMinimumFeeSats"),
+            McpPaidToolFeeBasisPoints: GetInt(
+                configuration,
+                DefaultMcpPaidToolFeeBasisPoints,
+                "LightningAuthFees:McpPaidToolFeeBps",
+                "LightningFees:McpPaidToolFeeBps",
+                "McpPaidToolFees:FeeBps"),
+            McpPaidToolMinimumFeeSats: GetLong(
+                configuration,
+                DefaultMcpPaidToolMinimumFeeSats,
+                "LightningAuthFees:McpPaidToolMinimumFeeSats",
+                "LightningFees:McpPaidToolMinimumFeeSats",
+                "McpPaidToolFees:MinimumFeeSats"));
     }
 
     public static LightningFeeSettingsResponse ToResponse(LightningFeeSettingsSnapshot snapshot)
@@ -116,8 +135,8 @@ public class LightningFeeSettingsService
             snapshot.InvoiceMinimumFeeSats,
             snapshot.BundleMarkupBasisPoints,
             snapshot.BundleMarkupMinimumFeeSats,
-            McpPaidToolFeeBasisPoints,
-            McpPaidToolMinimumFeeSats,
+            snapshot.McpPaidToolFeeBasisPoints,
+            snapshot.McpPaidToolMinimumFeeSats,
             snapshot.UpdatedAt);
     }
 
@@ -128,6 +147,8 @@ public class LightningFeeSettingsService
             Math.Max(0, settings.InvoiceMinimumFeeSats),
             Math.Max(0, settings.BundleMarkupBasisPoints),
             Math.Max(0, settings.BundleMarkupMinimumFeeSats),
+            Math.Max(0, settings.McpPaidToolFeeBasisPoints),
+            Math.Max(0, settings.McpPaidToolMinimumFeeSats),
             settings.UpdatedAt);
     }
 
@@ -138,8 +159,23 @@ public class LightningFeeSettingsService
             InvoiceFeeBasisPoints = snapshot.InvoiceFeeBasisPoints,
             InvoiceMinimumFeeSats = snapshot.InvoiceMinimumFeeSats,
             BundleMarkupBasisPoints = snapshot.BundleMarkupBasisPoints,
-            BundleMarkupMinimumFeeSats = snapshot.BundleMarkupMinimumFeeSats
+            BundleMarkupMinimumFeeSats = snapshot.BundleMarkupMinimumFeeSats,
+            McpPaidToolFeeBasisPoints = snapshot.McpPaidToolFeeBasisPoints,
+            McpPaidToolMinimumFeeSats = snapshot.McpPaidToolMinimumFeeSats
         };
+    }
+
+    public async Task<(int PlatformFeeSats, int NetSats, int FeeBasisPoints)> CalculateMcpPaidToolFeeAsync(
+        int grossSats,
+        CancellationToken ct = default)
+    {
+        var settings = await GetCurrentAsync(ct);
+        var platformFeeSats = (int)BasisPointFeeMath.CalculateFeeSats(
+            grossSats,
+            settings.McpPaidToolFeeBasisPoints,
+            settings.McpPaidToolMinimumFeeSats);
+
+        return (platformFeeSats, grossSats - platformFeeSats, settings.McpPaidToolFeeBasisPoints);
     }
 
     private static int GetInt(IConfiguration configuration, int fallback, params string[] keys)
@@ -179,5 +215,11 @@ public class LightningFeeSettingsService
 
         if (request.BundleMarkupMinimumFeeSats < 0)
             throw new ArgumentOutOfRangeException(nameof(request.BundleMarkupMinimumFeeSats), "Bundle markup minimum fee sats must be zero or greater.");
+
+        if (request.McpPaidToolFeeBasisPoints is < 0)
+            throw new ArgumentOutOfRangeException(nameof(request.McpPaidToolFeeBasisPoints), "MCP paid tool fee bps must be zero or greater.");
+
+        if (request.McpPaidToolMinimumFeeSats is < 0)
+            throw new ArgumentOutOfRangeException(nameof(request.McpPaidToolMinimumFeeSats), "MCP paid tool minimum fee sats must be zero or greater.");
     }
 }
