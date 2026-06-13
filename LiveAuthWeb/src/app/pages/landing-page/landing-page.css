@@ -438,6 +438,15 @@ a {
   margin-top: auto;
 }
 
+.pricing-fee-note {
+  max-width: 880px;
+  margin: 24px auto 0;
+  color: #59626c;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  text-align: center;
+}
+
 .final-cta {
   padding: clamp(56px, 8vw, 98px) clamp(20px, 6vw, 72px);
   text-align: center;
