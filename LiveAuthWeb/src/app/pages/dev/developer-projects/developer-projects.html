@@ -1046,9 +1046,17 @@
   <!-- SECRET KEY DIALOG (after project creation) -->
   <p-dialog
     [(visible)]="showMcpToolDialog"
+    (onHide)="onMcpToolDialogHide()"
     [modal]="true"
     [style]="{ width: '720px' }"
     [header]="editingMcpTool ? 'Edit MCP Tool' : 'Register MCP Tool'">
+
+    <p-message
+      *ngIf="mcpToolError"
+      [text]="mcpToolError"
+      severity="warn"
+      class="mb-3">
+    </p-message>
 
     <div class="grid">
       <div class="col-12 md:col-6">
@@ -1121,7 +1129,7 @@
     </div>
 
     <ng-template pTemplate="footer">
-      <button pButton label="Cancel" class="p-button-text" (click)="showMcpToolDialog = false"></button>
+      <button pButton label="Cancel" class="p-button-text" (click)="closeMcpToolDialog()"></button>
       <button pButton label="Save Tool" icon="pi pi-save" class="btn-primary"
               (click)="saveMcpTool()" [loading]="savingMcpTool"></button>
     </ng-template>

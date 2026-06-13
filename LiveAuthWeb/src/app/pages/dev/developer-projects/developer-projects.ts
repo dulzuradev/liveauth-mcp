@@ -270,6 +270,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   showMcpToolDialog = false;
   editingMcpTool: McpToolDto | null = null;
   savingMcpTool = false;
+  mcpToolError = '';
   copiedMcpSnippet = false;
   copiedMcpSnippetKey = '';
   mcpToolForm: McpToolForm = this.createEmptyMcpToolForm();
@@ -1103,6 +1104,7 @@ const result = await gate.invoke(
   openCreateMcpToolDialog(): void {
     this.editingMcpTool = null;
     this.mcpToolForm = this.createEmptyMcpToolForm();
+    this.mcpToolError = '';
     this.showMcpToolDialog = true;
   }
 
@@ -1125,11 +1127,22 @@ const result = await gate.invoke(
       docsUrl: tool.docsUrl ?? '',
       webhookUrl: tool.webhookUrl ?? ''
     };
+    this.mcpToolError = '';
     this.showMcpToolDialog = true;
+  }
+
+  closeMcpToolDialog(): void {
+    this.showMcpToolDialog = false;
+    this.mcpToolError = '';
+  }
+
+  onMcpToolDialogHide(): void {
+    this.mcpToolError = '';
   }
 
   saveMcpTool(): void {
     this.error = undefined;
+    this.mcpToolError = '';
     const req = this.buildMcpToolRequest();
     if (!req) return;
 
@@ -1147,7 +1160,7 @@ const result = await gate.invoke(
       },
       error: (err) => {
         this.savingMcpTool = false;
-        this.error = this.extractErrorMessage(err) || 'Failed to save MCP tool.';
+        this.mcpToolError = this.extractErrorMessage(err) || 'Failed to save MCP tool.';
       }
     });
   }
@@ -1306,7 +1319,7 @@ const result = await gate.invoke(
   private buildMcpToolRequest(): CreateMcpToolRequest | null {
     const name = this.mcpToolForm.name.trim();
     if (!name) {
-      this.error = 'Tool name is required.';
+      this.mcpToolError = 'Tool name is required.';
       return null;
     }
 
@@ -1315,7 +1328,7 @@ const result = await gate.invoke(
     const maxCostSats = Number(this.mcpToolForm.maxCostSats ?? defaultCostSats);
 
     if (minCostSats < 1 || defaultCostSats < minCostSats || maxCostSats < defaultCostSats) {
-      this.error = 'Cost bounds must satisfy 1 <= min <= default <= max.';
+      this.mcpToolError = 'Cost bounds must satisfy 1 <= min <= default <= max.';
       return null;
     }
 

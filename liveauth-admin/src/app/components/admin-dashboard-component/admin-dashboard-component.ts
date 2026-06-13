@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -82,11 +82,13 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   private readonly destroy$ = new Subject<void>();
   private readonly refresh$ = new Subject<void>();
+  private destroyed = false;
 
   constructor(
     private analytics: AdminAnalyticsService,
     private auth: AdminAuthService,
-    private router: Router
+    private router: Router,
+    private changeDetector: ChangeDetectorRef
   ) {}
 
   get authSeries() {
@@ -296,6 +298,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -308,6 +311,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           this.loading = !this.commandCenter;
           this.refreshing = !!this.commandCenter;
           this.error = undefined;
+          this.requestViewRefresh();
 
           return forkJoin({
             commandCenter: this.analytics.getCommandCenter(this.windowHours),
@@ -335,6 +339,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
         this.loading = false;
         this.refreshing = false;
+        this.requestViewRefresh();
       });
 
     interval(10_000)
@@ -371,6 +376,14 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.selectedProject = this.projectUsage.find(project =>
       project.projectId === this.selectedProject?.projectId
     ) ?? null;
+  }
+
+  private requestViewRefresh(): void {
+    queueMicrotask(() => {
+      if (!this.destroyed) {
+        this.changeDetector.detectChanges();
+      }
+    });
   }
 
   private downloadCSV(data: unknown[], filename: string): void {
