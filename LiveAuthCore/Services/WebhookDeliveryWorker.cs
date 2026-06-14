@@ -34,7 +34,7 @@ public class WebhookDeliveryWorker : BackgroundService
         {
             try
             {
-                await ProcessPendingWebhooks(stoppingToken);
+                await ProcessPendingWebhooksAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -45,7 +45,7 @@ public class WebhookDeliveryWorker : BackgroundService
         }
     }
 
-    private async Task ProcessPendingWebhooks(CancellationToken ct)
+    internal async Task ProcessPendingWebhooksAsync(CancellationToken ct)
     {
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
