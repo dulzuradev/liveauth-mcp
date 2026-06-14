@@ -67,7 +67,17 @@ public class AuthController : ControllerBase
         var project = await _db.Projects.FindAsync(projectId);
         if (project == null) return Unauthorized();
 
-        var (verified, token) = await _devAuth.ConfirmSessionAsync(project, req.SessionId);
+        bool verified;
+        string? token;
+        try
+        {
+            (verified, token) = await _devAuth.ConfirmSessionAsync(project, req.SessionId);
+        }
+        catch (KeyNotFoundException)
+        {
+            verified = false;
+            token = null;
+        }
 
         return Ok(new AuthConfirmResponse
         {

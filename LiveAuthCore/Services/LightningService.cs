@@ -108,6 +108,18 @@ public class LightningService
     /// </summary>
     public async Task<InvoiceResponse> CreateInvoice(string userId, long amountSats, string memo, Project? project = null)
     {
+        if (_useMock)
+        {
+            return new InvoiceResponse
+            {
+                RHash = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)),
+                PaymentRequest = $"lnmock1invoice{Guid.NewGuid():N}",
+                AddIndex = "0",
+                PaymentAddr = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)),
+                Settled = false
+            };
+        }
+
         var (baseUrl, macaroonHex) = GetEffectiveLndConfig(project);
         
         // Set macaroon for this request

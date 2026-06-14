@@ -79,8 +79,7 @@ public class PublicAuthController : ControllerBase
         }
 
         return await _db.Projects
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == projectId && p.IsActive, ct);
+            .FirstOrDefaultAsync(p => p.Id == projectId, ct);
     }
     
     
@@ -109,7 +108,7 @@ public class PublicAuthController : ControllerBase
             return Unauthorized("Missing or invalid API key.");
 
         if (!project.IsActive)
-            return Forbid("Project is inactive.");
+            return StatusCode(StatusCodes.Status403Forbidden, "Project is inactive.");
         
         EnsureMonthlyWindow(project);
 
@@ -489,7 +488,7 @@ public class PublicAuthController : ControllerBase
                 "Demo project is not configured.");
 
         if (!project.IsActive)
-            return Forbid("Project is inactive.");
+            return StatusCode(StatusCodes.Status403Forbidden, "Project is inactive.");
 
         const long demoSats = 3;
         const int expiryMinutes = 15;

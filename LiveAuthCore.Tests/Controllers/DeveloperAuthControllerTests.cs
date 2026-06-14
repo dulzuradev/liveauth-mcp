@@ -86,12 +86,12 @@ public class DeveloperAuthControllerTests : IClassFixture<LiveAuthWebApplication
         var response = await _client.PostAsJsonAsync("/api/dev/auth/register", request);
 
         // Assert
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         
         var result = await response.Content.ReadFromJsonAsync<RegisterResponse>();
         Assert.NotNull(result);
-        Assert.NotEmpty(result.Token);
-        Assert.Equal("newdev@liveauth.app", result.Email);
+        Assert.NotEqual(Guid.Empty, result.DeveloperId);
+        Assert.True(result.EmailVerificationRequired);
     }
 
     [Fact]
@@ -152,11 +152,12 @@ public class DeveloperAuthControllerTests : IClassFixture<LiveAuthWebApplication
     {
         // Arrange
         var password = "SecurePassword123!";
-        await SeedDeveloper("dev@liveauth.app", password);
+        var email = $"dev-{Guid.NewGuid():N}@liveauth.app";
+        await SeedDeveloper(email, password);
 
         var request = new
         {
-            Email = "dev@liveauth.app",
+            Email = email,
             Password = password
         };
 
@@ -175,11 +176,12 @@ public class DeveloperAuthControllerTests : IClassFixture<LiveAuthWebApplication
     public async Task Login_InvalidPassword_ReturnsUnauthorized()
     {
         // Arrange
-        await SeedDeveloper("dev@liveauth.app", "CorrectPassword123!");
+        var email = $"dev-{Guid.NewGuid():N}@liveauth.app";
+        await SeedDeveloper(email, "CorrectPassword123!");
 
         var request = new
         {
-            Email = "dev@liveauth.app",
+            Email = email,
             Password = "WrongPassword123!"
         };
 
@@ -219,7 +221,7 @@ public class DeveloperAuthControllerTests : IClassFixture<LiveAuthWebApplication
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/dev/auth/request-password-reset", request);
+        var response = await _client.PostAsJsonAsync("/api/dev/auth/resend-verification", request);
 
         // Assert
         // Should return OK even if email doesn't exist (security best practice)
@@ -236,7 +238,7 @@ public class DeveloperAuthControllerTests : IClassFixture<LiveAuthWebApplication
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/dev/auth/request-password-reset", request);
+        var response = await _client.PostAsJsonAsync("/api/dev/auth/resend-verification", request);
 
         // Assert
         // Should return OK to prevent email enumeration
@@ -257,6 +259,14 @@ public class DeveloperAuthControllerTests : IClassFixture<LiveAuthWebApplication
             Email = email,
             CreatedAt = DateTime.UtcNow
         };
+
+        if (!string.IsNullOrWhiteSpace(password))
+        {
+            var (hash, salt) = TestAuth.HashPasswordWithSalt(password);
+            developer.PasswordHash = hash;
+            developer.PasswordSalt = salt;
+            developer.EmailVerified = true;
+        }
 
         db.Developers.Add(developer);
         await db.SaveChangesAsync();
@@ -283,6 +293,6 @@ public class DeveloperAuthControllerTests : IClassFixture<LiveAuthWebApplication
         return null;
     }
 
-    private record RegisterResponse(string Token, string Email, Guid DeveloperId);
-    private record LoginResponse(string Token);
+    private record RegisterResponse(Guid DeveloperId, string Message, bool EmailVerificationRequired, bool EmailSent);
+    private record LoginResponse(bool Verified, string? Token, string Message);
 }

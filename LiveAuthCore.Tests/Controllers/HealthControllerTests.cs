@@ -5,7 +5,7 @@ using Xunit;
 namespace LiveAuthCore.Tests.Controllers;
 
 /// <summary>
-/// Tests for the /health endpoint.
+/// Tests for the /api/health endpoint.
 /// Simple smoke test to verify the API is running.
 /// </summary>
 public class HealthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
@@ -21,7 +21,7 @@ public class HealthControllerTests : IClassFixture<LiveAuthWebApplicationFactory
     public async Task Health_ReturnsOk()
     {
         // Act
-        var response = await _client.GetAsync("/health");
+        var response = await _client.GetAsync("/api/health");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -31,7 +31,7 @@ public class HealthControllerTests : IClassFixture<LiveAuthWebApplicationFactory
     public async Task Health_ReturnsHealthyStatus()
     {
         // Act
-        var response = await _client.GetAsync("/health");
+        var response = await _client.GetAsync("/api/health");
         var content = await response.Content.ReadFromJsonAsync<HealthResponse>();
 
         // Assert
@@ -44,7 +44,7 @@ public class HealthControllerTests : IClassFixture<LiveAuthWebApplicationFactory
     public async Task Health_TimestampIsRecent()
     {
         // Act
-        var response = await _client.GetAsync("/health");
+        var response = await _client.GetAsync("/api/health");
         var content = await response.Content.ReadFromJsonAsync<HealthResponse>();
 
         // Assert

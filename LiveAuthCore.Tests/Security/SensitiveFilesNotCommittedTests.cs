@@ -15,8 +15,7 @@ public class SensitiveFilesNotCommittedTests
 
     public SensitiveFilesNotCommittedTests()
     {
-        // Use the known path directly to avoid path resolution issues
-        _repoRoot = "/Users/sydney/.openclaw/workspace/LiveAuth";
+        _repoRoot = FindRepoRoot();
     }
 
     /// <summary>
@@ -48,7 +47,7 @@ public class SensitiveFilesNotCommittedTests
             StartInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "git",
-                Arguments = "grep -r 'BEGIN PRIVATE KEY' --all-match",
+                Arguments = "grep -I -n -E \"BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY\" HEAD -- . \":(exclude)LiveAuthCore.Tests/Security/SensitiveFilesNotCommittedTests.cs\"",
                 WorkingDirectory = _repoRoot,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -86,5 +85,23 @@ public class SensitiveFilesNotCommittedTests
             gitignoreContent,
             StringComparison.OrdinalIgnoreCase
         );
+    }
+
+    private static string FindRepoRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory != null)
+        {
+            if (Directory.Exists(Path.Combine(directory.FullName, ".git")) &&
+                File.Exists(Path.Combine(directory.FullName, ".gitignore")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate repository root from test binary path.");
     }
 }

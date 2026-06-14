@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
@@ -9,7 +8,7 @@ using Xunit;
 namespace LiveAuthCore.Tests.Controllers;
 
 /// <summary>
-/// Tests for /api/subscriptions/* endpoints (subscription management, billing).
+/// Tests for /api/dev/billing/* endpoints (project subscription billing).
 /// </summary>
 public class SubscriptionControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
 {
@@ -23,118 +22,92 @@ public class SubscriptionControllerTests : IClassFixture<LiveAuthWebApplicationF
     }
 
     [Fact]
-    public async Task GetSubscription_Unauthenticated_ReturnsUnauthorized()
+    public async Task Subscribe_MissingProject_ReturnsNotFound()
     {
-        // Act
-        var response = await _client.GetAsync("/api/subscriptions/current");
-
-        // Assert
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task GetSubscription_AuthenticatedDeveloper_ReturnsSubscription()
-    {
-        // Arrange
-        var (developer, token) = await SeedDeveloperWithToken();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        // Act
-        var response = await _client.GetAsync("/api/subscriptions/current");
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task CreateSubscription_ValidRequest_ReturnsCreated()
-    {
-        // Arrange
-        var (developer, token) = await SeedDeveloperWithToken();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        var request = new
+        var response = await _client.PostAsJsonAsync("/api/dev/billing/subscribe", new
         {
-            PlanId = "pro-monthly",
-            PaymentMethod = "lightning"
-        };
+            ProjectId = Guid.NewGuid(),
+            Plan = "pro"
+        });
 
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/subscriptions", request);
-
-        // Assert
-        // Might return OK, Created, or BadRequest depending on implementation
-        Assert.True(
-            response.StatusCode == HttpStatusCode.OK ||
-            response.StatusCode == HttpStatusCode.Created ||
-            response.StatusCode == HttpStatusCode.BadRequest, // If subscription already exists
-            "Create subscription should return OK, Created, or BadRequest");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
-    public async Task CancelSubscription_ValidRequest_ReturnsOk()
+    public async Task Subscribe_ValidProject_ReturnsInvoice()
     {
-        // Arrange
-        var (developer, token) = await SeedDeveloperWithToken();
-        await SeedSubscription(developer.Id);
-        
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var project = await SeedProject();
 
-        // Act
-        var response = await _client.DeleteAsync("/api/subscriptions/current");
-
-        // Assert
-        Assert.True(
-            response.StatusCode == HttpStatusCode.OK ||
-            response.StatusCode == HttpStatusCode.NoContent,
-            "Cancel should return OK or NoContent");
-    }
-
-    [Fact]
-    public async Task GetInvoices_AuthenticatedDeveloper_ReturnsList()
-    {
-        // Arrange
-        var (developer, token) = await SeedDeveloperWithToken();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        // Act
-        var response = await _client.GetAsync("/api/subscriptions/invoices");
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        
-        var invoices = await response.Content.ReadFromJsonAsync<List<InvoiceDto>>();
-        Assert.NotNull(invoices);
-    }
-
-    [Fact]
-    public async Task UpgradeSubscription_ValidPlan_ReturnsOk()
-    {
-        // Arrange
-        var (developer, token) = await SeedDeveloperWithToken();
-        await SeedSubscription(developer.Id, "basic-monthly");
-        
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        var request = new
+        var response = await _client.PostAsJsonAsync("/api/dev/billing/subscribe", new
         {
-            NewPlanId = "pro-monthly"
-        };
+            ProjectId = project.Id,
+            Plan = "pro"
+        });
 
-        // Act
-        var response = await _client.PutAsJsonAsync("/api/subscriptions/upgrade", request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        // Assert
-        Assert.True(
-            response.StatusCode == HttpStatusCode.OK ||
-            response.StatusCode == HttpStatusCode.BadRequest, // If already on higher plan
-            "Upgrade should return OK or BadRequest");
+        var result = await response.Content.ReadFromJsonAsync<CreateSubscriptionInvoiceResponse>();
+        Assert.NotNull(result);
+        Assert.NotEqual(Guid.Empty, result.SessionId);
+        Assert.NotEmpty(result.Invoice);
+        Assert.Equal(50_000L, result.AmountSats);
+        Assert.True(result.ExpiresAtUnix > DateTimeOffset.UtcNow.ToUnixTimeSeconds());
     }
 
-    /// <summary>
-    /// Helper to seed a developer with a JWT token.
-    /// </summary>
-    private async Task<(Developer developer, string token)> SeedDeveloperWithToken()
+    [Fact]
+    public async Task Subscribe_ExistingPendingInvoice_ReusesSession()
+    {
+        var project = await SeedProject();
+        var existing = await SeedSubscription(project.Id, isPaid: false, expiresInMinutes: 10);
+
+        var response = await _client.PostAsJsonAsync("/api/dev/billing/subscribe", new
+        {
+            ProjectId = project.Id,
+            Plan = "pro"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<CreateSubscriptionInvoiceResponse>();
+        Assert.NotNull(result);
+        Assert.Equal(existing.Id, result.SessionId);
+        Assert.Equal(existing.InvoiceBolt11, result.Invoice);
+    }
+
+    [Fact]
+    public async Task Confirm_NonExistentSession_ReturnsNotPaid()
+    {
+        var response = await _client.PostAsJsonAsync("/api/dev/billing/confirm", new
+        {
+            SessionId = Guid.NewGuid()
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<ConfirmSubscriptionResponse>();
+        Assert.NotNull(result);
+        Assert.False(result.Paid);
+    }
+
+    [Fact]
+    public async Task Confirm_AlreadyPaidSession_ReturnsPaid()
+    {
+        var project = await SeedProject();
+        var session = await SeedSubscription(project.Id, isPaid: true, expiresInMinutes: 10);
+
+        var response = await _client.PostAsJsonAsync("/api/dev/billing/confirm", new
+        {
+            SessionId = session.Id
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<ConfirmSubscriptionResponse>();
+        Assert.NotNull(result);
+        Assert.True(result.Paid);
+    }
+
+    private async Task<Project> SeedProject()
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
@@ -142,43 +115,55 @@ public class SubscriptionControllerTests : IClassFixture<LiveAuthWebApplicationF
         var developer = new Developer
         {
             Id = Guid.NewGuid(),
-            Email = $"test-{Guid.NewGuid().ToString().Substring(0, 8)}@liveauth.app",
-            // Lightning-based auth, no password
+            Email = $"test-{Guid.NewGuid():N}@liveauth.app",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var project = new Project
+        {
+            Id = Guid.NewGuid(),
+            DeveloperId = developer.Id,
+            Name = "Billing Test Project",
+            PublicKey = $"la_pk_billing_{Guid.NewGuid():N}",
+            SecretKeyHash = "unused-in-billing-tests",
+            Plan = "free",
+            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
         db.Developers.Add(developer);
+        db.Projects.Add(project);
         await db.SaveChangesAsync();
 
-        var token = "test-jwt-token-" + developer.Id.ToString();
-
-        return (developer, token);
+        return project;
     }
 
-    /// <summary>
-    /// Helper to seed a subscription.
-    /// </summary>
-    private async Task SeedSubscription(Guid developerId, string planId = "basic-monthly")
+    private async Task<BillingSubscription> SeedSubscription(Guid projectId, bool isPaid, int expiresInMinutes)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
 
-        // Note: Adjust based on your actual Subscription entity structure
-        // This is a placeholder
-        var subscription = new
+        var now = DateTime.UtcNow;
+        var subscription = new BillingSubscription
         {
             Id = Guid.NewGuid(),
-            DeveloperId = developerId,
-            PlanId = planId,
-            Status = "active",
-            CreatedAt = DateTime.UtcNow
+            ProjectId = projectId,
+            Plan = "pro",
+            AmountSats = 50_000L,
+            InvoiceBolt11 = $"lnbc{Guid.NewGuid():N}",
+            InvoiceRHash = Guid.NewGuid().ToString("N"),
+            IsPaid = isPaid,
+            PaidAt = isPaid ? now : null,
+            CreatedAt = now,
+            ExpiresAt = now.AddMinutes(expiresInMinutes)
         };
 
-        // db.Subscriptions.Add(subscription);
-        // await db.SaveChangesAsync();
-        
-        // TODO: Implement based on actual Subscription entity
+        db.BillingSubscriptions.Add(subscription);
+        await db.SaveChangesAsync();
+
+        return subscription;
     }
 
-    private record InvoiceDto(Guid Id, decimal Amount, string Status, DateTime CreatedAt);
+    private record CreateSubscriptionInvoiceResponse(Guid SessionId, string Invoice, long AmountSats, long ExpiresAtUnix);
+    private record ConfirmSubscriptionResponse(bool Paid, DateTime? ProPaidUntil);
 }

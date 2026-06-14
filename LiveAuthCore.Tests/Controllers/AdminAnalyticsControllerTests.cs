@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -71,8 +72,8 @@ public class AdminAnalyticsControllerTests : IClassFixture<LiveAuthWebApplicatio
         var response = await _client.GetAsync("/api/admin/analytics/projects");
 
         // Assert
-        // Should fail because API key auth != Admin role JWT
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        // API key auth is valid, but it is not an Admin-role JWT.
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
@@ -157,6 +158,7 @@ public class AdminAnalyticsControllerTests : IClassFixture<LiveAuthWebApplicatio
         // Arrange
         var adminToken = await GetAdminToken();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        await ClearAuthEvents();
 
         // Act
         var response = await _client.GetAsync("/api/admin/analytics/projects");
@@ -173,32 +175,8 @@ public class AdminAnalyticsControllerTests : IClassFixture<LiveAuthWebApplicatio
     /// Helper to get an admin JWT token.
     /// Note: This is a simplified mock - real implementation would require proper admin auth.
     /// </summary>
-    private async Task<string> GetAdminToken()
-    {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
-        
-        // Create mock admin session (simplified for testing)
-        var session = new AdminLoginSession
-        {
-            Id = Guid.NewGuid(),
-            Email = "admin@liveauth.app",
-            AmountSats = 21L,
-            InvoiceBolt11 = "lnbc_test",
-            InvoiceRHash = "test_hash",
-            IsPaid = true,
-            PaidAt = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddHours(8)
-        };
-        
-        db.AdminLoginSessions.Add(session);
-        await db.SaveChangesAsync();
-        
-        // In real scenario, would call Lightning service to generate JWT
-        // For now, return a mock token (tests will fail but structure is correct)
-        return "mock_admin_token";
-    }
+    private Task<string> GetAdminToken()
+        => Task.FromResult(TestAuth.GenerateAdminJwt(_factory));
 
     /// <summary>
     /// Helper to seed a project.
@@ -218,7 +196,7 @@ public class AdminAnalyticsControllerTests : IClassFixture<LiveAuthWebApplicatio
         var project = new Project
         {
             Id = Guid.NewGuid(),
-            Name = $"Project {Guid.NewGuid():N[..8]}",
+            Name = $"Project {Guid.NewGuid().ToString("N")[..8]}",
             DeveloperId = developer.Id,
             Plan = "free",
             IsActive = true,
@@ -290,17 +268,21 @@ public class AdminAnalyticsControllerTests : IClassFixture<LiveAuthWebApplicatio
             Id = Guid.NewGuid(),
             Name = "Test Project",
             DeveloperId = developer.Id,
+            Plan = "free",
+            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
-        var apiKey = $"la_sk_{Guid.NewGuid():N}";
+        const string apiKey = "la_sk_admin_analytics_non_admin";
+        var hasher = new PasswordHasher<Project>();
         var apiKeyEntity = new ProjectApiKey
         {
             Id = Guid.NewGuid(),
             ProjectId = project.Id,
-            SecretKeyHash = BCrypt.Net.BCrypt.HashPassword(apiKey),
-            PublicKey = apiKey[..20],
-            CreatedAt = DateTime.UtcNow
+            SecretKeyHash = hasher.HashPassword(project, apiKey),
+            PublicKey = $"la_pk_{Guid.NewGuid():N}",
+            CreatedAt = DateTime.UtcNow,
+            IsActive = true
         };
 
         db.Developers.Add(developer);
@@ -309,6 +291,15 @@ public class AdminAnalyticsControllerTests : IClassFixture<LiveAuthWebApplicatio
         await db.SaveChangesAsync();
 
         return (project, apiKey);
+    }
+
+    private async Task ClearAuthEvents()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+
+        db.AuthEvents.RemoveRange(db.AuthEvents);
+        await db.SaveChangesAsync();
     }
 
     private record AdminProjectUsageDto

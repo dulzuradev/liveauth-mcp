@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -79,7 +80,9 @@ public class LiveAuthWebApplicationFactory : WebApplicationFactory<Program>
             var databaseName = $"LiveAuthTestDb_{Guid.NewGuid():N}";
             services.AddDbContext<LiveAuthDbContext>(options =>
             {
-                options.UseInMemoryDatabase(databaseName);
+                options
+                    .UseInMemoryDatabase(databaseName)
+                    .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning));
             });
 
             // Remove real Lightning service and add mock

@@ -92,10 +92,7 @@ public class ApiKeyService
 
         if (apiKey != null)
         {
-            var result = _hasher.VerifyHashedPassword(
-                apiKey.Project,
-                apiKey.SecretKeyHash,
-                secretKey);
+            var result = VerifySecret(apiKey.Project, apiKey.SecretKeyHash, secretKey);
 
             if (result == PasswordVerificationResult.Success)
             {
@@ -112,10 +109,7 @@ public class ApiKeyService
 
         if (project != null)
         {
-            var result = _hasher.VerifyHashedPassword(
-                project,
-                project.SecretKeyHash,
-                secretKey);
+            var result = VerifySecret(project, project.SecretKeyHash, secretKey);
 
             if (result == PasswordVerificationResult.Success)
                 return ApiKeyAuthResult.Ok(project, null);
@@ -186,6 +180,18 @@ public class ApiKeyService
     }
 
     // ---------------------------------------------------------------------
+
+    private PasswordVerificationResult VerifySecret(Project project, string secretHash, string secretKey)
+    {
+        try
+        {
+            return _hasher.VerifyHashedPassword(project, secretHash, secretKey);
+        }
+        catch (FormatException)
+        {
+            return PasswordVerificationResult.Failed;
+        }
+    }
 
     private static string Base64UrlEncode(byte[] bytes)
         => Convert.ToBase64String(bytes)

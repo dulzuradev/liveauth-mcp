@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -27,7 +28,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
     {
         // Arrange
         var (project, apiKey) = await SeedProjectWithApiKey();
-        _client.DefaultRequestHeaders.Add("X-LW-Public", apiKey);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
         var request = new
         {
@@ -47,7 +48,8 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
         Assert.NotEqual(Guid.Empty, result.SessionId);
         Assert.NotEmpty(result.Invoice);
         Assert.NotEmpty(result.PaymentHash);
-        Assert.Equal(100L, result.AmountSats);
+        Assert.Equal(100L, result.BaseAmountSats);
+        Assert.True(result.AmountSats >= result.BaseAmountSats);
         Assert.True(result.ExpiresAtUnix > DateTimeOffset.UtcNow.ToUnixTimeSeconds());
     }
 
@@ -73,7 +75,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
     public async Task Start_InvalidApiKey_ReturnsUnauthorized()
     {
         // Arrange
-        _client.DefaultRequestHeaders.Add("X-LW-Public", "la_sk_invalid");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "la_sk_invalid");
 
         var request = new
         {
@@ -94,7 +96,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
     {
         // Arrange
         var (project, apiKey) = await SeedProjectWithApiKey();
-        _client.DefaultRequestHeaders.Add("X-LW-Public", apiKey);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
         var request = new
         {
@@ -119,7 +121,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
     {
         // Arrange
         var (project, apiKey) = await SeedProjectWithApiKey();
-        _client.DefaultRequestHeaders.Add("X-LW-Public", apiKey);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
         var request = new
         {
@@ -156,7 +158,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
     public async Task Confirm_InvalidApiKey_ReturnsUnauthorized()
     {
         // Arrange
-        _client.DefaultRequestHeaders.Add("X-LW-Public", "la_sk_invalid");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "la_sk_invalid");
 
         var request = new
         {
@@ -253,13 +255,14 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
             IsActive = true
         };
 
-        var apiKey = $"la_sk_{Guid.NewGuid():N}";
+        const string apiKey = "la_sk_auth_controller_test_secret";
+        var hasher = new PasswordHasher<Project>();
         var apiKeyEntity = new ProjectApiKey
         {
             Id = Guid.NewGuid(),
             ProjectId = project.Id,
-            SecretKeyHash = BCrypt.Net.BCrypt.HashPassword(apiKey),
-            PublicKey = apiKey[..20],
+            SecretKeyHash = hasher.HashPassword(project, apiKey),
+            PublicKey = $"la_pk_{Guid.NewGuid():N}",
             CreatedAt = DateTime.UtcNow,
             IsActive = true
         };
@@ -269,10 +272,10 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
         db.ProjectApiKeys.Add(apiKeyEntity);
         await db.SaveChangesAsync();
 
-        return (project, apiKey[..20]);
+        return (project, apiKey);
     }
 
-    private record AuthStartResponse(Guid SessionId, string Invoice, string PaymentHash, long AmountSats, long ExpiresAtUnix);
+    private record AuthStartResponse(Guid SessionId, string Invoice, string PaymentHash, long AmountSats, long BaseAmountSats, long ExpiresAtUnix);
     private record AuthConfirmResponse(bool Verified, string Token = "", string Method = "", int ExpiresIn = 0);
     private record VerifyTokenResponse(bool Valid, Dictionary<string, string>? Claims = null);
 }

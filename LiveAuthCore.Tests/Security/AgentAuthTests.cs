@@ -89,8 +89,8 @@ public class PoWChallengeTests
     public void VerifySolution_ReturnsTrue_ForValidSolution()
     {
         // Arrange
-        var challenge = "a".PadRight(64, '0'); // 64 zeros
-        var solution = challenge + ":0"; // First nonce should work given easy difficulty
+        var challenge = "a".PadRight(64, '0');
+        var solution = $"{challenge}:{FindNonce(challenge, 4)}";
         
         // Act - use easy difficulty (lots of zeros in target)
         var isValid = VerifySolution(challenge, solution, 4); // Easy: only 1 hex char needs to be 0
@@ -145,6 +145,17 @@ public class PoWChallengeTests
 
         var requiredZeros = difficultyBits / 4;
         return hashHex.StartsWith(new string('0', requiredZeros));
+    }
+
+    private static int FindNonce(string challenge, int difficultyBits)
+    {
+        for (var nonce = 0; nonce < 10_000; nonce++)
+        {
+            if (VerifySolution(challenge, $"{challenge}:{nonce}", difficultyBits))
+                return nonce;
+        }
+
+        throw new InvalidOperationException("Could not find a PoW nonce for the test difficulty.");
     }
 }
 

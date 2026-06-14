@@ -8,7 +8,7 @@ using Xunit;
 namespace LiveAuthCore.Tests.Controllers;
 
 /// <summary>
-/// Tests for /api/auth/* endpoints (PoW verification, Lightning fallback).
+/// Tests for /api/public/auth/* endpoints (public end-user authentication).
 /// </summary>
 public class PublicAuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
 {
@@ -22,101 +22,86 @@ public class PublicAuthControllerTests : IClassFixture<LiveAuthWebApplicationFac
     }
 
     [Fact]
-    public async Task GetChallenge_ReturnsValidChallenge()
+    public async Task Start_WithProjectPublicKey_ReturnsSession()
     {
-        // Arrange
         var testProject = await SeedTestProject();
+        _client.DefaultRequestHeaders.Add("X-LW-Public", testProject.PublicKey);
 
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/auth/challenge", new
+        var response = await _client.PostAsJsonAsync("/api/public/auth/start", new
         {
-            ProjectId = testProject.Id,
-            DifficultyBits = 20
+            UserHint = "user123"
         });
 
-        // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        
-        var challenge = await response.Content.ReadFromJsonAsync<ChallengeResponse>();
-        Assert.NotNull(challenge);
-        Assert.NotEmpty(challenge.Challenge);
-        Assert.Equal(20, challenge.DifficultyBits);
-        Assert.True(challenge.ExpiresAt > DateTime.UtcNow);
+
+        var result = await response.Content.ReadFromJsonAsync<StartAuthResponse>();
+        Assert.NotNull(result);
+        Assert.NotEqual(Guid.Empty, result.SessionId);
+        Assert.Equal("TEST", result.Mode);
+        Assert.Equal(21L, result.BaseAmountSats);
+        Assert.True(result.ExpiresAtUnix > DateTimeOffset.UtcNow.ToUnixTimeSeconds());
     }
 
     [Fact]
-    public async Task GetChallenge_InvalidProjectId_ReturnsBadRequest()
+    public async Task Confirm_NonExistentSession_ReturnsNotVerified()
     {
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/auth/challenge", new
-        {
-            ProjectId = Guid.NewGuid(), // Non-existent project
-            DifficultyBits = 20
-        });
-
-        // Assert
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task VerifyPoW_ValidSolution_ReturnsToken()
-    {
-        // Arrange
         var testProject = await SeedTestProject();
-        
-        // Get a challenge first
-        var challengeResponse = await _client.PostAsJsonAsync("/api/auth/challenge", new
-        {
-            ProjectId = testProject.Id,
-            DifficultyBits = 10 // Low difficulty for faster test
-        });
-        
-        var challenge = await challengeResponse.Content.ReadFromJsonAsync<ChallengeResponse>();
-        Assert.NotNull(challenge);
+        _client.DefaultRequestHeaders.Add("X-LW-Public", testProject.PublicKey);
 
-        // Solve the PoW (simplified for test - in reality, solve the hash puzzle)
-        var nonce = "test-nonce-12345";
-
-        // Act
-        var verifyResponse = await _client.PostAsJsonAsync("/api/auth/verify-pow", new
+        var response = await _client.PostAsJsonAsync("/api/public/auth/confirm", new
         {
-            Challenge = challenge.Challenge,
-            Nonce = nonce,
-            ProjectId = testProject.Id
+            SessionId = Guid.NewGuid()
         });
 
-        // Note: This will likely fail without a valid solution.
-        // In a real test, you'd either:
-        // 1. Actually solve the PoW
-        // 2. Mock the verification service
-        // 3. Use a known challenge/nonce pair
-        
-        // For now, just verify the endpoint is reachable
-        Assert.True(verifyResponse.StatusCode == HttpStatusCode.OK || 
-                   verifyResponse.StatusCode == HttpStatusCode.BadRequest);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<ConfirmAuthResponse>();
+        Assert.NotNull(result);
+        Assert.False(result.Verified);
+        Assert.Null(result.Token);
     }
 
     [Fact]
-    public async Task VerifyPoW_ExpiredChallenge_ReturnsUnauthorized()
+    public async Task Confirm_TestModeSession_ReturnsToken()
     {
-        // Arrange
         var testProject = await SeedTestProject();
+        _client.DefaultRequestHeaders.Add("X-LW-Public", testProject.PublicKey);
 
-        // Act - Use an expired challenge
-        var response = await _client.PostAsJsonAsync("/api/auth/verify-pow", new
+        var startResponse = await _client.PostAsJsonAsync("/api/public/auth/start", new
         {
-            Challenge = "expired-challenge-12345",
-            Nonce = "some-nonce",
-            ProjectId = testProject.Id
+            UserHint = "user123"
+        });
+        var start = await startResponse.Content.ReadFromJsonAsync<StartAuthResponse>();
+        Assert.NotNull(start);
+
+        var confirmResponse = await _client.PostAsJsonAsync("/api/public/auth/confirm", new
+        {
+            start.SessionId
         });
 
-        // Assert
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, confirmResponse.StatusCode);
+
+        var result = await confirmResponse.Content.ReadFromJsonAsync<ConfirmAuthResponse>();
+        Assert.NotNull(result);
+        Assert.True(result.Verified);
+        Assert.NotEmpty(result.Token);
     }
 
-    /// <summary>
-    /// Helper to seed a test project in the in-memory database.
-    /// </summary>
+    [Fact]
+    public async Task Start_NoPublicKey_UsesDemoProjectFallback()
+    {
+        var response = await _client.PostAsJsonAsync("/api/public/auth/start", new
+        {
+            UserHint = "demo-user"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<StartAuthResponse>();
+        Assert.NotNull(result);
+        Assert.NotEqual(Guid.Empty, result.SessionId);
+    }
+
     private async Task<Project> SeedTestProject()
     {
         using var scope = _factory.Services.CreateScope();
@@ -125,7 +110,7 @@ public class PublicAuthControllerTests : IClassFixture<LiveAuthWebApplicationFac
         var developer = new Developer
         {
             Id = Guid.NewGuid(),
-            Email = "test@liveauth.app",
+            Email = $"test-{Guid.NewGuid():N}@liveauth.app",
             CreatedAt = DateTime.UtcNow
         };
 
@@ -134,6 +119,11 @@ public class PublicAuthControllerTests : IClassFixture<LiveAuthWebApplicationFac
             Id = Guid.NewGuid(),
             DeveloperId = developer.Id,
             Name = "Test Project",
+            PublicKey = $"la_pk_public_auth_{Guid.NewGuid():N}",
+            SecretKeyHash = "unused-in-public-auth-tests",
+            Environment = "TEST",
+            Plan = "free",
+            AllowDemoAuth = true,
             CreatedAt = DateTime.UtcNow,
             IsActive = true
         };
@@ -145,5 +135,6 @@ public class PublicAuthControllerTests : IClassFixture<LiveAuthWebApplicationFac
         return project;
     }
 
-    private record ChallengeResponse(string Challenge, int DifficultyBits, DateTime ExpiresAt);
+    private record StartAuthResponse(Guid SessionId, string? Invoice, long AmountSats, long BaseAmountSats, long ExpiresAtUnix, string Mode);
+    private record ConfirmAuthResponse(bool Verified, string? Token);
 }

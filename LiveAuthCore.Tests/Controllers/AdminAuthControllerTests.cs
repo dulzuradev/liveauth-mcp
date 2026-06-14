@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
@@ -8,7 +9,7 @@ using Xunit;
 namespace LiveAuthCore.Tests.Controllers;
 
 /// <summary>
-/// Tests for /api/admin/auth/* endpoints (admin authentication via Lightning).
+/// Tests for /api/admin/auth/* endpoints.
 /// </summary>
 public class AdminAuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
 {
@@ -22,226 +23,145 @@ public class AdminAuthControllerTests : IClassFixture<LiveAuthWebApplicationFact
     }
 
     [Fact]
-    public async Task Start_ValidEmail_ReturnsInvoice()
+    public async Task Payment_ReturnsInvoice()
     {
-        // Arrange
-        var request = new
-        {
-            Email = "admin@liveauth.app" // Assuming this is in AllowedEmails config
-        };
+        var response = await _client.PostAsync("/api/admin/auth/payment", null);
 
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/admin/auth/start", request);
-
-        // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        
-        var result = await response.Content.ReadFromJsonAsync<AdminStartLoginResponse>();
+
+        var result = await response.Content.ReadFromJsonAsync<AdminPaymentResponse>();
         Assert.NotNull(result);
         Assert.NotEqual(Guid.Empty, result.SessionId);
         Assert.NotEmpty(result.Invoice);
-        Assert.Equal(21L, result.AmountSats);
+        Assert.Equal(100L, result.AmountSats);
+        Assert.False(result.IsSetup);
         Assert.True(result.ExpiresAtUnix > DateTimeOffset.UtcNow.ToUnixTimeSeconds());
     }
 
     [Fact]
-    public async Task Start_EmptyEmail_ReturnsBadRequest()
+    public async Task Verify_NonExistentSession_ReturnsBadRequest()
     {
-        // Arrange
-        var request = new
-        {
-            Email = ""
-        };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/admin/auth/start", request);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        
-        var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-        Assert.Equal("invalid_email", error?.Error);
-    }
-
-    [Fact]
-    public async Task Start_NullEmail_ReturnsBadRequest()
-    {
-        // Arrange
-        var request = new
-        {
-            Email = (string?)null
-        };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/admin/auth/start", request);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task Start_UnauthorizedEmail_ReturnsForbidden()
-    {
-        // Arrange
-        var request = new
-        {
-            Email = "unauthorized@example.com"
-        };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/admin/auth/start", request);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        
-        var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-        Assert.Equal("not_allowed", error?.Error);
-    }
-
-    [Fact]
-    public async Task Start_ExistingUnpaidSession_ReusesSession()
-    {
-        // Arrange
-        var email = "admin@liveauth.app";
-        var existingSession = await SeedAdminLoginSession(email, isPaid: false, expiresInMinutes: 5);
-
-        var request = new
-        {
-            Email = email
-        };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/admin/auth/start", request);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        
-        var result = await response.Content.ReadFromJsonAsync<AdminStartLoginResponse>();
-        Assert.Equal(existingSession.Id, result.SessionId);
-        Assert.Equal(existingSession.InvoiceBolt11, result.Invoice);
-    }
-
-    [Fact]
-    public async Task Start_ExpiredSession_CreatesNewSession()
-    {
-        // Arrange
-        var email = "admin@liveauth.app";
-        var expiredSession = await SeedAdminLoginSession(email, isPaid: false, expiresInMinutes: -5);
-
-        var request = new
-        {
-            Email = email
-        };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/admin/auth/start", request);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        
-        var result = await response.Content.ReadFromJsonAsync<AdminStartLoginResponse>();
-        Assert.NotEqual(expiredSession.Id, result.SessionId);
-    }
-
-    [Fact]
-    public async Task Confirm_NonExistentSession_ReturnsNotVerified()
-    {
-        // Arrange
-        var request = new
+        var response = await _client.PostAsJsonAsync("/api/admin/auth/verify", new
         {
             SessionId = Guid.NewGuid()
-        };
+        });
 
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/admin/auth/confirm", request);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        
-        var result = await response.Content.ReadFromJsonAsync<AdminConfirmLoginResponse>();
-        Assert.False(result.Verified);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
-    public async Task Confirm_AlreadyPaidSession_ReturnsToken()
+    public async Task Verify_AlreadyPaidSession_ReturnsPaid()
     {
-        // Arrange
-        var session = await SeedAdminLoginSession("admin@liveauth.app", isPaid: true, expiresInMinutes: 5);
+        var session = await SeedAdminPaymentSession(isPaid: true, expiresInMinutes: 5);
 
-        var request = new
+        var response = await _client.PostAsJsonAsync("/api/admin/auth/verify", new
         {
             SessionId = session.Id
-        };
+        });
 
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/admin/auth/confirm", request);
-
-        // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        
-        var result = await response.Content.ReadFromJsonAsync<AdminConfirmLoginResponse>();
-        Assert.True(result.Verified);
+
+        var result = await response.Content.ReadFromJsonAsync<AdminVerifyResponse>();
+        Assert.NotNull(result);
+        Assert.True(result.Paid);
+        Assert.False(result.CanSetPassword);
+    }
+
+    [Fact]
+    public async Task Verify_ExpiredSession_ReturnsNotPaid()
+    {
+        var session = await SeedAdminPaymentSession(isPaid: false, expiresInMinutes: -5);
+
+        var response = await _client.PostAsJsonAsync("/api/admin/auth/verify", new
+        {
+            SessionId = session.Id
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<AdminVerifyResponse>();
+        Assert.NotNull(result);
+        Assert.False(result.Paid);
+        Assert.Equal("Payment expired", result.Error);
+    }
+
+    [Fact]
+    public async Task Verify_UnpaidInvoiceInMockMode_ReturnsPaid()
+    {
+        var session = await SeedAdminPaymentSession(isPaid: false, expiresInMinutes: 5);
+
+        var response = await _client.PostAsJsonAsync("/api/admin/auth/verify", new
+        {
+            SessionId = session.Id
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<AdminVerifyResponse>();
+        Assert.NotNull(result);
+        Assert.True(result.Paid);
+    }
+
+    [Fact]
+    public async Task Setup_WhenAdminAlreadyExists_ReturnsBadRequest()
+    {
+        var response = await _client.PostAsJsonAsync("/api/admin/auth/setup", new
+        {
+            Username = "admin",
+            Password = "SecurePassword123!"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_ValidCredentials_ReturnsToken()
+    {
+        const string password = "SecurePassword123!";
+        var session = await SeedAdminSession("testadmin", password);
+
+        var response = await _client.PostAsJsonAsync("/api/admin/auth/login", new
+        {
+            Username = session.Username,
+            Password = password
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<AdminLoginResponse>();
+        Assert.NotNull(result);
+        Assert.True(result.Success);
         Assert.NotEmpty(result.Token);
-        Assert.True(result.ExpiresAtUnix > DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        Assert.Equal(session.Username, result.Username);
     }
 
     [Fact]
-    public async Task Confirm_ExpiredSession_ReturnsNotVerified()
+    public async Task Status_WithStoredBearerToken_ReturnsAuthenticated()
     {
-        // Arrange
-        var session = await SeedAdminLoginSession("admin@liveauth.app", isPaid: false, expiresInMinutes: -5);
+        var session = await SeedAdminSession("statusadmin", "SecurePassword123!", token: $"admin-token-{Guid.NewGuid():N}");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.Token);
 
-        var request = new
-        {
-            SessionId = session.Id
-        };
+        var response = await _client.GetAsync("/api/admin/auth/status");
 
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/admin/auth/confirm", request);
-
-        // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        
-        var result = await response.Content.ReadFromJsonAsync<AdminConfirmLoginResponse>();
-        Assert.False(result.Verified);
+
+        var result = await response.Content.ReadFromJsonAsync<AdminStatusResponse>();
+        Assert.NotNull(result);
+        Assert.True(result.IsAuthenticated);
+        Assert.Equal(session.Username, result.Username);
+        Assert.True(result.IsOwner);
     }
 
-    [Fact]
-    public async Task Confirm_UnpaidInvoice_ReturnsNotVerified()
-    {
-        // Arrange
-        var session = await SeedAdminLoginSession("admin@liveauth.app", isPaid: false, expiresInMinutes: 5);
-
-        var request = new
-        {
-            SessionId = session.Id
-        };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/admin/auth/confirm", request);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        
-        var result = await response.Content.ReadFromJsonAsync<AdminConfirmLoginResponse>();
-        // Note: This will return false because the mock Lightning service won't show it as paid
-        Assert.False(result.Verified);
-    }
-
-    /// <summary>
-    /// Helper to seed an admin login session in the database.
-    /// </summary>
-    private async Task<AdminLoginSession> SeedAdminLoginSession(string email, bool isPaid, int expiresInMinutes)
+    private async Task<AdminPaymentSession> SeedAdminPaymentSession(bool isPaid, int expiresInMinutes)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
 
         var now = DateTime.UtcNow;
-        var session = new AdminLoginSession
+        var session = new AdminPaymentSession
         {
             Id = Guid.NewGuid(),
-            Email = email,
-            AmountSats = 21L,
+            AmountSats = 100L,
             InvoiceBolt11 = $"lnbc{Guid.NewGuid():N}",
             InvoiceRHash = Guid.NewGuid().ToString("N"),
             IsPaid = isPaid,
@@ -250,13 +170,38 @@ public class AdminAuthControllerTests : IClassFixture<LiveAuthWebApplicationFact
             ExpiresAt = now.AddMinutes(expiresInMinutes)
         };
 
-        db.AdminLoginSessions.Add(session);
+        db.AdminPaymentSessions.Add(session);
         await db.SaveChangesAsync();
 
         return session;
     }
 
-    private record AdminStartLoginResponse(Guid SessionId, string Invoice, long AmountSats, long ExpiresAtUnix);
-    private record AdminConfirmLoginResponse(bool Verified, string Token = "", long ExpiresAtUnix = 0);
-    private record ErrorResponse(string Error, string Message);
+    private async Task<AdminSession> SeedAdminSession(string username, string password, string? token = null)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        var (hash, salt) = TestAuth.HashPasswordWithSalt(password);
+
+        var session = new AdminSession
+        {
+            Id = Guid.NewGuid(),
+            Username = username.ToLowerInvariant(),
+            PasswordHash = hash,
+            PasswordSalt = salt,
+            IsOwner = true,
+            Token = token,
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddDays(30)
+        };
+
+        db.AdminSessions.Add(session);
+        await db.SaveChangesAsync();
+
+        return session;
+    }
+
+    private record AdminPaymentResponse(Guid SessionId, string Invoice, long AmountSats, bool IsSetup, long ExpiresAtUnix);
+    private record AdminVerifyResponse(bool Paid, bool? CanSetPassword = null, string? Error = null);
+    private record AdminLoginResponse(bool Success, string? Token, string? Username, string? Error);
+    private record AdminStatusResponse(bool IsAuthenticated, string? Username, bool? IsOwner);
 }

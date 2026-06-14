@@ -139,6 +139,7 @@ public class AdminSubscriptionAnalyticsControllerTests : IClassFixture<LiveAuthW
         // Arrange
         var adminToken = await GetAdminToken();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        await ClearSubscriptions();
 
         // Act
         var response = await _client.GetAsync("/api/admin/analytics/subscriptions");
@@ -154,29 +155,8 @@ public class AdminSubscriptionAnalyticsControllerTests : IClassFixture<LiveAuthW
     /// <summary>
     /// Helper to get an admin JWT token.
     /// </summary>
-    private async Task<string> GetAdminToken()
-    {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
-        
-        var session = new AdminLoginSession
-        {
-            Id = Guid.NewGuid(),
-            Email = "admin@liveauth.app",
-            AmountSats = 21L,
-            InvoiceBolt11 = "lnbc_test",
-            InvoiceRHash = "test_hash",
-            IsPaid = true,
-            PaidAt = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddHours(8)
-        };
-        
-        db.AdminLoginSessions.Add(session);
-        await db.SaveChangesAsync();
-        
-        return "mock_admin_token";
-    }
+    private Task<string> GetAdminToken()
+        => Task.FromResult(TestAuth.GenerateAdminJwt(_factory));
 
     /// <summary>
     /// Helper to seed a project.
@@ -196,7 +176,7 @@ public class AdminSubscriptionAnalyticsControllerTests : IClassFixture<LiveAuthW
         var project = new Project
         {
             Id = Guid.NewGuid(),
-            Name = $"Project {Guid.NewGuid():N[..8]}",
+            Name = $"Project {Guid.NewGuid().ToString("N")[..8]}",
             DeveloperId = developer.Id,
             Plan = "free",
             IsActive = true,
@@ -237,6 +217,15 @@ public class AdminSubscriptionAnalyticsControllerTests : IClassFixture<LiveAuthW
         await db.SaveChangesAsync();
 
         return subscription;
+    }
+
+    private async Task ClearSubscriptions()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+
+        db.BillingSubscriptions.RemoveRange(db.BillingSubscriptions);
+        await db.SaveChangesAsync();
     }
 
     private record AdminSubscriptionDto

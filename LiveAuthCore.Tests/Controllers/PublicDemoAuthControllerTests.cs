@@ -8,7 +8,7 @@ using Xunit;
 namespace LiveAuthCore.Tests.Controllers;
 
 /// <summary>
-/// Tests for /api/public/demo/* endpoints (public demo authentication).
+/// Tests for /api/public/auth/demo/* endpoints (public demo authentication).
 /// </summary>
 public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
 {
@@ -28,7 +28,7 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
         await SeedDemoProject();
 
         // Act
-        var response = await _client.PostAsync("/api/public/demo/start", null);
+        var response = await _client.PostAsync("/api/public/auth/demo/start", null);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -37,7 +37,7 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
         Assert.NotNull(result);
         Assert.NotEqual(Guid.Empty, result.SessionId);
         Assert.NotEmpty(result.Invoice);
-        Assert.Equal(3L, result.AmountSats);
+        Assert.Equal(3L, result.BaseAmountSats);
         Assert.Equal("DEMO", result.Mode);
         Assert.True(result.ExpiresAtUnix > DateTimeOffset.UtcNow.ToUnixTimeSeconds());
     }
@@ -45,8 +45,11 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
     [Fact]
     public async Task Start_NoDemoProject_ReturnsInternalServerError()
     {
-        // Act (no demo project configured)
-        var response = await _client.PostAsync("/api/public/demo/start", null);
+        // Arrange
+        await RemoveDemoProject();
+
+        // Act
+        var response = await _client.PostAsync("/api/public/auth/demo/start", null);
 
         // Assert
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
@@ -59,7 +62,7 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
         await SeedDemoProject(isActive: false);
 
         // Act
-        var response = await _client.PostAsync("/api/public/demo/start", null);
+        var response = await _client.PostAsync("/api/public/auth/demo/start", null);
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -77,7 +80,7 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/public/demo/confirm", request);
+        var response = await _client.PostAsJsonAsync("/api/public/auth/demo/confirm", request);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -100,7 +103,7 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/public/demo/confirm", request);
+        var response = await _client.PostAsJsonAsync("/api/public/auth/demo/confirm", request);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -123,7 +126,7 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/public/demo/confirm", request);
+        var response = await _client.PostAsJsonAsync("/api/public/auth/demo/confirm", request);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -134,7 +137,7 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
     }
 
     [Fact]
-    public async Task Confirm_UnpaidSession_ReturnsNotVerified()
+    public async Task Confirm_UnpaidSessionInMockMode_ReturnsToken()
     {
         // Arrange
         var project = await SeedDemoProject();
@@ -146,21 +149,21 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/public/demo/confirm", request);
+        var response = await _client.PostAsJsonAsync("/api/public/auth/demo/confirm", request);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         
         var result = await response.Content.ReadFromJsonAsync<PublicConfirmAuthResponse>();
-        // Note: Will return false because mock Lightning service won't show it as paid
-        Assert.False(result.Verified);
+        Assert.True(result.Verified);
+        Assert.NotEmpty(result.Token);
     }
 
     [Fact]
     public async Task Confirm_WrongProject_ReturnsNotVerified()
     {
         // Arrange
-        var project1 = await SeedDemoProject();
+        await SeedDemoProject();
         var project2 = await SeedProject("Other Project");
         var session = await SeedAuthSession(project2.Id, isPaid: true, expiresInMinutes: 10);
 
@@ -170,7 +173,7 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/public/demo/confirm", request);
+        var response = await _client.PostAsJsonAsync("/api/public/auth/demo/confirm", request);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -188,30 +191,57 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
 
-        var developer = new Developer
-        {
-            Id = Guid.NewGuid(),
-            Email = "demo@liveauth.app",
-            CreatedAt = DateTime.UtcNow
-        };
+        var developerId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var demoProjectId = Guid.Parse("00000000-0000-0000-0000-000000000002");
 
-        // Use a well-known demo project ID (match config if needed)
-        var demoProjectId = Guid.Parse("00000000-0000-0000-0000-000000000001");
-        
-        var project = new Project
+        var developer = await db.Developers.FindAsync(developerId);
+        if (developer == null)
         {
-            Id = demoProjectId,
-            Name = "Demo Project",
-            DeveloperId = developer.Id,
-            IsActive = isActive,
-            CreatedAt = DateTime.UtcNow
-        };
+            developer = new Developer
+            {
+                Id = developerId,
+                Email = "demo@liveauth.app",
+                CreatedAt = DateTime.UtcNow
+            };
+            db.Developers.Add(developer);
+        }
 
-        db.Developers.Add(developer);
-        db.Projects.Add(project);
+        var project = await db.Projects.FindAsync(demoProjectId);
+        if (project == null)
+        {
+            project = new Project
+            {
+                Id = demoProjectId,
+                DeveloperId = developer.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            db.Projects.Add(project);
+        }
+
+        project.Name = "Demo Project";
+        project.PublicKey = "demo_pk_test";
+        project.SecretKeyHash = "demo_sk_test";
+        project.DeveloperId = developer.Id;
+        project.IsActive = isActive;
+        project.Plan = "free";
+
         await db.SaveChangesAsync();
 
         return project;
+    }
+
+    private async Task RemoveDemoProject()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+
+        var demoProjectId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        var project = await db.Projects.FindAsync(demoProjectId);
+        if (project != null)
+        {
+            db.Projects.Remove(project);
+            await db.SaveChangesAsync();
+        }
     }
 
     /// <summary>
@@ -274,6 +304,6 @@ public class PublicDemoAuthControllerTests : IClassFixture<LiveAuthWebApplicatio
         return session;
     }
 
-    private record PublicStartAuthResponse(Guid SessionId, string Invoice, long AmountSats, long ExpiresAtUnix, string Mode);
+    private record PublicStartAuthResponse(Guid SessionId, string Invoice, long AmountSats, long BaseAmountSats, long ExpiresAtUnix, string Mode);
     private record PublicConfirmAuthResponse(bool Verified, string? Token);
 }

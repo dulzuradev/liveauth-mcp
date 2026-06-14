@@ -175,6 +175,7 @@ public class AdminAuthEventsControllerTests : IClassFixture<LiveAuthWebApplicati
         // Arrange
         var adminToken = await GetAdminToken();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        await ClearAuthEvents();
 
         // Act
         var response = await _client.GetAsync("/api/admin/analytics/events");
@@ -190,29 +191,8 @@ public class AdminAuthEventsControllerTests : IClassFixture<LiveAuthWebApplicati
     /// <summary>
     /// Helper to get an admin JWT token.
     /// </summary>
-    private async Task<string> GetAdminToken()
-    {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
-        
-        var session = new AdminLoginSession
-        {
-            Id = Guid.NewGuid(),
-            Email = "admin@liveauth.app",
-            AmountSats = 21L,
-            InvoiceBolt11 = "lnbc_test",
-            InvoiceRHash = "test_hash",
-            IsPaid = true,
-            PaidAt = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddHours(8)
-        };
-        
-        db.AdminLoginSessions.Add(session);
-        await db.SaveChangesAsync();
-        
-        return "mock_admin_token";
-    }
+    private Task<string> GetAdminToken()
+        => Task.FromResult(TestAuth.GenerateAdminJwt(_factory));
 
     /// <summary>
     /// Helper to seed a project.
@@ -232,7 +212,7 @@ public class AdminAuthEventsControllerTests : IClassFixture<LiveAuthWebApplicati
         var project = new Project
         {
             Id = Guid.NewGuid(),
-            Name = $"Project {Guid.NewGuid():N[..8]}",
+            Name = $"Project {Guid.NewGuid().ToString("N")[..8]}",
             DeveloperId = developer.Id,
             Plan = "free",
             IsActive = true,
@@ -285,6 +265,15 @@ public class AdminAuthEventsControllerTests : IClassFixture<LiveAuthWebApplicati
             CreatedAt = DateTime.UtcNow
         });
 
+        await db.SaveChangesAsync();
+    }
+
+    private async Task ClearAuthEvents()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+
+        db.AuthEvents.RemoveRange(db.AuthEvents);
         await db.SaveChangesAsync();
     }
 

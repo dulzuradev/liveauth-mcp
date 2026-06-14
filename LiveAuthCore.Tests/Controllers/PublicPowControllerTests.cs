@@ -8,7 +8,7 @@ using Xunit;
 namespace LiveAuthCore.Tests.Controllers;
 
 /// <summary>
-/// Tests for /api/pow/* endpoints (Proof-of-Work challenge and verification).
+/// Tests for /api/public/pow/* endpoints (Proof-of-Work challenge and verification).
 /// </summary>
 public class PublicPowControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
 {
@@ -24,214 +24,139 @@ public class PublicPowControllerTests : IClassFixture<LiveAuthWebApplicationFact
     [Fact]
     public async Task GetChallenge_ValidRequest_ReturnsChallenge()
     {
-        // Arrange
         var project = await SeedTestProject();
+        using var request = CreateChallengeRequest(project.PublicKey!);
 
-        var request = new
-        {
-            ProjectId = project.Id,
-            DifficultyBits = 20
-        };
+        var response = await _client.SendAsync(request);
 
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/pow/challenge", request);
-
-        // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        
+
         var challenge = await response.Content.ReadFromJsonAsync<ChallengeResponse>();
         Assert.NotNull(challenge);
-        Assert.NotEmpty(challenge.Challenge);
-        Assert.Equal(20, challenge.DifficultyBits);
-        Assert.True(challenge.ExpiresAt > DateTime.UtcNow);
+        Assert.Equal(project.PublicKey, challenge.ProjectPublicKey);
+        Assert.NotEmpty(challenge.ChallengeHex);
+        Assert.NotEmpty(challenge.TargetHex);
+        Assert.InRange(challenge.DifficultyBits, 16, 24);
+        Assert.True(challenge.ExpiresAtUnix > DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        Assert.NotEmpty(challenge.Sig);
     }
 
     [Fact]
-    public async Task GetChallenge_InvalidDifficultyBits_ReturnsBadRequest()
+    public async Task GetChallenge_PostMethod_ReturnsMethodNotAllowed()
     {
-        // Arrange
         var project = await SeedTestProject();
+        _client.DefaultRequestHeaders.Add("X-LW-Public", project.PublicKey);
 
-        var request = new
-        {
-            ProjectId = project.Id,
-            DifficultyBits = 35 // Too high
-        };
+        var response = await _client.PostAsJsonAsync("/api/public/pow/challenge", new { });
 
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/pow/challenge", request);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
     }
 
     [Fact]
-    public async Task GetChallenge_NonExistentProject_ReturnsBadRequest()
+    public async Task GetChallenge_InvalidPublicKey_ReturnsUnauthorized()
     {
-        // Arrange
-        var request = new
-        {
-            ProjectId = Guid.NewGuid(), // Doesn't exist
-            DifficultyBits = 20
-        };
+        using var request = CreateChallengeRequest($"la_pk_missing_{Guid.NewGuid():N}");
 
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/pow/challenge", request);
+        var response = await _client.SendAsync(request);
 
-        // Assert
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task VerifyPow_InvalidChallenge_ReturnsUnauthorized()
-    {
-        // Arrange
-        var project = await SeedTestProject();
-
-        var request = new
-        {
-            Challenge = "nonexistent-challenge",
-            Nonce = "12345",
-            ProjectId = project.Id
-        };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/pow/verify", request);
-
-        // Assert
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
-    public async Task VerifyPow_ReplayAttack_ReturnsUnauthorized()
+    public async Task VerifyPow_InvalidChallenge_ReturnsNotVerified()
     {
-        // Arrange
         var project = await SeedTestProject();
+        _client.DefaultRequestHeaders.Add("X-LW-Public", project.PublicKey);
 
-        // Get a challenge
-        var challengeResponse = await _client.PostAsJsonAsync("/api/pow/challenge", new
+        var response = await _client.PostAsJsonAsync("/api/public/pow/verify", new
         {
-            ProjectId = project.Id,
-            DifficultyBits = 10
-        });
-        
-        var challenge = await challengeResponse.Content.ReadFromJsonAsync<ChallengeResponse>();
-        Assert.NotNull(challenge);
-
-        // First verification attempt (will likely fail without valid solution, but that's ok)
-        await _client.PostAsJsonAsync("/api/pow/verify", new
-        {
-            Challenge = challenge.Challenge,
-            Nonce = "test-nonce",
-            ProjectId = project.Id
+            challengeHex = "abc123",
+            nonce = 1L,
+            hashHex = new string('0', 64),
+            expiresAtUnix = DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeSeconds(),
+            difficultyBits = 16,
+            sig = "bad-signature"
         });
 
-        // Act - Try to reuse the same challenge (replay attack)
-        var replayResponse = await _client.PostAsJsonAsync("/api/pow/verify", new
-        {
-            Challenge = challenge.Challenge,
-            Nonce = "test-nonce",
-            ProjectId = project.Id
-        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        // Assert - Should be rejected
-        Assert.Equal(HttpStatusCode.Unauthorized, replayResponse.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<VerifyResponse>();
+        Assert.NotNull(result);
+        Assert.False(result.Verified);
     }
 
-    [Theory]
-    [InlineData(5)]
-    [InlineData(10)]
-    [InlineData(15)]
-    [InlineData(20)]
-    [InlineData(25)]
-    public async Task GetChallenge_VariousDifficulties_ReturnsAppropriate(int difficultyBits)
+    [Fact]
+    public async Task VerifyPow_MissingFields_ReturnsBadRequest()
     {
-        // Arrange
         var project = await SeedTestProject();
+        _client.DefaultRequestHeaders.Add("X-LW-Public", project.PublicKey);
 
-        var request = new
+        var response = await _client.PostAsJsonAsync("/api/public/pow/verify", new
         {
-            ProjectId = project.Id,
-            DifficultyBits = difficultyBits
-        };
+            challengeHex = "",
+            nonce = 0L,
+            hashHex = "",
+            expiresAtUnix = DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeSeconds(),
+            difficultyBits = 16,
+            sig = ""
+        });
 
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/pow/challenge", request);
-
-        // Assert
-        if (difficultyBits <= 30) // Assuming max difficulty is 30
-        {
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
-            var challenge = await response.Content.ReadFromJsonAsync<ChallengeResponse>();
-            Assert.NotNull(challenge);
-            Assert.Equal(difficultyBits, challenge.DifficultyBits);
-        }
-        else
-        {
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        }
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
     public async Task GetChallenge_MultipleRequests_ReturnsUniqueChallenges()
     {
-        // Arrange
         var project = await SeedTestProject();
         var challenges = new List<string>();
 
-        // Act - Request 5 challenges
-        for (int i = 0; i < 5; i++)
+        for (var i = 0; i < 5; i++)
         {
-            var response = await _client.PostAsJsonAsync("/api/pow/challenge", new
-            {
-                ProjectId = project.Id,
-                DifficultyBits = 20
-            });
+            using var request = CreateChallengeRequest(project.PublicKey!);
+            var response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var challenge = await response.Content.ReadFromJsonAsync<ChallengeResponse>();
             Assert.NotNull(challenge);
-            challenges.Add(challenge.Challenge);
+            challenges.Add(challenge.ChallengeHex);
         }
 
-        // Assert - All challenges should be unique
         Assert.Equal(5, challenges.Distinct().Count());
     }
 
     [Fact]
     public async Task PublicChallenge_WithProjectApiKey_RecordsAuthEventForRequestingProject()
     {
-        // Arrange
         var (project, publicKey) = await SeedTestProjectWithApiKey();
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/public/pow/challenge");
-        request.Headers.Add("X-LW-Public", publicKey);
+        using var request = CreateChallengeRequest(publicKey);
 
-        // Act
         var response = await _client.SendAsync(request);
 
-        // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var challenge = await response.Content.ReadFromJsonAsync<PublicChallengeResponse>();
+        var challenge = await response.Content.ReadFromJsonAsync<ChallengeResponse>();
         Assert.NotNull(challenge);
         Assert.Equal(project.PublicKey, challenge.ProjectPublicKey);
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
         var authEvent = db.AuthEvents
-            .Where(e => e.EventType == AuthEventType.PowChallengeIssued)
-            .OrderByDescending(e => e.CreatedAt)
-            .First();
+            .SingleOrDefault(e =>
+                e.EventType == AuthEventType.PowChallengeIssued &&
+                e.ProjectId == project.Id);
 
-        Assert.Equal(project.Id, authEvent.ProjectId);
+        Assert.NotNull(authEvent);
         Assert.NotEqual(Guid.Parse("00000000-0000-0000-0000-000000000002"), authEvent.ProjectId);
     }
 
-    /// <summary>
-    /// Helper to seed a test project.
-    /// </summary>
+    private static HttpRequestMessage CreateChallengeRequest(string publicKey)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/public/pow/challenge");
+        request.Headers.Add("X-LW-Public", publicKey);
+        return request;
+    }
+
     private async Task<Project> SeedTestProject()
     {
         using var scope = _factory.Services.CreateScope();
@@ -240,7 +165,7 @@ public class PublicPowControllerTests : IClassFixture<LiveAuthWebApplicationFact
         var developer = new Developer
         {
             Id = Guid.NewGuid(),
-            Email = "test@liveauth.app",
+            Email = $"test-{Guid.NewGuid():N}@liveauth.app",
             CreatedAt = DateTime.UtcNow
         };
 
@@ -249,6 +174,9 @@ public class PublicPowControllerTests : IClassFixture<LiveAuthWebApplicationFact
             Id = Guid.NewGuid(),
             DeveloperId = developer.Id,
             Name = "Test Project",
+            PublicKey = $"la_pk_project_{Guid.NewGuid():N}",
+            SecretKeyHash = "unused-in-public-pow-tests",
+            Plan = "free",
             CreatedAt = DateTime.UtcNow,
             IsActive = true
         };
@@ -267,17 +195,15 @@ public class PublicPowControllerTests : IClassFixture<LiveAuthWebApplicationFact
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
 
-        project.PublicKey = $"la_pk_project_{Guid.NewGuid():N}";
         var publicKey = $"la_pk_key_{Guid.NewGuid():N}";
 
-        db.Projects.Update(project);
         db.ProjectApiKeys.Add(new ProjectApiKey
         {
             Id = Guid.NewGuid(),
             ProjectId = project.Id,
             Label = "Regression key",
             PublicKey = publicKey,
-            SecretKeyHash = "test-secret-hash",
+            SecretKeyHash = "unused-in-public-pow-tests",
             CreatedAt = DateTime.UtcNow,
             IsActive = true
         });
@@ -286,6 +212,6 @@ public class PublicPowControllerTests : IClassFixture<LiveAuthWebApplicationFact
         return (project, publicKey);
     }
 
-    private record ChallengeResponse(string Challenge, int DifficultyBits, DateTime ExpiresAt);
-    private record PublicChallengeResponse(string ProjectPublicKey, string ChallengeHex, string TargetHex, int DifficultyBits, long ExpiresAtUnix, string Sig);
+    private record ChallengeResponse(string ProjectPublicKey, string ChallengeHex, string TargetHex, int DifficultyBits, long ExpiresAtUnix, string Sig);
+    private record VerifyResponse(bool Verified, string? Token, string? Fallback);
 }
