@@ -1,6 +1,7 @@
 using System.Text;
 using LiveAuthCore.Services;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Primitives;
 
 namespace LiveAuthCore.Middleware;
@@ -63,7 +64,7 @@ public class L402Middleware
         }
 
         // Check if this endpoint is gated
-        if (!IsGated(path))
+        if (!IsGated(path, context))
         {
             await _next(context);
             return;
@@ -111,10 +112,36 @@ public class L402Middleware
         await _next(context);
     }
 
-    private static bool IsGated(string path)
+    private static bool IsGated(string path, HttpContext context)
     {
-        return GatedPaths.Any(gated => 
+        return GetGatedPaths(context).Any(gated =>
             path.StartsWith(gated, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IEnumerable<string> GetGatedPaths(HttpContext context)
+    {
+        var configuration = context.RequestServices.GetService<IConfiguration>();
+        if (configuration == null)
+            return GatedPaths;
+
+        var configuredChildren = configuration
+            .GetSection("L402:GatedPaths")
+            .GetChildren()
+            .Select(child => child.Value)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim())
+            .ToArray();
+
+        if (configuredChildren.Length > 0)
+            return configuredChildren;
+
+        var configured = configuration["L402:GatedPaths"];
+        if (string.IsNullOrWhiteSpace(configured))
+            return GatedPaths;
+
+        return configured.Split(
+            new[] { ',', ';', '\n', '\r' },
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
     private static bool IsExcluded(string path)
@@ -144,13 +171,13 @@ public class L402Middleware
             // L402 format: Authorization: L402 <preimage>
             if (authHeader.StartsWith("L402 ", StringComparison.OrdinalIgnoreCase))
             {
-                return (authHeader[6..].Trim(), "L402");
+                return (authHeader[5..].Trim(), "L402");
             }
 
             // x402 format: Authorization: x402 <preimage>
             if (authHeader.StartsWith("x402 ", StringComparison.OrdinalIgnoreCase))
             {
-                return (authHeader[6..].Trim(), "x402");
+                return (authHeader[5..].Trim(), "x402");
             }
         }
 
