@@ -37,20 +37,24 @@ public class HealthControllerTests : IClassFixture<LiveAuthWebApplicationFactory
         // Assert
         Assert.NotNull(content);
         Assert.Equal("healthy", content.Status);
-        Assert.NotNull(content.Timestamp);
+        Assert.NotEqual(default, content.Timestamp);
     }
 
     [Fact]
     public async Task Health_TimestampIsRecent()
     {
         // Act
+        var beforeRequest = DateTime.UtcNow;
         var response = await _client.GetAsync("/api/health");
+        var afterResponse = DateTime.UtcNow;
         var content = await response.Content.ReadFromJsonAsync<HealthResponse>();
 
         // Assert
         Assert.NotNull(content);
-        var age = DateTime.UtcNow - content.Timestamp;
-        Assert.True(age.TotalSeconds < 5, "Health timestamp should be within 5 seconds");
+        Assert.True(
+            content.Timestamp >= beforeRequest.AddSeconds(-1) &&
+            content.Timestamp <= afterResponse.AddSeconds(1),
+            "Health timestamp should be generated during the health request");
     }
 
     private record HealthResponse(string Status, DateTime Timestamp);
