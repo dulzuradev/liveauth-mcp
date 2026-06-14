@@ -3,13 +3,16 @@ namespace LiveAuthCore.Tests;
 using LiveAuthCore.Data;
 using LiveAuthCore.Tests.Mocks;
 using LiveAuthCore.Services;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
+using System.Net;
 using System.Text;
 
 
@@ -103,7 +106,10 @@ public class LiveAuthWebApplicationFactory : WebApplicationFactory<Program>
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestJwtKey))
                 };
             });
-            
+
+            services.RemoveAll<IHostedService>();
+            ConfigureExternalHttpFakes(services);
+
             services.AddAuthorization();
 
             // Build and seed
@@ -157,5 +163,49 @@ public class LiveAuthWebApplicationFactory : WebApplicationFactory<Program>
         }
 
         db.SaveChanges();
+    }
+
+    private static void ConfigureExternalHttpFakes(IServiceCollection services)
+    {
+        services.AddHttpClient("coingecko")
+            .ConfigurePrimaryHttpMessageHandler(() => new StubHttpMessageHandler(_ =>
+                JsonResponse(HttpStatusCode.OK, """{"bitcoin":{"usd":65000.0}}""")));
+
+        services.AddHttpClient("coinbase")
+            .ConfigurePrimaryHttpMessageHandler(() => new StubHttpMessageHandler(_ =>
+                JsonResponse(HttpStatusCode.OK, """{"data":{"amount":"65000.00"}}""")));
+
+        services.AddHttpClient<EmailService>()
+            .ConfigurePrimaryHttpMessageHandler(() => new StubHttpMessageHandler(_ =>
+                JsonResponse(HttpStatusCode.Accepted, "{}")));
+
+        services.AddHttpClient("webhooks")
+            .ConfigurePrimaryHttpMessageHandler(() => new StubHttpMessageHandler(_ =>
+                JsonResponse(HttpStatusCode.OK, "{}")));
+    }
+
+    private static HttpResponseMessage JsonResponse(HttpStatusCode statusCode, string json)
+    {
+        return new HttpResponseMessage(statusCode)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+    }
+
+    private sealed class StubHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;
+
+        public StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> handler)
+        {
+            _handler = handler;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(_handler(request));
+        }
     }
 }

@@ -187,6 +187,8 @@ public static class ServiceCollectionExtensions
             client.Timeout = TimeSpan.FromSeconds(30);
         });
         builder.Services.AddHttpClient("cashu");
+        builder.Services.AddHttpClient("coingecko");
+        builder.Services.AddHttpClient("coinbase");
         builder.Services.AddHttpClient<BtcExchangeRateService>();
         builder.Services.AddScoped<BtcExchangeRateService>();
 

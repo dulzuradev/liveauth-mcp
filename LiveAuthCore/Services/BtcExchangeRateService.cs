@@ -1,10 +1,11 @@
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace LiveAuthCore.Services;
 
 /// <summary>
-/// Fetches BTC/USD exchange rate from CoinGecko (primary) or Binance (fallback).
+/// Fetches BTC/USD exchange rate from CoinGecko (primary) or Coinbase (fallback).
 /// Caches for 5 minutes to avoid hammering the API.
 /// </summary>
 public class BtcExchangeRateService
@@ -90,7 +91,7 @@ public class BtcExchangeRateService
     {
         try
         {
-            var client = _httpClientFactory.CreateClient("coingecko");
+            var client = _httpClientFactory.CreateClient("coinbase");
             var response = await client.GetAsync(
                 "https://api.coinbase.com/v2/prices/spot?currency=USD",
                 ct);
@@ -107,7 +108,7 @@ public class BtcExchangeRateService
             if (doc.RootElement.TryGetProperty("data", out var data) &&
                 data.TryGetProperty("amount", out var amount))
             {
-                return double.Parse(amount.GetString()!);
+                return double.Parse(amount.GetString()!, CultureInfo.InvariantCulture);
             }
         }
         catch (Exception ex)
