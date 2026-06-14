@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -91,7 +92,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact(Skip = "Flaky test - needs investigation")]
+    [Fact]
     public async Task Start_MinimalRequest_ReturnsSession()
     {
         // Arrange
@@ -100,9 +101,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
 
         var request = new
         {
-            UserRef = "user123",
-            AmountSats = (long?)null,
-            Memo = (string?)null
+            UserRef = "user123"
         };
 
         // Act
@@ -114,6 +113,13 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
         var result = await response.Content.ReadFromJsonAsync<AuthStartResponse>();
         Assert.NotNull(result);
         Assert.NotEqual(Guid.Empty, result.SessionId);
+        Assert.Equal(200L, result.BaseAmountSats);
+        Assert.True(result.AmountSats >= result.BaseAmountSats);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        var session = await db.VerificationSessions.SingleAsync(s => s.Id == result.SessionId);
+        Assert.Equal(project.Id, session.ProjectId);
     }
 
     [Fact]
@@ -255,7 +261,7 @@ public class AuthControllerTests : IClassFixture<LiveAuthWebApplicationFactory>
             IsActive = true
         };
 
-        const string apiKey = "la_sk_auth_controller_test_secret";
+        var apiKey = $"la_sk_auth_controller_test_{Guid.NewGuid():N}";
         var hasher = new PasswordHasher<Project>();
         var apiKeyEntity = new ProjectApiKey
         {

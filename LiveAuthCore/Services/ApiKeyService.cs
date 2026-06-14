@@ -84,13 +84,13 @@ public class ApiKeyService
         if (string.IsNullOrWhiteSpace(secretKey))
             return ApiKeyAuthResult.Invalid();
 
-        // v2 API keys — find candidate key then verify hash (PasswordHasher doesn't support direct lookup)
-        var apiKey = await _db.ProjectApiKeys
+        // v2 API keys — scan candidates then verify hashes (PasswordHasher doesn't support direct lookup)
+        var apiKeys = await _db.ProjectApiKeys
             .Include(k => k.Project)
             .Where(k => k.Project.IsActive && k.IsActive)
-            .FirstOrDefaultAsync(ct);
+            .ToListAsync(ct);
 
-        if (apiKey != null)
+        foreach (var apiKey in apiKeys)
         {
             var result = VerifySecret(apiKey.Project, apiKey.SecretKeyHash, secretKey);
 
@@ -102,12 +102,12 @@ public class ApiKeyService
             }
         }
 
-        // v1 legacy fallback — query by SecretKeyHash directly
-        var project = await _db.Projects
+        // v1 legacy fallback — scan project-level legacy hashes directly
+        var projects = await _db.Projects
             .Where(p => p.IsActive && !string.IsNullOrWhiteSpace(p.SecretKeyHash))
-            .FirstOrDefaultAsync(ct);
+            .ToListAsync(ct);
 
-        if (project != null)
+        foreach (var project in projects)
         {
             var result = VerifySecret(project, project.SecretKeyHash, secretKey);
 
