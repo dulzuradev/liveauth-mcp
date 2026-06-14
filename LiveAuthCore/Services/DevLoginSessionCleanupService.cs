@@ -31,25 +31,7 @@ public class DevLoginSessionCleanupService : BackgroundService
             try
             {
                 await Task.Delay(_interval, stoppingToken);
-
-                using var scope = _services.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
-
-                var cutoff = DateTime.UtcNow - _maxAge;
-
-                var expired = await db.DevLoginSessions
-                    .Where(s => s.ExpiresAt < cutoff && !s.IsPaid)
-                    .ToListAsync(stoppingToken);
-
-                if (expired.Count > 0)
-                {
-                    _logger.LogInformation(
-                        "Cleaning up {Count} expired dev login sessions older than {Cutoff}.",
-                        expired.Count, cutoff);
-
-                    db.DevLoginSessions.RemoveRange(expired);
-                    await db.SaveChangesAsync(stoppingToken);
-                }
+                await CleanupExpiredSessionsAsync(stoppingToken);
             }
             catch (TaskCanceledException)
             {
@@ -62,5 +44,28 @@ public class DevLoginSessionCleanupService : BackgroundService
         }
 
         _logger.LogInformation("DevLoginSessionCleanupService stopped.");
+    }
+
+    internal async Task<int> CleanupExpiredSessionsAsync(CancellationToken ct)
+    {
+        using var scope = _services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+
+        var cutoff = DateTime.UtcNow - _maxAge;
+
+        var expired = await db.DevLoginSessions
+            .Where(s => s.ExpiresAt < cutoff && !s.IsPaid)
+            .ToListAsync(ct);
+
+        if (expired.Count == 0)
+            return 0;
+
+        _logger.LogInformation(
+            "Cleaning up {Count} expired dev login sessions older than {Cutoff}.",
+            expired.Count, cutoff);
+
+        db.DevLoginSessions.RemoveRange(expired);
+        await db.SaveChangesAsync(ct);
+        return expired.Count;
     }
 }

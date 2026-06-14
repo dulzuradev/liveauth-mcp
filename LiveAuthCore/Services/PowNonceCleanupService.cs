@@ -45,7 +45,7 @@ public sealed class PowNonceCleanupService : BackgroundService
         _logger.LogInformation("PowNonceCleanupService stopped");
     }
 
-    private async Task CleanupExpiredNoncesAsync(CancellationToken ct)
+    internal async Task<int> CleanupExpiredNoncesAsync(CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
@@ -60,5 +60,7 @@ public sealed class PowNonceCleanupService : BackgroundService
         {
             _logger.LogInformation("Cleaned up {Count} expired PoW nonces", deleted);
         }
+
+        return deleted;
     }
 }
