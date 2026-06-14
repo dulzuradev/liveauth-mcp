@@ -2,9 +2,13 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
+using LiveAuthCore.Data;
+using LiveAuthCore.Data.Entities;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -19,16 +23,17 @@ public class AuthFlowIntegrationTests : IClassFixture<TestWebApplicationFactory>
     {
         _factory = factory;
         _client = factory.CreateClient();
+        _client.DefaultRequestHeaders.Add("X-LW-Public", TestWebApplicationFactory.DemoPublicKey);
     }
 
     /// <summary>
-    /// Tests the full demo auth flow: start → verify (unpaid) → pay → verify (paid)
+    /// Tests the full demo auth flow with mock Lightning settlement.
     /// </summary>
     [Fact]
     public async Task DemoAuth_FullFlow_ReturnsVerifiedAfterPayment()
     {
         // Step 1: Start demo session
-        var startResponse = await _client.PostAsJsonAsync("/api/public/demo/start", new { });
+        var startResponse = await _client.PostAsJsonAsync("/api/public/auth/demo/start", new { });
         startResponse.EnsureSuccessStatusCode();
         
         var startContent = await startResponse.Content.ReadAsStringAsync();
@@ -38,36 +43,31 @@ public class AuthFlowIntegrationTests : IClassFixture<TestWebApplicationFactory>
         // Extract session ID
         var sessionId = ExtractSessionId(startContent);
         
-        // Step 2: Verify before payment (should return verified=false)
-        var confirmResponse = await _client.PostAsJsonAsync("/api/public/demo/confirm", 
+        // Step 2: Verify payment. Mock Lightning marks invoices settled.
+        var confirmResponse = await _client.PostAsJsonAsync("/api/public/auth/demo/confirm",
             new { sessionId });
         confirmResponse.EnsureSuccessStatusCode();
         
         var confirmContent = await confirmResponse.Content.ReadAsStringAsync();
-        Assert.Contains("\"verified\":false", confirmContent);
-        
-        // Step 3: After payment (simulated by updating DB), verify should return true
-        // Note: This requires LND to be available or mocked
+        Assert.True(ExtractVerified(confirmContent));
+        Assert.Contains("token", confirmContent);
     }
 
     /// <summary>
-    /// Tests that demo confirm returns false for unpaid invoice
+    /// Tests that demo confirm returns false for an expired session.
     /// </summary>
     [Fact]
-    public async Task DemoAuth_Confirm_UnpaidInvoice_ReturnsFalse()
+    public async Task DemoAuth_Confirm_ExpiredSession_ReturnsFalse()
     {
-        // Start demo session
-        var startResponse = await _client.PostAsJsonAsync("/api/public/demo/start", new { });
-        var content = await startResponse.Content.ReadAsStringAsync();
-        var sessionId = ExtractSessionId(content);
+        var sessionId = await SeedExpiredDemoSession();
         
-        // Confirm should return false for unpaid invoice
-        var confirmResponse = await _client.PostAsJsonAsync("/api/public/demo/confirm",
+        // Confirm should return false without polling Lightning.
+        var confirmResponse = await _client.PostAsJsonAsync("/api/public/auth/demo/confirm",
             new { sessionId });
         
         Assert.True(confirmResponse.IsSuccessStatusCode);
         var confirmContent = await confirmResponse.Content.ReadAsStringAsync();
-        Assert.Contains("\"verified\":false", confirmContent);
+        Assert.False(ExtractVerified(confirmContent));
     }
 
     /// <summary>
@@ -80,15 +80,11 @@ public class AuthFlowIntegrationTests : IClassFixture<TestWebApplicationFactory>
         var response = await _client.PostAsJsonAsync("/api/public/auth/start",
             new { userHint = "test-user" });
         
-        // May fail without valid API key, but should return proper structure
+        response.EnsureSuccessStatusCode();
         var content = await response.Content.ReadAsStringAsync();
         
-        // If successful, should have sessionId and invoice
-        if (response.IsSuccessStatusCode)
-        {
-            Assert.Contains("sessionId", content);
-            Assert.Contains("invoice", content);
-        }
+        Assert.Contains("sessionId", content);
+        Assert.Contains("invoice", content);
     }
 
     /// <summary>
@@ -97,12 +93,13 @@ public class AuthFlowIntegrationTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task DemoAuth_InvalidSession_ReturnsError()
     {
-        var response = await _client.PostAsJsonAsync("/api/public/demo/confirm",
-            new { sessionId = "invalid-session-id" });
+        var response = await _client.PostAsJsonAsync("/api/public/auth/demo/confirm",
+            new { sessionId = Guid.NewGuid() });
         
         // Should return error or verified=false
         var content = await response.Content.ReadAsStringAsync();
-        Assert.Contains("verified", content);
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.False(ExtractVerified(content));
     }
 
     /// <summary>
@@ -111,10 +108,12 @@ public class AuthFlowIntegrationTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task DemoAuth_MissingSession_ReturnsError()
     {
-        var response = await _client.PostAsJsonAsync("/api/public/demo/confirm",
+        var response = await _client.PostAsJsonAsync("/api/public/auth/demo/confirm",
             new { });
         
-        Assert.True(response.IsSuccessStatusCode); // May return verified=false
+        Assert.True(response.IsSuccessStatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.False(ExtractVerified(content));
     }
 
     /// <summary>
@@ -123,16 +122,14 @@ public class AuthFlowIntegrationTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task L402_CreateInvoice_ReturnsInvoice()
     {
-        var response = await _client.PostAsJsonAsync("/api/public/l402/invoice",
+        var response = await _client.PostAsJsonAsync("/api/public/l402/invoice?publicKey=la_pk_demo",
             new { });
         
-        // Should return invoice details
+        response.EnsureSuccessStatusCode();
         var content = await response.Content.ReadAsStringAsync();
         
-        if (response.IsSuccessStatusCode)
-        {
-            Assert.Contains("invoice", content.ToLower());
-        }
+        Assert.Contains("paymentHash", content);
+        Assert.Contains("bolt11", content);
     }
 
     /// <summary>
@@ -141,7 +138,7 @@ public class AuthFlowIntegrationTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task Api_Cors_AllowsFrontendOrigin()
     {
-        var request = new HttpRequestMessage(HttpMethod.Options, "/api/public/demo/start");
+        var request = new HttpRequestMessage(HttpMethod.Options, "/api/public/auth/demo/start");
         request.Headers.Add("Origin", "https://liveauth.app");
         request.Headers.Add("Access-Control-Request-Method", "POST");
         
@@ -152,27 +149,153 @@ public class AuthFlowIntegrationTests : IClassFixture<TestWebApplicationFactory>
                    response.StatusCode == HttpStatusCode.MethodNotAllowed);
     }
 
-    private static string ExtractSessionId(string content)
+    private static Guid ExtractSessionId(string content)
     {
-        // Simple extraction - in real tests use JSON parser
-        var start = content.IndexOf("\"sessionId\":\"") + 14;
-        var end = content.IndexOf("\"", start);
-        return content.Substring(start, end - start);
+        using var doc = JsonDocument.Parse(content);
+        return GetProperty(doc.RootElement, "sessionId").GetGuid();
+    }
+
+    private static bool ExtractVerified(string content)
+    {
+        using var doc = JsonDocument.Parse(content);
+        return GetProperty(doc.RootElement, "verified").GetBoolean();
+    }
+
+    private static JsonElement GetProperty(JsonElement root, string name)
+    {
+        foreach (var property in root.EnumerateObject())
+        {
+            if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
+                return property.Value;
+        }
+
+        throw new InvalidOperationException($"Response did not contain JSON property '{name}'.");
+    }
+
+    private async Task<Guid> SeedExpiredDemoSession()
+    {
+        var sessionId = Guid.NewGuid();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        db.AuthSessions.Add(new AuthSession
+        {
+            Id = sessionId,
+            ProjectId = Guid.Parse(TestWebApplicationFactory.DemoProjectId),
+            Environment = "DEMO",
+            AmountSats = 3,
+            BaseAmountSats = 3,
+            TotalChargedSats = 3,
+            CreditAmountSats = 3,
+            InvoiceRHash = "expired-session",
+            InvoiceBolt11 = "lnmockexpired",
+            ExpiresAt = DateTime.UtcNow.AddMinutes(-1),
+            IsPaid = false,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-20)
+        });
+        await db.SaveChangesAsync();
+
+        return sessionId;
     }
 }
 
 public class TestWebApplicationFactory : Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program>
 {
+    public const string DemoProjectId = "00000000-0000-0000-0000-000000000002";
+    private const string DemoDeveloperId = "00000000-0000-0000-0000-000000000001";
+    private const string TestJwtKey = "test-jwt-signing-key-that-is-at-least-32-bytes-long";
+    private static readonly string TestDatabasePath =
+        Path.Combine(Path.GetTempPath(), $"liveauth-integration-{Guid.NewGuid():N}.db");
+
+    public const string DemoPublicKey = "la_pk_demo";
+
+    static TestWebApplicationFactory()
+    {
+        Environment.SetEnvironmentVariable("ConnectionStrings__Default", $"Data Source={TestDatabasePath}");
+        Environment.SetEnvironmentVariable("LiveAuth__PowHmacSecret", "test-pow-secret-key-for-integration-tests-32bytes");
+        Environment.SetEnvironmentVariable("LiveAuth__DemoProjectId", DemoProjectId);
+        Environment.SetEnvironmentVariable("Jwt__SigningKey", TestJwtKey);
+        Environment.SetEnvironmentVariable("Jwt__Issuer", "LiveAuthIntegrationTests");
+        Environment.SetEnvironmentVariable("Jwt__Audience", "LiveAuthIntegrationUsers");
+        Environment.SetEnvironmentVariable("Lnd__UseMock", "true");
+        Environment.SetEnvironmentVariable("DevLogin__MockLightningIdentity", "true");
+        Environment.SetEnvironmentVariable("Admin__SkipPayment", "true");
+        Environment.SetEnvironmentVariable("GitHub__ClientId", "test-client-id");
+        Environment.SetEnvironmentVariable("GitHub__ClientSecret", "test-client-secret");
+        Environment.SetEnvironmentVariable("Resend__ApiKey", "test-resend-key");
+    }
+
     protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+
+        builder.ConfigureAppConfiguration(config =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = $"Data Source={TestDatabasePath}",
+                ["LiveAuth:PowHmacSecret"] = "test-pow-secret-key-for-integration-tests-32bytes",
+                ["LiveAuth:DemoProjectId"] = DemoProjectId,
+                ["Jwt:SigningKey"] = TestJwtKey,
+                ["Jwt:Issuer"] = "LiveAuthIntegrationTests",
+                ["Jwt:Audience"] = "LiveAuthIntegrationUsers",
+                ["Lnd:UseMock"] = "true",
+                ["DevLogin:MockLightningIdentity"] = "true",
+                ["Admin:SkipPayment"] = "true",
+                ["GitHub:ClientId"] = "test-client-id",
+                ["GitHub:ClientSecret"] = "test-client-secret",
+                ["Resend:ApiKey"] = "test-resend-key",
+                ["Lnd:BaseUrl"] = "https://localhost:9739",
+                ["Lnd:Macaroon"] = "",
+            });
+        });
         
         // Override services for testing
         builder.ConfigureServices(services =>
         {
-            // Remove real services and add mocks
-            // services.RemoveAll<ILightningService>();
-            // services.AddSingleton<ILightningService, MockLightningService>();
+            var sp = services.BuildServiceProvider();
+            using var scope = sp.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+
+            db.Database.EnsureDeleted();
+            db.Database.EnsureCreated();
+            SeedTestData(db);
         });
+    }
+
+    private static void SeedTestData(LiveAuthDbContext db)
+    {
+        var developerId = Guid.Parse(DemoDeveloperId);
+        var projectId = Guid.Parse(DemoProjectId);
+
+        if (!db.Developers.Any(d => d.Id == developerId))
+        {
+            db.Developers.Add(new Developer
+            {
+                Id = developerId,
+                Email = "integration@example.com",
+                EmailVerified = true,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        if (!db.Projects.Any(p => p.Id == projectId))
+        {
+            db.Projects.Add(new Project
+            {
+                Id = projectId,
+                Name = "Integration Demo Project",
+                PublicKey = DemoPublicKey,
+                SecretKeyHash = "integration-secret-placeholder",
+                DeveloperId = developerId,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                Environment = "LIVE",
+                AllowDemoAuth = true,
+                Plan = "free"
+            });
+        }
+
+        db.SaveChanges();
     }
 }
