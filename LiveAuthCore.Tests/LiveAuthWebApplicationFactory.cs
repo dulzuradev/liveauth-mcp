@@ -182,6 +182,9 @@ public class LiveAuthWebApplicationFactory : WebApplicationFactory<Program>
         services.AddHttpClient("webhooks")
             .ConfigurePrimaryHttpMessageHandler(() => new StubHttpMessageHandler(_ =>
                 JsonResponse(HttpStatusCode.OK, "{}")));
+
+        services.RemoveAll<IGitHubOAuthClient>();
+        services.AddSingleton<IGitHubOAuthClient, TestGitHubOAuthClient>();
     }
 
     private static HttpResponseMessage JsonResponse(HttpStatusCode statusCode, string json)
@@ -206,6 +209,34 @@ public class LiveAuthWebApplicationFactory : WebApplicationFactory<Program>
             CancellationToken cancellationToken)
         {
             return Task.FromResult(_handler(request));
+        }
+    }
+
+    private sealed class TestGitHubOAuthClient : IGitHubOAuthClient
+    {
+        public Task<GitHubOAuthProfile?> GetProfileAsync(
+            string clientId,
+            string clientSecret,
+            string code,
+            string redirectUri,
+            CancellationToken ct)
+        {
+            if (string.Equals(code, "fail-token", StringComparison.Ordinal))
+                return Task.FromResult<GitHubOAuthProfile?>(null);
+
+            var normalizedCode = NormalizeCode(code);
+            return Task.FromResult<GitHubOAuthProfile?>(new GitHubOAuthProfile(
+                Id: $"github-{normalizedCode}",
+                Login: $"login-{normalizedCode}",
+                Email: $"{normalizedCode}@github.test"));
+        }
+
+        private static string NormalizeCode(string code)
+        {
+            var chars = code
+                .Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-')
+                .ToArray();
+            return new string(chars).Trim('-');
         }
     }
 }

@@ -32,6 +32,7 @@ public class DevAuthController : ControllerBase
     private readonly AuthEventService _authEvents;
     private readonly EmailService _email;
     private readonly LightningFeeSettingsService _feeSettings;
+    private readonly IGitHubOAuthClient _gitHub;
 
     public DevAuthController(
         LiveAuthDbContext db,
@@ -39,7 +40,8 @@ public class DevAuthController : ControllerBase
         IConfiguration config,
         AuthEventService authEvents,
         EmailService email,
-        LightningFeeSettingsService feeSettings)
+        LightningFeeSettingsService feeSettings,
+        IGitHubOAuthClient gitHub)
     {
         _db = db;
         _ln = ln;
@@ -47,6 +49,7 @@ public class DevAuthController : ControllerBase
         _authEvents = authEvents;
         _email = email;
         _feeSettings = feeSettings;
+        _gitHub = gitHub;
     }
 
     // POST /api/dev/auth/start
@@ -360,70 +363,27 @@ public class DevAuthController : ControllerBase
                 return RedirectToFrontendGitHubError("missing_code");
             }
 
-            // Exchange code for access token
+            // Exchange code for a GitHub profile
             var clientId = _config["GitHub:ClientId"];
             var clientSecret = _config["GitHub:ClientSecret"];
-            
-            var tokenResponse = await new HttpClient().PostAsync(
-                "https://github.com/login/oauth/access_token",
-                new FormUrlEncodedContent(new Dictionary<string, string>
-                {
-                    { "client_id", clientId ?? "" },
-                    { "client_secret", clientSecret ?? "" },
-                    { "code", code },
-                    { "redirect_uri", "https://api.liveauth.app/api/dev/auth/github/callback" }
-                }),
+            var profile = await _gitHub.GetProfileAsync(
+                clientId ?? "",
+                clientSecret ?? "",
+                code,
+                "https://api.liveauth.app/api/dev/auth/github/callback",
                 ct);
 
-            var responseContent = await tokenResponse.Content.ReadAsStringAsync(ct);
-            
-            // Parse the response (it's URL-encoded)
-            var parsed = System.Web.HttpUtility.ParseQueryString(responseContent);
-            var accessToken = parsed["access_token"];
-
-            if (string.IsNullOrWhiteSpace(accessToken))
+            if (profile == null)
             {
-                return BadRequest("Failed to obtain access token: " + responseContent);
+                ClearGitHubOAuthStateCookies();
+                return RedirectToFrontendGitHubError("github_oauth_failed");
             }
 
-            // Get user info from GitHub
-            var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {accessToken}");
-            httpClient.DefaultRequestHeaders.Add("User-Agent", "LiveAuth");
-            
-            var userResponse = await httpClient.GetAsync("https://api.github.com/user", ct);
-            var userJson = await userResponse.Content.ReadAsStringAsync(ct);
-            
-            // Parse user JSON
-            var userDoc = System.Text.Json.JsonDocument.Parse(userJson);
-            var githubId = userDoc.RootElement.GetProperty("id").GetInt64().ToString();
-            var githubLogin = userDoc.RootElement.GetProperty("login").GetString() ?? "";
-            
-            // Get email (might need separate call if not public)
-            string? email = null;
-            try
-            {
-                var emailResponse = await httpClient.GetAsync("https://api.github.com/user/emails", ct);
-                var emailJson = await emailResponse.Content.ReadAsStringAsync(ct);
-                var emailDoc = System.Text.Json.JsonDocument.Parse(emailJson);
-                foreach (var e in emailDoc.RootElement.EnumerateArray())
-                {
-                    if (e.GetProperty("primary").GetBoolean() && e.GetProperty("verified").GetBoolean())
-                    {
-                        email = e.GetProperty("email").GetString();
-                        break;
-                    }
-                }
-            }
-            catch
-            {
-                // Email might not be available
-            }
-
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                email = $"{githubLogin}@github";
-            }
+            var githubId = profile.Id;
+            var githubLogin = profile.Login;
+            var email = string.IsNullOrWhiteSpace(profile.Email)
+                ? $"{githubLogin}@github"
+                : profile.Email;
 
             // Find or create developer
             var dev = await _db.Developers

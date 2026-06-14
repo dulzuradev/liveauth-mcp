@@ -175,6 +175,7 @@ public static class ServiceCollectionExtensions
         builder.Services.AddScoped<SatsPrinterService>();
         builder.Services.AddScoped<AgentSatsService>();
         builder.Services.AddScoped<McpReceiptService>();
+        builder.Services.AddScoped<IGitHubOAuthClient, GitHubOAuthClient>();
         builder.Services.AddHttpClient<EmailService>();
 
         // Hosted services
@@ -189,6 +190,8 @@ public static class ServiceCollectionExtensions
         builder.Services.AddHttpClient("cashu");
         builder.Services.AddHttpClient("coingecko");
         builder.Services.AddHttpClient("coinbase");
+        builder.Services.AddHttpClient("github-oauth");
+        builder.Services.AddHttpClient("github-api");
         builder.Services.AddHttpClient<BtcExchangeRateService>();
         builder.Services.AddScoped<BtcExchangeRateService>();
 

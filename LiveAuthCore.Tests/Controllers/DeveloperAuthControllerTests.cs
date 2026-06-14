@@ -1,8 +1,10 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -70,6 +72,81 @@ public class DeveloperAuthControllerTests : IClassFixture<LiveAuthWebApplication
         Assert.Contains(setCookies, cookie =>
             cookie.StartsWith("github_oauth_state=;", StringComparison.Ordinal) &&
             cookie.Contains("path=/api/dev/auth/github", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task GitHubCallback_WithValidState_CreatesDeveloperRedirectsWithTokenAndClearsStateCookies()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+        var state = Guid.NewGuid().ToString("N");
+        var code = $"newdev-{Guid.NewGuid():N}";
+        var expectedGithubId = $"github-{code}";
+        var expectedEmail = $"{code}@github.test";
+
+        var response = await SendGitHubCallbackAsync(client, code, state);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.NotNull(response.Headers.Location);
+        Assert.Equal("https://liveauth.app/dev/projects", response.Headers.Location!.GetLeftPart(UriPartial.Path));
+        var token = GetQueryParam(response.Headers.Location, "token");
+        Assert.False(string.IsNullOrWhiteSpace(token));
+        AssertGitHubStateCookiesCleared(response);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        var developer = await db.Developers.SingleAsync(d => d.GitHubId == expectedGithubId);
+        Assert.Equal(expectedEmail, developer.Email);
+        Assert.Equal($"login-{code}", developer.GitHubUsername);
+        Assert.Equal(developer.Id, GetDeveloperIdFromToken(token!));
+    }
+
+    [Fact]
+    public async Task GitHubCallback_WithExistingEmail_LinksDeveloperAndRedirectsWithToken()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+        var state = Guid.NewGuid().ToString("N");
+        var code = $"linkdev-{Guid.NewGuid():N}";
+        var expectedEmail = $"{code}@github.test";
+        var existing = await SeedDeveloper(expectedEmail);
+
+        var response = await SendGitHubCallbackAsync(client, code, state);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.NotNull(response.Headers.Location);
+        var token = GetQueryParam(response.Headers.Location!, "token");
+        Assert.False(string.IsNullOrWhiteSpace(token));
+        AssertGitHubStateCookiesCleared(response);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        var developer = await db.Developers.SingleAsync(d => d.Id == existing.Id);
+        Assert.Equal($"github-{code}", developer.GitHubId);
+        Assert.Equal($"login-{code}", developer.GitHubUsername);
+        Assert.Equal(existing.Id, GetDeveloperIdFromToken(token!));
+    }
+
+    [Fact]
+    public async Task GitHubCallback_WhenProviderDoesNotReturnProfile_RedirectsWithErrorAndClearsStateCookies()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+        var state = Guid.NewGuid().ToString("N");
+
+        var response = await SendGitHubCallbackAsync(client, "fail-token", state);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(
+            "https://liveauth.app/dev/projects?githubError=github_oauth_failed",
+            response.Headers.Location?.ToString());
+        AssertGitHubStateCookiesCleared(response);
     }
 
     [Fact]
@@ -272,6 +349,36 @@ public class DeveloperAuthControllerTests : IClassFixture<LiveAuthWebApplication
         await db.SaveChangesAsync();
 
         return developer;
+    }
+
+    private static async Task<HttpResponseMessage> SendGitHubCallbackAsync(
+        HttpClient client,
+        string code,
+        string state)
+    {
+        var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/dev/auth/github/callback?code={Uri.EscapeDataString(code)}&state={state}");
+        request.Headers.Add("Cookie", $"github_oauth_state={state}");
+        return await client.SendAsync(request);
+    }
+
+    private static void AssertGitHubStateCookiesCleared(HttpResponseMessage response)
+    {
+        var setCookies = response.Headers.GetValues("Set-Cookie").ToList();
+        Assert.Contains(setCookies, cookie =>
+            cookie.StartsWith("github_oauth_state=;", StringComparison.Ordinal) &&
+            cookie.Contains("path=/", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(setCookies, cookie =>
+            cookie.StartsWith("github_oauth_state=;", StringComparison.Ordinal) &&
+            cookie.Contains("path=/api/dev/auth/github", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static Guid GetDeveloperIdFromToken(string token)
+    {
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+        var userId = jwt.Claims.Single(claim => claim.Type == "userId").Value;
+        return Guid.Parse(userId);
     }
 
     private static string? GetQueryParam(Uri uri, string name)
