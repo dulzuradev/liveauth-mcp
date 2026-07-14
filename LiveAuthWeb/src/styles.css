@@ -78,42 +78,47 @@ app-developer-projects .login-tab-label {
   font-weight: 800;
 }
 
-app-developer-projects .login-card .p-tabs {
+app-developer-projects .login-card .login-auth-tabs {
   text-align: left;
 }
 
-app-developer-projects .login-card .p-tabs .p-tablist-tab-list {
+app-developer-projects .login-card .login-auth-tabs .p-tablist-tab-list {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   padding: 4px;
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: #0f0f0f !important;
   border: 1px solid rgba(255, 255, 255, 0.16) !important;
   border-radius: var(--radius-sm, 8px) !important;
 }
 
-app-developer-projects .login-card .p-tab {
+app-developer-projects .login-card .login-auth-tabs .p-tab {
   justify-content: center !important;
   min-height: 42px;
   padding: 0 14px !important;
   border: 0 !important;
   border-radius: 6px !important;
   color: rgba(255, 255, 255, 0.86) !important;
-  background: transparent !important;
+  background: rgba(255, 255, 255, 0.06) !important;
   transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
-app-developer-projects .login-card .p-tab:not(.p-tab-active):hover {
+app-developer-projects .login-card .login-auth-tabs .p-tab:not(.p-tab-active):hover {
   color: var(--text-primary, #f7f9fb) !important;
-  background: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
 }
 
-app-developer-projects .login-card .p-tab.p-tab-active {
+app-developer-projects .login-card .login-auth-tabs .p-tab.p-tab-active {
   color: #090909 !important;
   background: var(--btc-orange, #f59e0b) !important;
   box-shadow: 0 10px 22px rgba(245, 158, 11, 0.22) !important;
 }
 
-app-developer-projects .login-card .p-tabpanels {
+app-developer-projects .login-card .login-auth-tabs .p-tab:focus-visible {
+  outline: 2px solid var(--btc-orange-dark, #fbbf24);
+  outline-offset: 2px;
+}
+
+app-developer-projects .login-card .login-auth-tabs .p-tabpanels {
   padding-top: 22px !important;
 }
