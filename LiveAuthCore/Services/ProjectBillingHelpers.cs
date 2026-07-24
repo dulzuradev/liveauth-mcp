@@ -12,6 +12,9 @@ public static class PlanLimits
     public const int ProMonthlyAuthLimit = 100_000;
     public const long ProMaxSatsPerAuth = 21;
 
+    public const int FreeProtectedActionLimit = 3;
+    public const int ProProtectedActionLimit = 25;
+
     // Enterprise: unlimited (use int.MaxValue)
     public const int EnterpriseMonthlyAuthLimit = int.MaxValue;
 
@@ -41,6 +44,17 @@ public static class PlanLimits
         return plan.ToLowerInvariant() == "pro" && 
                proPaidUntil.HasValue && 
                proPaidUntil.Value > DateTime.UtcNow;
+    }
+
+    public static int GetProtectedActionLimit(string plan, DateTime? proPaidUntil)
+    {
+        return plan.ToLowerInvariant() switch
+        {
+            "pro" when proPaidUntil.HasValue && proPaidUntil.Value > DateTime.UtcNow
+                => ProProtectedActionLimit,
+            "enterprise" => int.MaxValue,
+            _ => FreeProtectedActionLimit
+        };
     }
 }
 

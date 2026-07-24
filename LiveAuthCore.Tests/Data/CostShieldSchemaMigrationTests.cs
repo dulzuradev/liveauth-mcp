@@ -1,0 +1,68 @@
+using FluentAssertions;
+using LiveAuthCore.Extensions;
+using Microsoft.Data.Sqlite;
+using Xunit;
+
+namespace LiveAuthCore.Tests.Schema;
+
+public sealed class CostShieldSchemaMigrationTests
+{
+    [Fact]
+    public async Task RunTableMigrations_CreatesProtectedActionsSchemaAndIsIdempotent()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        await ExecuteAsync(
+            connection,
+            """
+            CREATE TABLE Projects (
+                Id TEXT NOT NULL PRIMARY KEY
+            );
+            """);
+
+        await PipelineExtensions.RunTableMigrationsAsync(connection);
+        await PipelineExtensions.RunTableMigrationsAsync(connection);
+
+        var columns = await ReadNamesAsync(
+            connection,
+            "SELECT name FROM pragma_table_info('ProtectedActions') ORDER BY cid");
+        columns.Should().Contain(new[]
+        {
+            "Id",
+            "ProjectId",
+            "Environment",
+            "Name",
+            "AllowedOriginsRaw",
+            "ConfigurationVersion"
+        });
+
+        var indexes = await ReadNamesAsync(
+            connection,
+            "SELECT name FROM pragma_index_list('ProtectedActions')");
+        indexes.Should().Contain("IX_ProtectedActions_ProjectId_Environment_Name");
+        indexes.Should().Contain("IX_ProtectedActions_ProjectId_Environment_IsEnabled");
+    }
+
+    private static async Task ExecuteAsync(SqliteConnection connection, string sql)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task<List<string>> ReadNamesAsync(
+        SqliteConnection connection,
+        string sql)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await using var reader = await command.ExecuteReaderAsync();
+
+        var values = new List<string>();
+        while (await reader.ReadAsync())
+            values.Add(reader.GetString(0));
+
+        return values;
+    }
+}

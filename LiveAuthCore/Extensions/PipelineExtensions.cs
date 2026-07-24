@@ -131,8 +131,50 @@ public static class PipelineExtensions
         await alterCmd.ExecuteNonQueryAsync();
     }
 
-    private static async Task RunTableMigrationsAsync(System.Data.Common.DbConnection connection)
+    internal static async Task RunTableMigrationsAsync(System.Data.Common.DbConnection connection)
     {
+        await EnsureTableAsync(connection, "ProtectedActions", @"
+            CREATE TABLE ProtectedActions (
+                Id TEXT NOT NULL PRIMARY KEY,
+                ProjectId TEXT NOT NULL,
+                Environment TEXT NOT NULL,
+                Name TEXT NOT NULL,
+                DisplayName TEXT NOT NULL,
+                Description TEXT NOT NULL,
+                IsEnabled INTEGER NOT NULL DEFAULT 1,
+                BaseDifficulty INTEGER NOT NULL DEFAULT 17,
+                SuspiciousDifficulty INTEGER NOT NULL DEFAULT 20,
+                MaximumDifficulty INTEGER NOT NULL DEFAULT 24,
+                AnonymousRequestLimit INTEGER NOT NULL DEFAULT 5,
+                AnonymousLimitWindowSeconds INTEGER NOT NULL DEFAULT 3600,
+                AuthenticatedRequestLimit INTEGER,
+                AuthenticatedLimitWindowSeconds INTEGER,
+                RequireSingleUseToken INTEGER NOT NULL DEFAULT 1,
+                TokenLifetimeSeconds INTEGER NOT NULL DEFAULT 120,
+                AllowedOriginsRaw TEXT NOT NULL DEFAULT '[]',
+                FailureBehavior TEXT NOT NULL DEFAULT 'Deny',
+                AllowLightningFallback INTEGER NOT NULL DEFAULT 0,
+                LightningPriceSats INTEGER NOT NULL DEFAULT 25,
+                LightningFallbackMode TEXT NOT NULL DEFAULT 'RateLimitOnly',
+                LightningBypassesProofOfWork INTEGER NOT NULL DEFAULT 1,
+                EstimatedCostPerExecution TEXT NOT NULL DEFAULT '0.0',
+                ConfigurationVersion INTEGER NOT NULL DEFAULT 1,
+                CreatedAt TEXT NOT NULL,
+                UpdatedAt TEXT NOT NULL,
+                FOREIGN KEY (ProjectId) REFERENCES Projects (Id) ON DELETE CASCADE
+            )"
+        );
+
+        await EnsureIndexAsync(connection, "IX_ProtectedActions_ProjectId_Environment_Name", @"
+            CREATE UNIQUE INDEX IX_ProtectedActions_ProjectId_Environment_Name
+            ON ProtectedActions (ProjectId, Environment, Name)"
+        );
+
+        await EnsureIndexAsync(connection, "IX_ProtectedActions_ProjectId_Environment_IsEnabled", @"
+            CREATE INDEX IX_ProtectedActions_ProjectId_Environment_IsEnabled
+            ON ProtectedActions (ProjectId, Environment, IsEnabled)"
+        );
+
         await EnsureTableAsync(connection, "LightningFeeSettings", @"
             CREATE TABLE LightningFeeSettings (
                 Id INTEGER NOT NULL PRIMARY KEY,

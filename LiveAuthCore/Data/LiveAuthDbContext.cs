@@ -13,6 +13,7 @@ public class LiveAuthDbContext : DbContext
 
     public DbSet<Developer> Developers => Set<Developer>();
     public DbSet<Project> Projects => Set<Project>();
+    public DbSet<ProtectedAction> ProtectedActions => Set<ProtectedAction>();
     public DbSet<VerificationSession> VerificationSessions => Set<VerificationSession>();
     public DbSet<UsageEvent> UsageEvents => Set<UsageEvent>();
     public DbSet<DeveloperLoginSession> DeveloperLoginSessions => Set<DeveloperLoginSession>();
@@ -103,6 +104,31 @@ public class LiveAuthDbContext : DbContext
             .HasColumnName("AllowedDomainsRaw")
             .HasConversion(stringListConverter)
             .HasColumnType("TEXT");
+
+        modelBuilder.Entity<ProtectedAction>(entity =>
+        {
+            entity.HasOne(action => action.Project)
+                .WithMany(project => project.ProtectedActions)
+                .HasForeignKey(action => action.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(action => new { action.ProjectId, action.Environment, action.Name })
+                .IsUnique();
+
+            entity.HasIndex(action => new { action.ProjectId, action.Environment, action.IsEnabled });
+
+            entity.Property(action => action.Environment).HasMaxLength(8);
+            entity.Property(action => action.Name).HasMaxLength(100);
+            entity.Property(action => action.DisplayName).HasMaxLength(120);
+            entity.Property(action => action.Description).HasMaxLength(500);
+            entity.Property(action => action.FailureBehavior).HasMaxLength(32);
+            entity.Property(action => action.LightningFallbackMode).HasMaxLength(32);
+            entity.Property(action => action.EstimatedCostPerExecution).HasPrecision(18, 6);
+            entity.Property(action => action.AllowedOrigins)
+                .HasColumnName("AllowedOriginsRaw")
+                .HasConversion(stringListConverter)
+                .HasColumnType("TEXT");
+        });
 
         modelBuilder.Entity<AuthSession>()
             .HasIndex(s => new { s.ProjectId, s.ClientIp, s.CreatedAt });

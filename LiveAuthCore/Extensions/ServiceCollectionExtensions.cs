@@ -4,6 +4,7 @@ using System.Threading.RateLimiting;
 using LiveAuthCore.Auth;
 using LiveAuthCore.Data;
 using LiveAuthCore.Services;
+using LiveAuthCore.Services.CostShield;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -175,6 +176,7 @@ public static class ServiceCollectionExtensions
         builder.Services.AddScoped<SatsPrinterService>();
         builder.Services.AddScoped<AgentSatsService>();
         builder.Services.AddScoped<McpReceiptService>();
+        builder.Services.AddScoped<IProtectedActionService, ProtectedActionService>();
         builder.Services.AddScoped<IGitHubOAuthClient, GitHubOAuthClient>();
         builder.Services.AddHttpClient<EmailService>();
 

@@ -23,6 +23,7 @@ public class Project
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<ProjectApiKey> ApiKeys { get; set; } = new List<ProjectApiKey>();
+    public ICollection<ProtectedAction> ProtectedActions { get; set; } = new List<ProtectedAction>();
 
     public string? WebhookUrl { get; set; }
     public string? WebhookSecret { get; set; }
