@@ -46,6 +46,7 @@ import {
 import { Tab, TabList, TabPanel, TabPanels, Tabs } from 'primeng/tabs';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import {LocalTimePipe} from '../../../directives/local-time.pipe';
+import { CostShieldProjectComponent } from '../cost-shield-project/cost-shield-project';
 
 
 //
@@ -107,7 +108,8 @@ export interface McpToolForm {
     Tab,
     TabPanel,
     ToggleSwitchModule,
-    LocalTimePipe
+    LocalTimePipe,
+    CostShieldProjectComponent
   ],
   templateUrl: './developer-projects.html',
   styleUrls: ['./developer-projects.css']
@@ -284,7 +286,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   lightningFeeSettings: LightningFeeSettingsResponse | null = null;
 
   // Tabs
-  _projectDialogTab: 'overview' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' = 'overview';
+  _projectDialogTab: 'overview' | 'costshield' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' = 'overview';
   timeRange: '1h' | '24h' | '7d' = '24h';
 
   private get windowHours(): number {
@@ -316,7 +318,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   }
 
   // Called by (valueChange) on <p-tabs>
-  setProjectDialogTab(tab: 'overview' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' | any) {
+  setProjectDialogTab(tab: 'overview' | 'costshield' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' | any) {
     this._projectDialogTab = tab;
 
     if (!this.selectedProject) return;
@@ -336,6 +338,9 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
         break;
       case 'webhooks':
         this.loadWebhooks(this.selectedProject.projectId);
+        break;
+      case 'costshield':
+        // The embedded CostShield workspace owns its loading lifecycle.
         break;
       case 'overview':
       default:

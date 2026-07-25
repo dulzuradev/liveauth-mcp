@@ -200,6 +200,7 @@ public static class ServiceCollectionExtensions
         builder.Services.AddScoped<IProtectedActionService, ProtectedActionService>();
         builder.Services.AddScoped<ICostShieldChallengeService, CostShieldChallengeService>();
         builder.Services.AddScoped<ICostShieldVerificationService, CostShieldVerificationService>();
+        builder.Services.AddScoped<ICostShieldAnalyticsService, CostShieldAnalyticsService>();
         builder.Services.AddScoped<IGitHubOAuthClient, GitHubOAuthClient>();
         builder.Services.AddHttpClient<EmailService>();
 

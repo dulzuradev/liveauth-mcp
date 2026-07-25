@@ -1,0 +1,509 @@
+<section class="cost-shield">
+  <header class="cost-shield-hero">
+    <div>
+      <div class="eyebrow">
+        <i class="pi pi-shield"></i>
+        LiveAuth CostShield
+      </div>
+      <h3>Protect expensive application actions</h3>
+      <p>
+        Impose a configurable cost on abusive requests before they can consume
+        AI, messaging, search, or other paid infrastructure.
+      </p>
+    </div>
+    <div class="hero-actions">
+      <p-tag
+        [value]="project.environment"
+        [severity]="project.environment === 'LIVE' ? 'success' : 'info'">
+      </p-tag>
+      <button
+        pButton
+        type="button"
+        icon="pi pi-refresh"
+        label="Refresh"
+        class="p-button-text"
+        [loading]="loading"
+        (click)="loadAll()">
+      </button>
+      <button
+        pButton
+        type="button"
+        icon="pi pi-plus"
+        label="Protected action"
+        class="btn-primary"
+        (click)="openCreateAction()">
+      </button>
+    </div>
+  </header>
+
+  <p-message
+    *ngIf="error"
+    severity="warn"
+    [text]="error"
+    class="message">
+  </p-message>
+  <p-message
+    *ngIf="success"
+    severity="success"
+    [text]="success"
+    class="message">
+  </p-message>
+
+  <nav class="cost-shield-nav" aria-label="CostShield sections">
+    <button [class.active]="section === 'overview'" (click)="setSection('overview')">
+      Overview
+    </button>
+    <button [class.active]="section === 'actions'" (click)="setSection('actions')">
+      Protected Actions
+      <span>{{ actions.length }}</span>
+    </button>
+    <button [class.active]="section === 'events'" (click)="setSection('events')">
+      Events
+    </button>
+    <button [class.active]="section === 'integration'" (click)="setSection('integration')">
+      Integration
+    </button>
+  </nav>
+
+  <ng-container *ngIf="section === 'overview'">
+    <div class="range-row">
+      <span>Usage window</span>
+      <div>
+        <button [class.active]="windowHours === 1" (click)="loadOverview(1)">1h</button>
+        <button [class.active]="windowHours === 24" (click)="loadOverview(24)">24h</button>
+        <button [class.active]="windowHours === 168" (click)="loadOverview(168)">7d</button>
+      </div>
+    </div>
+
+    <div class="metric-grid" *ngIf="overview">
+      <article class="metric-card primary">
+        <span>Protected requests</span>
+        <strong>{{ overview.protectedRequests | number }}</strong>
+        <small>Provider calls authorized after verification</small>
+      </article>
+      <article class="metric-card">
+        <span>Challenges issued</span>
+        <strong>{{ overview.challengesIssued | number }}</strong>
+        <small>{{ overview.challengeSuccessRate | number:'1.0-1' }}% completion rate</small>
+      </article>
+      <article class="metric-card warning">
+        <span>Requests denied</span>
+        <strong>{{ overview.requestsDenied | number }}</strong>
+        <small>{{ overview.rateLimitedRequests | number }} rate limited</small>
+      </article>
+      <article class="metric-card">
+        <span>Replay attempts blocked</span>
+        <strong>{{ overview.replayAttemptsBlocked | number }}</strong>
+        <small>{{ overview.invalidAttempts | number }} invalid attempts</small>
+      </article>
+      <article class="metric-card savings">
+        <span>Estimated cost avoided</span>
+        <strong>{{ overview.estimatedCostAvoided | currency:'USD':'symbol':'1.2-4' }}</strong>
+        <small>Based on each action's configured provider cost</small>
+      </article>
+      <article class="metric-card">
+        <span>Enabled actions</span>
+        <strong>{{ overview.enabledActionCount }} / {{ overview.protectedActionCount }}</strong>
+        <small>Project configuration</small>
+      </article>
+    </div>
+
+    <p class="estimate-note" *ngIf="overview?.estimatedValues">
+      <i class="pi pi-info-circle"></i>
+      Cost values are estimates derived from your configured cost per execution.
+    </p>
+
+    <div class="panel" *ngIf="overview">
+      <div class="panel-header">
+        <div>
+          <span>Action performance</span>
+          <h4>Highest-volume actions</h4>
+        </div>
+      </div>
+      <p-table [value]="overview.topActions" [rows]="5">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Action</th>
+            <th>Challenges</th>
+            <th>Authorized</th>
+            <th>Denied</th>
+            <th>Est. cost avoided</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-action>
+          <tr>
+            <td>
+              <strong>{{ action.displayName }}</strong>
+              <code>{{ action.action }}</code>
+            </td>
+            <td>{{ action.challengesIssued | number }}</td>
+            <td>{{ action.protectedRequests | number }}</td>
+            <td>{{ action.requestsDenied | number }}</td>
+            <td>{{ action.estimatedCostAvoided | currency:'USD':'symbol':'1.2-4' }}</td>
+          </tr>
+        </ng-template>
+      </p-table>
+      <div class="empty-inline" *ngIf="overview.topActions.length === 0">
+        No CostShield activity in this window.
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="section === 'actions'">
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <span>Policy configuration</span>
+          <h4>Protected Actions</h4>
+        </div>
+        <button
+          pButton
+          icon="pi pi-plus"
+          label="New action"
+          class="btn-primary"
+          (click)="openCreateAction()">
+        </button>
+      </div>
+
+      <p-table *ngIf="actions.length" [value]="actions" [paginator]="true" [rows]="10">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Action</th>
+            <th>Environment</th>
+            <th>Difficulty</th>
+            <th>Anonymous limit</th>
+            <th>Token</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-action>
+          <tr>
+            <td>
+              <strong>{{ action.displayName }}</strong>
+              <code>{{ action.name }}</code>
+            </td>
+            <td><p-tag [value]="action.environment" severity="info"></p-tag></td>
+            <td>{{ action.baseDifficulty }} / {{ action.suspiciousDifficulty }} / {{ action.maximumDifficulty }}</td>
+            <td>
+              {{ action.anonymousRequestLimit | number }}
+              per {{ action.anonymousLimitWindowSeconds | number }}s
+            </td>
+            <td>
+              {{ action.tokenLifetimeSeconds }}s
+              <small>{{ action.requireSingleUseToken ? 'single use' : 'reusable' }}</small>
+            </td>
+            <td>
+              <p-tag
+                [value]="action.isEnabled ? 'Enabled' : 'Disabled'"
+                [severity]="action.isEnabled ? 'success' : 'warn'">
+              </p-tag>
+            </td>
+            <td>
+              <div class="row-actions">
+                <button pButton icon="pi pi-pencil" class="p-button-text p-button-sm"
+                        aria-label="Edit action" (click)="openEditAction(action)"></button>
+                <button pButton
+                        [icon]="action.isEnabled ? 'pi pi-pause' : 'pi pi-play'"
+                        class="p-button-text p-button-sm"
+                        [attr.aria-label]="action.isEnabled ? 'Disable action' : 'Enable action'"
+                        (click)="toggleAction(action)"></button>
+                <button pButton icon="pi pi-trash"
+                        class="p-button-text p-button-danger p-button-sm"
+                        aria-label="Delete action" (click)="deleteAction(action)"></button>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+
+      <div class="empty-state" *ngIf="!loading && actions.length === 0">
+        <i class="pi pi-shield"></i>
+        <h4>No protected actions yet</h4>
+        <p>Create the first policy for an expensive endpoint.</p>
+        <button pButton icon="pi pi-plus" label="Create protected action"
+                class="btn-primary" (click)="openCreateAction()"></button>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="section === 'events'">
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <span>Security ledger</span>
+          <h4>Recent Events</h4>
+        </div>
+        <button pButton icon="pi pi-refresh" label="Refresh"
+                class="p-button-text" [loading]="loading" (click)="loadEvents()"></button>
+      </div>
+
+      <p-table *ngIf="events.length" [value]="events" [paginator]="true" [rows]="10">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Time</th>
+            <th>Event</th>
+            <th>Action</th>
+            <th>Source</th>
+            <th>Method</th>
+            <th>Result</th>
+            <th>Reason</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-event>
+          <tr>
+            <td>{{ event.createdAt | localTime }}</td>
+            <td>{{ eventLabel(event.eventType) }}</td>
+            <td><code>{{ event.action || '—' }}</code></td>
+            <td><code>{{ event.source || '—' }}</code></td>
+            <td>{{ event.verificationMethod || '—' }}</td>
+            <td>
+              <p-tag
+                [value]="event.success ? 'Allowed' : 'Blocked'"
+                [severity]="eventSeverity(event)">
+              </p-tag>
+            </td>
+            <td>{{ event.reason || '—' }}</td>
+          </tr>
+        </ng-template>
+      </p-table>
+
+      <div class="empty-state" *ngIf="!loading && events.length === 0">
+        <i class="pi pi-list"></i>
+        <h4>No CostShield events yet</h4>
+        <p>Challenge and authorization activity will appear here.</p>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="section === 'integration'">
+    <div class="panel integration-panel">
+      <div class="panel-header">
+        <div>
+          <span>Five-minute setup</span>
+          <h4>Integration</h4>
+        </div>
+        <select
+          *ngIf="actions.length"
+          [(ngModel)]="selectedIntegrationActionId"
+          class="select-control">
+          <option *ngFor="let action of actions" [value]="action.id">
+            {{ action.displayName }} · {{ action.environment }}
+          </option>
+        </select>
+      </div>
+
+      <div class="empty-state" *ngIf="actions.length === 0">
+        <i class="pi pi-code"></i>
+        <h4>Create an action first</h4>
+        <p>Integration code is generated from its action name and environment.</p>
+        <button pButton icon="pi pi-plus" label="Create protected action"
+                class="btn-primary" (click)="openCreateAction()"></button>
+      </div>
+
+      <ng-container *ngIf="selectedIntegrationAction as action">
+        <div class="integration-step">
+          <span>1</span>
+          <div>
+            <h5>Install the browser SDK</h5>
+            <p>The SDK package and worker implementation are the next release checkpoint.</p>
+            <div class="code-block compact">
+              <code>{{ installSnippet }}</code>
+              <button pButton icon="pi pi-copy" class="p-button-text p-button-sm"
+                      (click)="copy(installSnippet)"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="integration-step">
+          <span>2</span>
+          <div>
+            <h5>Request an action-bound authorization</h5>
+            <div class="code-block">
+              <pre>{{ browserSnippet }}</pre>
+              <button pButton icon="pi pi-copy" class="p-button-text p-button-sm"
+                      (click)="copy(browserSnippet)"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="integration-step">
+          <span>3</span>
+          <div>
+            <h5>Consume the token before the expensive call</h5>
+            <p>Keep your <code>la_sk_...</code> key on the server.</p>
+            <div class="code-block">
+              <pre>{{ serverSnippet }}</pre>
+              <button pButton icon="pi pi-copy" class="p-button-text p-button-sm"
+                      (click)="copy(serverSnippet)"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="integration-details">
+          <div>
+            <span>Public challenge API</span>
+            <code>POST /api/public/costshield/challenges</code>
+          </div>
+          <div>
+            <span>JWKS</span>
+            <code>GET /api/public/costshield/.well-known/jwks.json</code>
+          </div>
+          <div>
+            <span>Selected action</span>
+            <code>{{ action.name }}</code>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  </ng-container>
+
+  <p-dialog
+    [(visible)]="showActionDialog"
+    [modal]="true"
+    [style]="{ width: '860px', maxWidth: '96vw' }"
+    [header]="editingAction ? 'Edit protected action' : 'Create protected action'">
+
+    <div class="action-form">
+      <div class="field span-2">
+        <label>Action name</label>
+        <input pInputText [(ngModel)]="actionForm.name"
+               placeholder="ai.generate_image"
+               [disabled]="!!editingAction"/>
+        <small>Stable machine-readable identifier used in authorization tokens.</small>
+      </div>
+      <div class="field">
+        <label>Display name</label>
+        <input pInputText [(ngModel)]="actionForm.displayName"
+               placeholder="Generate AI Image"/>
+      </div>
+      <div class="field">
+        <label>Environment</label>
+        <select [(ngModel)]="actionForm.environment" class="select-control">
+          <option value="TEST">TEST</option>
+          <option value="LIVE">LIVE</option>
+        </select>
+      </div>
+      <div class="field span-3">
+        <label>Description</label>
+        <textarea [(ngModel)]="actionForm.description" rows="2"
+                  placeholder="Protect an expensive image-generation endpoint."></textarea>
+      </div>
+      <div class="field toggle-field">
+        <p-toggleswitch [(ngModel)]="actionForm.isEnabled"></p-toggleswitch>
+        <label>Enabled</label>
+      </div>
+
+      <div class="form-section span-4">
+        <h5>Adaptive proof-of-work</h5>
+        <p>Difficulty is bounded by these values. Higher values require more client work.</p>
+      </div>
+      <div class="field">
+        <label>Base difficulty</label>
+        <input pInputText type="number" min="8" max="24"
+               [(ngModel)]="actionForm.baseDifficulty"/>
+      </div>
+      <div class="field">
+        <label>Suspicious difficulty</label>
+        <input pInputText type="number" min="8" max="24"
+               [(ngModel)]="actionForm.suspiciousDifficulty"/>
+      </div>
+      <div class="field">
+        <label>Maximum difficulty</label>
+        <input pInputText type="number" min="8" max="24"
+               [(ngModel)]="actionForm.maximumDifficulty"/>
+      </div>
+      <div class="field">
+        <label>Estimated cost / execution</label>
+        <input pInputText type="number" min="0" step="0.001"
+               [(ngModel)]="actionForm.estimatedCostPerExecution"/>
+      </div>
+
+      <div class="form-section span-4">
+        <h5>Rate limits</h5>
+      </div>
+      <div class="field">
+        <label>Anonymous requests</label>
+        <input pInputText type="number" min="1"
+               [(ngModel)]="actionForm.anonymousRequestLimit"/>
+      </div>
+      <div class="field">
+        <label>Anonymous window (seconds)</label>
+        <input pInputText type="number" min="60"
+               [(ngModel)]="actionForm.anonymousLimitWindowSeconds"/>
+      </div>
+      <div class="field">
+        <label>Subject requests (optional)</label>
+        <input pInputText type="number" min="1"
+               [(ngModel)]="actionForm.authenticatedRequestLimit"/>
+      </div>
+      <div class="field">
+        <label>Subject window (seconds)</label>
+        <input pInputText type="number" min="60"
+               [(ngModel)]="actionForm.authenticatedLimitWindowSeconds"/>
+      </div>
+
+      <div class="form-section span-4">
+        <h5>Authorization token</h5>
+      </div>
+      <div class="field">
+        <label>Lifetime (seconds)</label>
+        <input pInputText type="number" min="30" max="3600"
+               [(ngModel)]="actionForm.tokenLifetimeSeconds"/>
+      </div>
+      <div class="field toggle-field">
+        <p-toggleswitch [(ngModel)]="actionForm.requireSingleUseToken"></p-toggleswitch>
+        <label>Require single use</label>
+      </div>
+      <div class="field span-2">
+        <label>Allowed origins</label>
+        <textarea [(ngModel)]="actionForm.allowedOriginsText" rows="3"
+                  placeholder="https://app.example.com&#10;https://staging.example.com"></textarea>
+        <small>One HTTP or HTTPS origin per line. Empty inherits project domains.</small>
+      </div>
+
+      <div class="form-section span-4">
+        <h5>Lightning fallback</h5>
+      </div>
+      <div class="field toggle-field">
+        <p-toggleswitch [(ngModel)]="actionForm.allowLightningFallback"></p-toggleswitch>
+        <label>Enable pay-to-proceed</label>
+      </div>
+      <div class="field">
+        <label>Price (sats)</label>
+        <input pInputText type="number" min="0"
+               [(ngModel)]="actionForm.lightningPriceSats"
+               [disabled]="!actionForm.allowLightningFallback"/>
+      </div>
+      <div class="field">
+        <label>Availability</label>
+        <select [(ngModel)]="actionForm.lightningFallbackMode"
+                class="select-control"
+                [disabled]="!actionForm.allowLightningFallback">
+          <option value="RateLimitOnly">After rate limit</option>
+          <option value="Always">Always available</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Failure behavior</label>
+        <select [(ngModel)]="actionForm.failureBehavior" class="select-control">
+          <option value="Deny">Deny</option>
+          <option value="LightningFallback"
+                  [disabled]="!actionForm.allowLightningFallback">
+            Offer Lightning fallback
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <button pButton label="Cancel" class="p-button-text"
+              (click)="showActionDialog = false"></button>
+      <button pButton icon="pi pi-save"
+              [label]="editingAction ? 'Save changes' : 'Create action'"
+              class="btn-primary"
+              [loading]="saving"
+              (click)="saveAction()"></button>
+    </ng-template>
+  </p-dialog>
+</section>

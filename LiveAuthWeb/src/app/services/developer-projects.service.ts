@@ -102,6 +102,121 @@ export interface LogEntry {
   reason: string;
 }
 
+export type CostShieldEnvironment = 'TEST' | 'LIVE';
+
+export interface ProtectedActionDto {
+  id: string;
+  projectId: string;
+  environment: CostShieldEnvironment;
+  name: string;
+  displayName: string;
+  description: string;
+  isEnabled: boolean;
+  baseDifficulty: number;
+  suspiciousDifficulty: number;
+  maximumDifficulty: number;
+  anonymousRequestLimit: number;
+  anonymousLimitWindowSeconds: number;
+  authenticatedRequestLimit: number | null;
+  authenticatedLimitWindowSeconds: number | null;
+  requireSingleUseToken: boolean;
+  tokenLifetimeSeconds: number;
+  allowedOrigins: string[];
+  failureBehavior: 'Deny' | 'LightningFallback';
+  allowLightningFallback: boolean;
+  lightningPriceSats: number;
+  lightningFallbackMode: 'RateLimitOnly' | 'Always';
+  lightningBypassesProofOfWork: boolean;
+  estimatedCostPerExecution: number;
+  configurationVersion: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProtectedActionListResponse {
+  actions: ProtectedActionDto[];
+}
+
+export interface UpsertProtectedActionRequest {
+  environment: CostShieldEnvironment;
+  name: string;
+  displayName: string;
+  description: string;
+  isEnabled: boolean;
+  baseDifficulty: number;
+  suspiciousDifficulty: number;
+  maximumDifficulty: number;
+  anonymousRequestLimit: number;
+  anonymousLimitWindowSeconds: number;
+  authenticatedRequestLimit: number | null;
+  authenticatedLimitWindowSeconds: number | null;
+  requireSingleUseToken: boolean;
+  tokenLifetimeSeconds: number;
+  allowedOrigins: string[];
+  failureBehavior: 'Deny' | 'LightningFallback';
+  allowLightningFallback: boolean;
+  lightningPriceSats: number;
+  lightningFallbackMode: 'RateLimitOnly' | 'Always';
+  lightningBypassesProofOfWork: boolean;
+  estimatedCostPerExecution: number;
+}
+
+export interface CostShieldActionUsageDto {
+  protectedActionId: string;
+  action: string;
+  displayName: string;
+  challengesIssued: number;
+  authorizationsIssued: number;
+  protectedRequests: number;
+  requestsDenied: number;
+  estimatedCostAvoided: number;
+}
+
+export interface CostShieldOverviewResponse {
+  windowHours: number;
+  windowStart: string;
+  windowEnd: string;
+  protectedActionCount: number;
+  enabledActionCount: number;
+  challengesIssued: number;
+  challengesCompleted: number;
+  authorizationsIssued: number;
+  protectedRequests: number;
+  requestsDenied: number;
+  rateLimitedRequests: number;
+  invalidAttempts: number;
+  replayAttemptsBlocked: number;
+  estimatedProviderCostAuthorized: number;
+  estimatedCostAvoided: number;
+  challengeSuccessRate: number;
+  averageChallengeTimeMilliseconds: number | null;
+  estimatedValues: boolean;
+  topActions: CostShieldActionUsageDto[];
+}
+
+export interface CostShieldEventDto {
+  id: string;
+  protectedActionId: string | null;
+  action: string | null;
+  displayName: string | null;
+  eventType: string;
+  environment: string | null;
+  verificationMethod: string | null;
+  success: boolean;
+  reason: string | null;
+  source: string | null;
+  durationMilliseconds: number | null;
+  estimatedCostProtected: number | null;
+  createdAt: string;
+}
+
+export interface CostShieldEventListResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  events: CostShieldEventDto[];
+}
+
 // api key models
 export interface ProjectApiKeyDto {
   id: string;
@@ -421,6 +536,85 @@ export class DeveloperProjectsService {
       `${this.baseUrl}/api/dev/projects/${projectId}/logs`,
       {
         params,
+        ...this.devAuth.authHeaders()
+      }
+    );
+  }
+
+  listProtectedActions(
+    projectId: string,
+    environment?: CostShieldEnvironment
+  ): Observable<ProtectedActionListResponse> {
+    const options = environment
+      ? {
+          params: new HttpParams().set('environment', environment),
+          ...this.devAuth.authHeaders()
+        }
+      : this.devAuth.authHeaders();
+
+    return this.http.get<ProtectedActionListResponse>(
+      `${this.baseUrl}/api/dev/projects/${projectId}/costshield/actions`,
+      options
+    );
+  }
+
+  createProtectedAction(
+    projectId: string,
+    request: UpsertProtectedActionRequest
+  ): Observable<ProtectedActionDto> {
+    return this.http.post<ProtectedActionDto>(
+      `${this.baseUrl}/api/dev/projects/${projectId}/costshield/actions`,
+      request,
+      this.devAuth.authHeaders()
+    );
+  }
+
+  updateProtectedAction(
+    projectId: string,
+    actionId: string,
+    request: UpsertProtectedActionRequest
+  ): Observable<ProtectedActionDto> {
+    return this.http.put<ProtectedActionDto>(
+      `${this.baseUrl}/api/dev/projects/${projectId}/costshield/actions/${actionId}`,
+      request,
+      this.devAuth.authHeaders()
+    );
+  }
+
+  deleteProtectedAction(
+    projectId: string,
+    actionId: string
+  ): Observable<void> {
+    return this.http.delete<void>(
+      `${this.baseUrl}/api/dev/projects/${projectId}/costshield/actions/${actionId}`,
+      this.devAuth.authHeaders()
+    );
+  }
+
+  getCostShieldOverview(
+    projectId: string,
+    windowHours: number = 24
+  ): Observable<CostShieldOverviewResponse> {
+    return this.http.get<CostShieldOverviewResponse>(
+      `${this.baseUrl}/api/dev/projects/${projectId}/costshield/overview`,
+      {
+        params: new HttpParams().set('windowHours', windowHours.toString()),
+        ...this.devAuth.authHeaders()
+      }
+    );
+  }
+
+  getCostShieldEvents(
+    projectId: string,
+    limit: number = 50,
+    offset: number = 0
+  ): Observable<CostShieldEventListResponse> {
+    return this.http.get<CostShieldEventListResponse>(
+      `${this.baseUrl}/api/dev/projects/${projectId}/costshield/events`,
+      {
+        params: new HttpParams()
+          .set('limit', limit.toString())
+          .set('offset', offset.toString()),
         ...this.devAuth.authHeaders()
       }
     );
