@@ -306,7 +306,7 @@
           <span>1</span>
           <div>
             <h5>Install the browser SDK</h5>
-            <p>The SDK package and worker implementation are the next release checkpoint.</p>
+            <p>The SDK solves challenges off the main thread and returns an action-bound token.</p>
             <div class="code-block compact">
               <code>{{ installSnippet }}</code>
               <button pButton icon="pi pi-copy" class="p-button-text p-button-sm"
@@ -331,7 +331,7 @@
           <span>3</span>
           <div>
             <h5>Consume the token before the expensive call</h5>
-            <p>Keep your <code>la_sk_...</code> key on the server.</p>
+            <p>Keep your <code>la_sk_...</code> key on the server. Single-use tokens are consumed automatically.</p>
             <div class="code-block">
               <pre>{{ serverSnippet }}</pre>
               <button pButton icon="pi pi-copy" class="p-button-text p-button-sm"

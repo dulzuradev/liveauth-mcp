@@ -318,28 +318,25 @@ await fetch('/api/your-expensive-action', {
     const action = this.selectedIntegrationAction;
     if (!action) return '';
     const origin = action.allowedOrigins[0] ?? 'https://your-app.example';
-    return `const verification = await fetch(
-  'https://api.liveauth.app/api/costshield/authorizations/consume',
-  {
-    method: 'POST',
-    headers: {
-      Authorization: \`Bearer \${process.env.LIVEAUTH_SECRET_KEY}\`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      token: costShieldToken,
-      action: '${action.name}',
-      environment: '${action.environment}',
-      origin: '${origin}'
-    })
+    return `import { CostShieldVerifier } from '@liveauth/sdk/server';
+
+const costShield = new CostShieldVerifier({
+  projectId: '${this.project.projectId}',
+  environment: '${action.environment}',
+  secretKey: process.env.LIVEAUTH_SECRET_KEY
+});
+
+app.post(
+  '/api/your-expensive-action',
+  costShield.protect('${action.name}', {
+    origin: '${origin}'
+  }),
+  async (req, res) => {
+    // The token is valid and single-use tokens have been consumed.
+    const result = await callExpensiveProvider(req.body);
+    res.json(result);
   }
-);
-
-if (!verification.ok) {
-  return res.status(403).json({ error: 'CostShield authorization required' });
-}
-
-// Perform the expensive provider call only after verification succeeds.`;
+);`;
   }
 
   eventLabel(eventType: string): string {

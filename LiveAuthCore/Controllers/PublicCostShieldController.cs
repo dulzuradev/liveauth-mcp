@@ -1,12 +1,14 @@
 using LiveAuthCore.Models.CostShield;
 using LiveAuthCore.Services.CostShield;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LiveAuthCore.Controllers;
 
 [ApiController]
 [AllowAnonymous]
+[EnableCors("AllowCostShieldClients")]
 [Route("api/public/costshield")]
 public sealed class PublicCostShieldController : ControllerBase
 {

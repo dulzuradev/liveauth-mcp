@@ -262,12 +262,28 @@ public static class ServiceCollectionExtensions
     {
         builder.Services.AddCors(options =>
         {
+            options.AddDefaultPolicy(policy =>
+            {
+                policy.WithOrigins("https://liveauth.app", "https://admin.liveauth.app")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            });
+
             options.AddPolicy("AllowAngular", policy =>
             {
                 policy.WithOrigins("https://liveauth.app", "https://admin.liveauth.app")
                     .AllowAnyHeader()
                     .AllowAnyMethod()
                     .AllowCredentials();
+            });
+
+            options.AddPolicy("AllowCostShieldClients", policy =>
+            {
+                policy.AllowAnyOrigin()
+                    .WithHeaders("Content-Type", "X-LW-Public")
+                    .WithMethods("POST", "OPTIONS")
+                    .WithExposedHeaders("Retry-After");
             });
         });
 

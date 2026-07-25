@@ -130,7 +130,8 @@ describe('CostShieldProjectComponent', () => {
 
     expect(component.browserSnippet).toContain(project.publicKey);
     expect(component.browserSnippet).toContain(action.name);
-    expect(component.serverSnippet).toContain('/authorizations/consume');
+    expect(component.serverSnippet).toContain('CostShieldVerifier');
+    expect(component.serverSnippet).toContain(project.projectId);
   });
 
   it('opens a new action form using the project environment', () => {

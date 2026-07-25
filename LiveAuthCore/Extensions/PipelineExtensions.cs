@@ -632,8 +632,8 @@ public static class PipelineExtensions
     {
         app.UseForwardedHeaders();
         app.UseHttpsRedirection();
-        app.UseCors("AllowAngular");
         app.UseRouting();
+        app.UseCors();
 
         // Custom auth middleware BEFORE ASP.NET authentication
         // This handles public endpoints (pow, auth) that need API key validation

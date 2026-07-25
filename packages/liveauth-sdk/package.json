@@ -1,0 +1,52 @@
+{
+  "name": "@liveauth/sdk",
+  "version": "0.1.0",
+  "description": "Browser and server SDK for LiveAuth CostShield",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./pow-worker.js": "./dist/pow-worker.js"
+  },
+  "files": [
+    "dist",
+    "examples",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "smoke:local": "npm run build && node examples/local-smoke.mjs",
+    "prepack": "npm run build",
+    "pack:check": "npm pack --dry-run"
+  },
+  "keywords": [
+    "liveauth",
+    "costshield",
+    "proof-of-work",
+    "api-security",
+    "express",
+    "nextjs"
+  ],
+  "author": "LiveAuth",
+  "license": "UNLICENSED",
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.2"
+  }
+}

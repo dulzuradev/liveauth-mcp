@@ -28,6 +28,52 @@ public sealed class PublicCostShieldControllerTests
     }
 
     [Fact]
+    public async Task CostShield_preflight_allows_external_browser_clients()
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Options,
+            "/api/public/costshield/challenges");
+        request.Headers.Add("Origin", "https://customer.example");
+        request.Headers.Add("Access-Control-Request-Method", "POST");
+        request.Headers.Add(
+            "Access-Control-Request-Headers",
+            "content-type,x-lw-public");
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        response.Headers.GetValues("Access-Control-Allow-Origin")
+            .Should().ContainSingle("*");
+        response.Headers.GetValues("Access-Control-Allow-Methods")
+            .Single()
+            .Should().Contain("POST");
+        response.Headers.GetValues("Access-Control-Allow-Headers")
+            .Single()
+            .Should().Contain("X-LW-Public");
+    }
+
+    [Fact]
+    public async Task Dashboard_preflight_keeps_the_restricted_origin_policy()
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Options,
+            "/api/dev/projects");
+        request.Headers.Add("Origin", "https://liveauth.app");
+        request.Headers.Add("Access-Control-Request-Method", "GET");
+        request.Headers.Add(
+            "Access-Control-Request-Headers",
+            "authorization");
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        response.Headers.GetValues("Access-Control-Allow-Origin")
+            .Should().ContainSingle("https://liveauth.app");
+        response.Headers.GetValues("Access-Control-Allow-Credentials")
+            .Should().ContainSingle("true");
+    }
+
+    [Fact]
     public async Task ChallengeToConsumeFlow_IssuesVerifiesAndConsumesSingleUseToken()
     {
         var seed = await SeedActionAsync();
