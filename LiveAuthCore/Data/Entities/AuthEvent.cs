@@ -14,7 +14,16 @@ public enum AuthEventType
     RateLimitHit = 6,
     PowChallengeIssued = 7,
     PowFailed = 8,
-    PowSolved = 9
+    PowSolved = 9,
+    CostShieldChallengeIssued = 10,
+    CostShieldChallengeCompleted = 11,
+    CostShieldChallengeFailed = 12,
+    CostShieldAuthorizationIssued = 13,
+    CostShieldAuthorizationVerified = 14,
+    CostShieldAuthorizationConsumed = 15,
+    CostShieldReplayBlocked = 16,
+    CostShieldRateLimited = 17,
+    CostShieldInvalidOrigin = 18
 }
 
 public class AuthEvent
@@ -48,6 +57,32 @@ public class AuthEvent
 
     [MaxLength(256)]
     public string? Reason { get; set; }
+
+    public Guid? ProtectedActionId { get; set; }
+
+    [ForeignKey(nameof(ProtectedActionId))]
+    public ProtectedAction? ProtectedAction { get; set; }
+
+    [MaxLength(16)]
+    public string? Environment { get; set; }
+
+    [MaxLength(64)]
+    public string? IpAddressHash { get; set; }
+
+    [MaxLength(64)]
+    public string? ClientContextHash { get; set; }
+
+    [MaxLength(64)]
+    public string? SubjectHash { get; set; }
+
+    [MaxLength(32)]
+    public string? VerificationMethod { get; set; }
+
+    public int? DurationMilliseconds { get; set; }
+
+    public decimal? EstimatedCostProtected { get; set; }
+
+    public string? MetadataJson { get; set; }
 }
 
 public interface IAuthEventLogger

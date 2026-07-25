@@ -215,6 +215,13 @@ public sealed class ProtectedActionService : IProtectedActionService
         if (action == null)
             return ProtectedActionWriteResult.NotFound();
 
+        if (await _db.CostShieldAuthorizations.AnyAsync(
+                authorization => authorization.ProtectedActionId == actionId,
+                ct))
+        {
+            return ProtectedActionWriteResult.InUse();
+        }
+
         _db.ProtectedActions.Remove(action);
         await _db.SaveChangesAsync(ct);
         return ProtectedActionWriteResult.Deleted();
@@ -314,6 +321,7 @@ public enum ProtectedActionResultStatus
     NotFound,
     Invalid,
     Conflict,
+    InUse,
     PlanLimitReached
 }
 
@@ -355,6 +363,9 @@ public sealed record ProtectedActionWriteResult(
 
     public static ProtectedActionWriteResult Conflict()
         => new(ProtectedActionResultStatus.Conflict);
+
+    public static ProtectedActionWriteResult InUse()
+        => new(ProtectedActionResultStatus.InUse);
 
     public static ProtectedActionWriteResult PlanLimit(int limit)
         => new(ProtectedActionResultStatus.PlanLimitReached, Limit: limit);

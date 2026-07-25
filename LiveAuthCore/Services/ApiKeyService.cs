@@ -134,6 +134,43 @@ public class ApiKeyService
     // ✔ Enforces LIVE + active
     // ---------------------------------------------------------------------
 
+    public async Task<ApiKeyAuthResult> ResolveActivePublicProjectAsync(
+        string publicKey,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(publicKey))
+            return ApiKeyAuthResult.Invalid();
+
+        publicKey = publicKey.Trim();
+        if (!publicKey.StartsWith("la_pk_", StringComparison.Ordinal))
+            return ApiKeyAuthResult.Invalid();
+
+        var project = await _db.Projects.SingleOrDefaultAsync(candidate =>
+            candidate.PublicKey == publicKey &&
+            candidate.IsActive &&
+            !candidate.IsDeleted,
+            ct);
+
+        if (project != null)
+            return ApiKeyAuthResult.Ok(project, apiKey: null);
+
+        var apiKey = await _db.ProjectApiKeys
+            .Include(candidate => candidate.Project)
+            .SingleOrDefaultAsync(candidate =>
+                candidate.PublicKey == publicKey &&
+                candidate.IsActive &&
+                candidate.Project.IsActive &&
+                !candidate.Project.IsDeleted,
+                ct);
+
+        if (apiKey == null)
+            return ApiKeyAuthResult.Invalid();
+
+        apiKey.LastUsedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return ApiKeyAuthResult.Ok(apiKey.Project, apiKey);
+    }
+
     public async Task<ApiKeyAuthResult> AuthenticatePublicKeyAsync(
         string publicKey,
         CancellationToken ct)

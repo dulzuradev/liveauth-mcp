@@ -8,7 +8,7 @@ namespace LiveAuthCore.Tests.Schema;
 public sealed class CostShieldSchemaMigrationTests
 {
     [Fact]
-    public async Task RunTableMigrations_CreatesProtectedActionsSchemaAndIsIdempotent()
+    public async Task RunTableMigrations_CreatesCostShieldSchemaAndIsIdempotent()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");
         await connection.OpenAsync();
@@ -42,6 +42,30 @@ public sealed class CostShieldSchemaMigrationTests
             "SELECT name FROM pragma_index_list('ProtectedActions')");
         indexes.Should().Contain("IX_ProtectedActions_ProjectId_Environment_Name");
         indexes.Should().Contain("IX_ProtectedActions_ProjectId_Environment_IsEnabled");
+
+        var authorizationColumns = await ReadNamesAsync(
+            connection,
+            "SELECT name FROM pragma_table_info('CostShieldAuthorizations') ORDER BY cid");
+        authorizationColumns.Should().Contain(new[]
+        {
+            "Id",
+            "ProjectId",
+            "ProtectedActionId",
+            "ChallengeId",
+            "TokenId",
+            "Status",
+            "ConcurrencyStamp"
+        });
+
+        var authorizationIndexes = await ReadNamesAsync(
+            connection,
+            "SELECT name FROM pragma_index_list('CostShieldAuthorizations')");
+        authorizationIndexes.Should().Contain(
+            "IX_CostShieldAuthorizations_TokenId");
+        authorizationIndexes.Should().Contain(
+            "IX_CostShieldAuthorizations_ProjectId_ChallengeId");
+        authorizationIndexes.Should().Contain(
+            "IX_CostShieldAuthorizations_ProjectId_ProtectedActionId_IssuedAt");
     }
 
     private static async Task ExecuteAsync(SqliteConnection connection, string sql)

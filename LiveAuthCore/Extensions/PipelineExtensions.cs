@@ -57,6 +57,26 @@ public static class PipelineExtensions
 
         await RunTableMigrationsAsync(connection);
 
+        await EnsureColumnAsync(connection, "AuthEvents", "ProtectedActionId", "TEXT");
+        await EnsureColumnAsync(connection, "AuthEvents", "Environment", "TEXT");
+        await EnsureColumnAsync(connection, "AuthEvents", "IpAddressHash", "TEXT");
+        await EnsureColumnAsync(connection, "AuthEvents", "ClientContextHash", "TEXT");
+        await EnsureColumnAsync(connection, "AuthEvents", "SubjectHash", "TEXT");
+        await EnsureColumnAsync(connection, "AuthEvents", "VerificationMethod", "TEXT");
+        await EnsureColumnAsync(connection, "AuthEvents", "DurationMilliseconds", "INTEGER");
+        await EnsureColumnAsync(connection, "AuthEvents", "EstimatedCostProtected", "TEXT");
+        await EnsureColumnAsync(connection, "AuthEvents", "MetadataJson", "TEXT");
+
+        await EnsureIndexAsync(connection, "IX_AuthEvents_ProjectId_ProtectedActionId_CreatedAt", @"
+            CREATE INDEX IX_AuthEvents_ProjectId_ProtectedActionId_CreatedAt
+            ON AuthEvents (ProjectId, ProtectedActionId, CreatedAt)"
+        );
+
+        await EnsureIndexAsync(connection, "IX_AuthEvents_ProtectedActionId_IpAddressHash_CreatedAt", @"
+            CREATE INDEX IX_AuthEvents_ProtectedActionId_IpAddressHash_CreatedAt
+            ON AuthEvents (ProtectedActionId, IpAddressHash, CreatedAt)"
+        );
+
         await EnsureColumnAsync(connection, "AuthSessions", "BaseAmountSats", "INTEGER NOT NULL DEFAULT 0");
         await EnsureColumnAsync(connection, "AuthSessions", "InvoiceFeeBasisPoints", "INTEGER NOT NULL DEFAULT 0");
         await EnsureColumnAsync(connection, "AuthSessions", "InvoiceFeeMinimumSats", "INTEGER NOT NULL DEFAULT 0");
@@ -173,6 +193,51 @@ public static class PipelineExtensions
         await EnsureIndexAsync(connection, "IX_ProtectedActions_ProjectId_Environment_IsEnabled", @"
             CREATE INDEX IX_ProtectedActions_ProjectId_Environment_IsEnabled
             ON ProtectedActions (ProjectId, Environment, IsEnabled)"
+        );
+
+        await EnsureTableAsync(connection, "CostShieldAuthorizations", @"
+            CREATE TABLE CostShieldAuthorizations (
+                Id TEXT NOT NULL PRIMARY KEY,
+                ProjectId TEXT NOT NULL,
+                ProtectedActionId TEXT NOT NULL,
+                ChallengeId TEXT NOT NULL,
+                TokenId TEXT NOT NULL,
+                Environment TEXT NOT NULL,
+                VerificationMethod TEXT NOT NULL,
+                Difficulty INTEGER NOT NULL,
+                Origin TEXT,
+                ClientContextHash TEXT NOT NULL,
+                SubjectHash TEXT,
+                RequireSingleUse INTEGER NOT NULL DEFAULT 1,
+                ConfigurationVersion INTEGER NOT NULL,
+                Status TEXT NOT NULL DEFAULT 'Active',
+                IssuedAt TEXT NOT NULL,
+                ExpiresAt TEXT NOT NULL,
+                ConsumedAt TEXT,
+                ConcurrencyStamp TEXT NOT NULL,
+                FOREIGN KEY (ProjectId) REFERENCES Projects (Id) ON DELETE CASCADE,
+                FOREIGN KEY (ProtectedActionId) REFERENCES ProtectedActions (Id) ON DELETE RESTRICT
+            )"
+        );
+
+        await EnsureIndexAsync(connection, "IX_CostShieldAuthorizations_TokenId", @"
+            CREATE UNIQUE INDEX IX_CostShieldAuthorizations_TokenId
+            ON CostShieldAuthorizations (TokenId)"
+        );
+
+        await EnsureIndexAsync(connection, "IX_CostShieldAuthorizations_ProjectId_ChallengeId", @"
+            CREATE UNIQUE INDEX IX_CostShieldAuthorizations_ProjectId_ChallengeId
+            ON CostShieldAuthorizations (ProjectId, ChallengeId)"
+        );
+
+        await EnsureIndexAsync(connection, "IX_CostShieldAuthorizations_ProjectId_ProtectedActionId_IssuedAt", @"
+            CREATE INDEX IX_CostShieldAuthorizations_ProjectId_ProtectedActionId_IssuedAt
+            ON CostShieldAuthorizations (ProjectId, ProtectedActionId, IssuedAt)"
+        );
+
+        await EnsureIndexAsync(connection, "IX_CostShieldAuthorizations_ExpiresAt", @"
+            CREATE INDEX IX_CostShieldAuthorizations_ExpiresAt
+            ON CostShieldAuthorizations (ExpiresAt)"
         );
 
         await EnsureTableAsync(connection, "LightningFeeSettings", @"
@@ -565,6 +630,7 @@ public static class PipelineExtensions
     /// </summary>
     public static void UseLiveAuthPipeline(this WebApplication app)
     {
+        app.UseForwardedHeaders();
         app.UseHttpsRedirection();
         app.UseCors("AllowAngular");
         app.UseRouting();

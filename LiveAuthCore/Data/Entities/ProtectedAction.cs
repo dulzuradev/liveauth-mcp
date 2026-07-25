@@ -67,6 +67,9 @@ public sealed class ProtectedAction
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public ICollection<CostShieldAuthorization> Authorizations { get; set; } =
+        new List<CostShieldAuthorization>();
 }
 
 public static class ProtectedActionFailureBehaviors

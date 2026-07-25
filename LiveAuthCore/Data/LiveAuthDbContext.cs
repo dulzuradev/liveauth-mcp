@@ -14,6 +14,7 @@ public class LiveAuthDbContext : DbContext
     public DbSet<Developer> Developers => Set<Developer>();
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<ProtectedAction> ProtectedActions => Set<ProtectedAction>();
+    public DbSet<CostShieldAuthorization> CostShieldAuthorizations => Set<CostShieldAuthorization>();
     public DbSet<VerificationSession> VerificationSessions => Set<VerificationSession>();
     public DbSet<UsageEvent> UsageEvents => Set<UsageEvent>();
     public DbSet<DeveloperLoginSession> DeveloperLoginSessions => Set<DeveloperLoginSession>();
@@ -130,6 +131,40 @@ public class LiveAuthDbContext : DbContext
                 .HasColumnType("TEXT");
         });
 
+        modelBuilder.Entity<CostShieldAuthorization>(entity =>
+        {
+            entity.HasOne(authorization => authorization.Project)
+                .WithMany(project => project.CostShieldAuthorizations)
+                .HasForeignKey(authorization => authorization.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(authorization => authorization.ProtectedAction)
+                .WithMany(action => action.Authorizations)
+                .HasForeignKey(authorization => authorization.ProtectedActionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(authorization => authorization.TokenId)
+                .IsUnique();
+
+            entity.HasIndex(authorization => new
+                {
+                    authorization.ProjectId,
+                    authorization.ChallengeId
+                })
+                .IsUnique();
+
+            entity.HasIndex(authorization => new
+                {
+                    authorization.ProjectId,
+                    authorization.ProtectedActionId,
+                    authorization.IssuedAt
+                });
+
+            entity.HasIndex(authorization => authorization.ExpiresAt);
+            entity.Property(authorization => authorization.ConcurrencyStamp)
+                .IsConcurrencyToken();
+        });
+
         modelBuilder.Entity<AuthSession>()
             .HasIndex(s => new { s.ProjectId, s.ClientIp, s.CreatedAt });
         
@@ -142,6 +177,18 @@ public class LiveAuthDbContext : DbContext
         
         modelBuilder.Entity<AuthEvent>()
             .HasIndex(e => new { e.ProjectId, e.EventType });
+
+        modelBuilder.Entity<AuthEvent>()
+            .HasIndex(e => new { e.ProjectId, e.ProtectedActionId, e.CreatedAt });
+
+        modelBuilder.Entity<AuthEvent>()
+            .HasIndex(e => new { e.ProtectedActionId, e.IpAddressHash, e.CreatedAt });
+
+        modelBuilder.Entity<AuthEvent>()
+            .HasOne(e => e.ProtectedAction)
+            .WithMany()
+            .HasForeignKey(e => e.ProtectedActionId)
+            .OnDelete(DeleteBehavior.SetNull);
         
         modelBuilder.Entity<BillingSubscription>()
             .HasIndex(x => x.InvoiceRHash)

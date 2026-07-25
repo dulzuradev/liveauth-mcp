@@ -136,6 +136,11 @@ public sealed class DeveloperCostShieldActionsController : ControllerBase
                 error = "protected_action_name_conflict",
                 message = "An action with this name already exists in the selected environment."
             }),
+            ProtectedActionResultStatus.InUse => Conflict(new
+            {
+                error = "protected_action_in_use",
+                message = "This action has issued authorizations. Disable it instead of deleting it."
+            }),
             ProtectedActionResultStatus.PlanLimitReached => StatusCode(
                 StatusCodes.Status402PaymentRequired,
                 new

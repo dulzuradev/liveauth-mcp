@@ -51,6 +51,8 @@ public class PublicKeyAuthMiddleware
             context.Request.Path.StartsWithSegments("/api/public/demo", StringComparison.OrdinalIgnoreCase) ||
             context.Request.Path.StartsWithSegments("/api/public/nostr", StringComparison.OrdinalIgnoreCase) ||
             context.Request.Path.StartsWithSegments("/api/public/l402", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/api/public/costshield", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/api/costshield", StringComparison.OrdinalIgnoreCase) ||
             context.Request.Path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase) ||
             context.Request.Path.StartsWithSegments("/api/health", StringComparison.OrdinalIgnoreCase) ||
             context.Request.Path.StartsWithSegments("/api/dev", StringComparison.OrdinalIgnoreCase)

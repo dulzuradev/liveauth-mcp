@@ -35,6 +35,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      ReverseProxy__TrustForwardedHeaders: "true"
+      CostShield__SigningPrivateKeyPem: ${COSTSHIELD_SIGNING_PRIVATE_KEY_PEM:?Set COSTSHIELD_SIGNING_PRIVATE_KEY_PEM to an RSA private key with newlines encoded as \n}
+      CostShield__SigningKeyId: ${COSTSHIELD_SIGNING_KEY_ID:-costshield-rs256-v1}
       ConnectionStrings__Default: Data Source=/data/liveauth.db
       DB_PROVIDER: sqlite
       Admin__SkipPayment: "true"

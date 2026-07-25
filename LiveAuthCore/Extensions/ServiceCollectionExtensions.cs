@@ -6,6 +6,7 @@ using LiveAuthCore.Data;
 using LiveAuthCore.Services;
 using LiveAuthCore.Services.CostShield;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -154,11 +155,31 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static WebApplicationBuilder AddLiveAuthServices(this WebApplicationBuilder builder)
     {
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders =
+                ForwardedHeaders.XForwardedFor |
+                ForwardedHeaders.XForwardedProto;
+            options.ForwardLimit = 1;
+
+            // Only enable this when the API is unreachable except through the
+            // deployment's reverse proxy, as it trusts forwarded client data.
+            if (builder.Configuration.GetValue(
+                    "ReverseProxy:TrustForwardedHeaders",
+                    false))
+            {
+                options.KnownNetworks.Clear();
+                options.KnownProxies.Clear();
+            }
+        });
+
         // Singleton services (shared state)
         builder.Services.AddSingleton<StripeService>();
         builder.Services.AddSingleton<PowAttemptLogger>();
         builder.Services.AddSingleton<PowChallengeSigner>();
         builder.Services.AddSingleton<PowRateLimitService>();
+        builder.Services.AddSingleton<IClientContextHasher, ClientContextHasher>();
+        builder.Services.AddSingleton<ICostShieldTokenService, CostShieldTokenService>();
         builder.Services.AddSingleton<NostrService>();
 
         // Scoped services (per-request)
@@ -177,6 +198,8 @@ public static class ServiceCollectionExtensions
         builder.Services.AddScoped<AgentSatsService>();
         builder.Services.AddScoped<McpReceiptService>();
         builder.Services.AddScoped<IProtectedActionService, ProtectedActionService>();
+        builder.Services.AddScoped<ICostShieldChallengeService, CostShieldChallengeService>();
+        builder.Services.AddScoped<ICostShieldVerificationService, CostShieldVerificationService>();
         builder.Services.AddScoped<IGitHubOAuthClient, GitHubOAuthClient>();
         builder.Services.AddHttpClient<EmailService>();
 
