@@ -298,6 +298,27 @@ td code {
   margin: 0.3rem 0 0.35rem;
 }
 
+.integration-step-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.integration-step-heading label {
+  display: grid;
+  min-width: 190px;
+  gap: 0.35rem;
+  color: #8fa1bb;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.integration-step-heading .select-control {
+  padding: 0.5rem 0.65rem;
+}
+
 .integration-step p {
   margin: 0 0 0.7rem;
   color: #8fa1bb;
@@ -329,6 +350,10 @@ td code {
 
 .code-block.compact {
   min-height: 3.2rem;
+}
+
+.server-install {
+  margin-bottom: 0.65rem;
 }
 
 .integration-details {
@@ -450,8 +475,13 @@ td code {
   }
 
   .panel-header,
-  .range-row {
+  .range-row,
+  .integration-step-heading {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .integration-step-heading label {
+    min-width: 0;
   }
 }

@@ -125,13 +125,31 @@ describe('CostShieldProjectComponent', () => {
     expect(component.actions).toEqual([action]);
   });
 
-  it('generates integration snippets from the selected action', () => {
+  it('generates browser and Node integration snippets', () => {
     component.setSection('integration');
 
     expect(component.browserSnippet).toContain(project.publicKey);
     expect(component.browserSnippet).toContain(action.name);
     expect(component.serverSnippet).toContain('CostShieldVerifier');
     expect(component.serverSnippet).toContain(project.projectId);
+  });
+
+  it('generates an ASP.NET Core integration snippet', () => {
+    component.setSection('integration');
+    component.serverFramework = 'aspnet';
+
+    expect(component.serverInstallSnippet)
+      .toContain('LiveAuth.CostShield.AspNetCore');
+    expect(component.serverSnippet)
+      .toContain('AddLiveAuthCostShield');
+    expect(component.serverSnippet)
+      .toContain('using Microsoft.AspNetCore.Mvc;');
+    expect(component.serverSnippet)
+      .toContain('[LiveAuthProtected(');
+    expect(component.serverSnippet).toContain(project.projectId);
+    expect(component.serverSnippet).toContain(action.name);
+    expect(component.serverSnippet)
+      .toContain(action.allowedOrigins[0]);
   });
 
   it('opens a new action form using the project environment', () => {

@@ -330,8 +330,26 @@
         <div class="integration-step">
           <span>3</span>
           <div>
-            <h5>Consume the token before the expensive call</h5>
+            <div class="integration-step-heading">
+              <h5>Consume the token before the expensive call</h5>
+              <label>
+                Server framework
+                <select
+                  [(ngModel)]="serverFramework"
+                  class="select-control">
+                  <option value="node">Express / Next.js</option>
+                  <option value="aspnet">ASP.NET Core</option>
+                </select>
+              </label>
+            </div>
             <p>Keep your <code>la_sk_...</code> key on the server. Single-use tokens are consumed automatically.</p>
+            <div
+              class="code-block compact server-install"
+              *ngIf="serverInstallSnippet">
+              <code>{{ serverInstallSnippet }}</code>
+              <button pButton icon="pi pi-copy" class="p-button-text p-button-sm"
+                      (click)="copy(serverInstallSnippet)"></button>
+            </div>
             <div class="code-block">
               <pre>{{ serverSnippet }}</pre>
               <button pButton icon="pi pi-copy" class="p-button-text p-button-sm"

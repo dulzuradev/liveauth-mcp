@@ -38,6 +38,32 @@ jobs:
     - name: Run unit tests
       run: dotnet test LiveAuthCore.Tests/LiveAuthCore.Tests.csproj --verbosity normal
 
+  costshield-aspnet:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Test ASP.NET Core package
+      run: >-
+        dotnet test
+        packages/LiveAuth.CostShield.AspNetCore/tests/LiveAuth.CostShield.AspNetCore.Tests/LiveAuth.CostShield.AspNetCore.Tests.csproj
+        --configuration Release
+        --verbosity normal
+
+    - name: Pack ASP.NET Core package
+      run: >-
+        dotnet pack
+        packages/LiveAuth.CostShield.AspNetCore/src/LiveAuth.CostShield.AspNetCore/LiveAuth.CostShield.AspNetCore.csproj
+        --configuration Release
+        --no-build
+        --no-restore
+
   integration-test:
     runs-on: ubuntu-latest
     needs: test

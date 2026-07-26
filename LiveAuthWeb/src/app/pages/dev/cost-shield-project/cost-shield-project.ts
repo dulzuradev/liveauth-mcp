@@ -21,6 +21,7 @@ import {
 } from '../../../services/developer-projects.service';
 
 type CostShieldSection = 'overview' | 'actions' | 'events' | 'integration';
+type CostShieldServerFramework = 'node' | 'aspnet';
 
 interface ProtectedActionForm extends UpsertProtectedActionRequest {
   allowedOriginsText: string;
@@ -52,6 +53,7 @@ export class CostShieldProjectComponent implements OnChanges {
   actions: ProtectedActionDto[] = [];
   events: CostShieldEventDto[] = [];
   selectedIntegrationActionId = '';
+  serverFramework: CostShieldServerFramework = 'node';
   windowHours = 24;
   loading = false;
   saving = false;
@@ -318,6 +320,36 @@ await fetch('/api/your-expensive-action', {
     const action = this.selectedIntegrationAction;
     if (!action) return '';
     const origin = action.allowedOrigins[0] ?? 'https://your-app.example';
+    if (this.serverFramework === 'aspnet') {
+      const environment = action.environment === 'LIVE' ? 'Live' : 'Test';
+      return `using LiveAuth.CostShield.AspNetCore;
+using Microsoft.AspNetCore.Mvc;
+
+builder.Services.AddLiveAuthCostShield(options =>
+{
+    options.ProjectId = Guid.Parse("${this.project.projectId}");
+    options.Environment = LiveAuthCostShieldEnvironment.${environment};
+    options.SecretKey = builder.Configuration["LiveAuth:SecretKey"];
+});
+
+[ApiController]
+[Route("api/your-expensive-action")]
+public sealed class ExpensiveActionController : ControllerBase
+{
+    [HttpPost]
+    [LiveAuthProtected(
+        "${action.name}",
+        Origin = "${origin}")]
+    public async Task<IActionResult> Execute(
+        [FromBody] ExpensiveRequest request)
+    {
+        // The token is valid and single-use tokens have been consumed.
+        var result = await CallExpensiveProvider(request);
+        return Ok(result);
+    }
+}`;
+    }
+
     return `import { CostShieldVerifier } from '@liveauth/sdk/server';
 
 const costShield = new CostShieldVerifier({
@@ -337,6 +369,12 @@ app.post(
     res.json(result);
   }
 );`;
+  }
+
+  get serverInstallSnippet(): string {
+    return this.serverFramework === 'aspnet'
+      ? 'dotnet add package LiveAuth.CostShield.AspNetCore --version 0.1.0'
+      : '';
   }
 
   eventLabel(eventType: string): string {
