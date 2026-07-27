@@ -3,6 +3,7 @@ using LiveAuthCore.Services.CostShield;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace LiveAuthCore.Controllers;
 
@@ -45,6 +46,7 @@ public sealed class PublicCostShieldController : ControllerBase
     }
 
     [HttpPost("challenges/{challengeId}/complete")]
+    [EnableRateLimiting(CostShieldRateLimitPolicies.Complete)]
     public async Task<ActionResult<CostShieldAuthorizationResponse>> CompleteChallenge(
         string challengeId,
         [FromBody] CompleteCostShieldChallengeRequest request,

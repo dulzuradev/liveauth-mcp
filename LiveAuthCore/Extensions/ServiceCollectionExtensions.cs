@@ -18,17 +18,31 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Validates required configuration and returns missing config names.
-    /// Only truly critical configs that must be set: PowHmacSecret, DemoProjectId, Jwt:SigningKey.
+    /// Includes the persistent CostShield signing key in Production.
     /// DB_PROVIDER and ConnectionStrings:Default have sensible defaults (SQLite).
     /// </summary>
     public static List<string> GetMissingConfigs(this WebApplicationBuilder builder)
     {
-        var requiredConfigs = new (string Name, string? Value)[]
+        var requiredConfigs = new List<(string Name, string? Value)>
         {
             ("LiveAuth:PowHmacSecret", builder.Configuration["LiveAuth:PowHmacSecret"]),
             ("LiveAuth:DemoProjectId", builder.Configuration["LiveAuth:DemoProjectId"]),
             ("Jwt:SigningKey", builder.Configuration["Jwt:SigningKey"] ?? builder.Configuration["Jwt:Key"]),
         };
+
+        if (builder.Environment.IsProduction())
+        {
+            var signingKeyPem =
+                builder.Configuration["CostShield:SigningPrivateKeyPem"];
+            var signingKeyPemBase64 =
+                builder.Configuration[
+                    "CostShield:SigningPrivateKeyPemBase64"];
+            requiredConfigs.Add((
+                "CostShield:SigningPrivateKeyPem or CostShield:SigningPrivateKeyPemBase64",
+                !string.IsNullOrWhiteSpace(signingKeyPem)
+                    ? signingKeyPem
+                    : signingKeyPemBase64));
+        }
 
         return requiredConfigs
             .Where(c => string.IsNullOrWhiteSpace(c.Value))
@@ -233,8 +247,14 @@ public static class ServiceCollectionExtensions
 
             options.OnRejected = async (context, cancellation) =>
             {
-                context.HttpContext.Response.StatusCode = 429;
-                await Task.CompletedTask;
+                context.HttpContext.Response.Headers.RetryAfter = "60";
+                context.HttpContext.Response.ContentType = "application/json";
+                await context.HttpContext.Response.WriteAsJsonAsync(new
+                {
+                    error = "rate_limit_exceeded",
+                    error_description =
+                        "Too many requests. Try again in one minute."
+                }, cancellation);
             };
 
             options.AddPolicy("auth:x10", context =>
@@ -246,6 +266,43 @@ public static class ServiceCollectionExtensions
                         Window = TimeSpan.FromMinutes(1),
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                         QueueLimit = 0
+                    }));
+
+            options.AddPolicy("auth:x3", context =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey:
+                        context.Connection.RemoteIpAddress?.ToString() ??
+                        "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 3,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder =
+                            QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
+
+            var completeLimit = Math.Clamp(
+                builder.Configuration.GetValue(
+                    "CostShield:CompleteRateLimitPerMinute",
+                    30),
+                1,
+                1_000);
+            options.AddPolicy(
+                CostShieldRateLimitPolicies.Complete,
+                context => RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey:
+                        context.Connection.RemoteIpAddress?.ToString() ??
+                        "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = completeLimit,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder =
+                            QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0,
+                        AutoReplenishment = true
                     }));
         });
 

@@ -1,5 +1,9 @@
 # Deployment Checklist
 
+For CostShield production key provisioning, credential rotation, and release
+verification, also complete
+[`docs/COSTSHIELD-PRODUCTION.md`](docs/COSTSHIELD-PRODUCTION.md).
+
 ## Pre-Deploy Verification
 
 Before running any deploy commands, verify these items:

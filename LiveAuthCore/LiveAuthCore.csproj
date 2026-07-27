@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
     <!-- Prevent platform-specific NuGet fallback folders from breaking builds on non-Windows hosts -->
     <RestoreFallbackFolders></RestoreFallbackFolders>
     <RestorePackagesPath>$(UserProfile)\.nuget\packages</RestorePackagesPath>
@@ -76,4 +77,3 @@
   </ItemGroup>
 
 </Project>
-

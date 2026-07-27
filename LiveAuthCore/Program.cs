@@ -3,6 +3,7 @@ using LiveAuthCore.Controllers;
 using LiveAuthCore.Extensions;
 using LiveAuthCore.Middleware;
 using LiveAuthCore.Services;
+using LiveAuthCore.Services.CostShield;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -19,11 +20,7 @@ if (missingConfigs.Any())
 {
     var error = $"[FATAL] Missing required configuration: {string.Join(", ", missingConfigs)}. Set via environment variables.";
     Console.Error.WriteLine(error);
-    
-    if (builder.Environment.IsDevelopment() || missingConfigs.Contains("LiveAuth:DemoProjectId") || missingConfigs.Contains("LiveAuth:PowHmacSecret"))
-    {
-        throw new InvalidOperationException(error);
-    }
+    throw new InvalidOperationException(error);
 }
 
 // Validate Lightning config
@@ -51,6 +48,10 @@ builder.AddLiveAuthAuth();
 builder.AddLiveAuthSwagger();
 
 var app = builder.Build();
+
+// Resolve the signer before accepting traffic so malformed or unsafe
+// production key configuration fails during startup, not on the first request.
+_ = app.Services.GetRequiredService<ICostShieldTokenService>();
 
 // --------------------------------------------------
 // DATABASE INITIALIZATION

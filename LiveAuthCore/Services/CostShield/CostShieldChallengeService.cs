@@ -27,6 +27,10 @@ public interface ICostShieldChallengeService
 
 public sealed class CostShieldChallengeService : ICostShieldChallengeService
 {
+    private const int DefaultChallengeLifetimeSeconds = 120;
+    private const int MinimumChallengeLifetimeSeconds = 30;
+    private const int MaximumChallengeLifetimeSeconds = 300;
+
     private readonly LiveAuthDbContext _db;
     private readonly ApiKeyService _apiKeys;
     private readonly PowChallengeSigner _signer;
@@ -136,9 +140,11 @@ public sealed class CostShieldChallengeService : ICostShieldChallengeService
         var challengeId = Convert.ToHexString(RandomNumberGenerator.GetBytes(16))
             .ToLowerInvariant();
         var lifetimeSeconds = Math.Clamp(
-            _configuration.GetValue("CostShield:ChallengeLifetimeSeconds", 120),
-            30,
-            300);
+            _configuration.GetValue(
+                "CostShield:ChallengeLifetimeSeconds",
+                DefaultChallengeLifetimeSeconds),
+            MinimumChallengeLifetimeSeconds,
+            MaximumChallengeLifetimeSeconds);
         var expiresAtUnix = DateTimeOffset.UtcNow.AddSeconds(lifetimeSeconds).ToUnixTimeSeconds();
         var clientContextHash = _contextHasher.HashContext(
             project.Id,
@@ -246,7 +252,8 @@ public sealed class CostShieldChallengeService : ICostShieldChallengeService
                 "The challenge has expired.");
         }
 
-        if (request.ExpiresAtUnix > nowUnix + 300 ||
+        if (request.ExpiresAtUnix >
+                nowUnix + MaximumChallengeLifetimeSeconds ||
             request.ConfigurationVersion != action.ConfigurationVersion ||
             request.DifficultyBits < action.BaseDifficulty ||
             request.DifficultyBits > action.MaximumDifficulty)

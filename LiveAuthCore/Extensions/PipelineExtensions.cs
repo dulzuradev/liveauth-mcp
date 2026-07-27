@@ -634,6 +634,7 @@ public static class PipelineExtensions
         app.UseHttpsRedirection();
         app.UseRouting();
         app.UseCors();
+        app.UseRateLimiter();
 
         // Custom auth middleware BEFORE ASP.NET authentication
         // This handles public endpoints (pow, auth) that need API key validation

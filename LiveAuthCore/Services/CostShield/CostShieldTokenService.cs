@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text;
 using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Models.CostShield;
 using Microsoft.IdentityModel.Tokens;
@@ -24,6 +25,8 @@ public sealed class CostShieldTokenService : ICostShieldTokenService, IDisposabl
 {
     public const string DefaultIssuer = "https://api.liveauth.app";
     public const string DefaultAudience = "liveauth-costshield";
+    public const string DefaultKeyId = "costshield-rs256-v1";
+    private const int MinimumRsaKeySize = 2048;
 
     private readonly RSA _rsa;
     private readonly RsaSecurityKey _securityKey;
@@ -42,8 +45,17 @@ public sealed class CostShieldTokenService : ICostShieldTokenService, IDisposabl
     {
         _issuer = configuration["CostShield:TokenIssuer"] ?? DefaultIssuer;
         _audience = configuration["CostShield:TokenAudience"] ?? DefaultAudience;
-        var keyId = configuration["CostShield:SigningKeyId"] ?? "costshield-rs256-v1";
-        var privateKeyPem = configuration["CostShield:SigningPrivateKeyPem"];
+        var configuredKeyId = configuration["CostShield:SigningKeyId"];
+        var keyId = configuredKeyId == null
+            ? DefaultKeyId
+            : configuredKeyId.Trim();
+        if (!IsValidKeyId(keyId))
+        {
+            throw new InvalidOperationException(
+                "CostShield:SigningKeyId must be 1-128 letters, numbers, dots, underscores, or hyphens.");
+        }
+
+        var privateKeyPem = ResolvePrivateKeyPem(configuration);
 
         _rsa = RSA.Create();
 
@@ -52,7 +64,8 @@ public sealed class CostShieldTokenService : ICostShieldTokenService, IDisposabl
             if (environment.IsProduction())
             {
                 throw new InvalidOperationException(
-                    "CostShield:SigningPrivateKeyPem is required in production.");
+                    "Configure CostShield:SigningPrivateKeyPem or " +
+                    "CostShield:SigningPrivateKeyPemBase64 in production.");
             }
 
             _rsa.KeySize = 2048;
@@ -61,7 +74,17 @@ public sealed class CostShieldTokenService : ICostShieldTokenService, IDisposabl
         }
         else
         {
-            _rsa.ImportFromPem(privateKeyPem.Replace("\\n", "\n", StringComparison.Ordinal));
+            try
+            {
+                _rsa.ImportFromPem(
+                    privateKeyPem.Replace("\\n", "\n", StringComparison.Ordinal));
+                EnsureProductionKeyIsSafe(_rsa);
+            }
+            catch
+            {
+                _rsa.Dispose();
+                throw;
+            }
         }
 
         _securityKey = new RsaSecurityKey(_rsa)
@@ -183,6 +206,64 @@ public sealed class CostShieldTokenService : ICostShieldTokenService, IDisposabl
 
     private static string Truncate(string value, int maximumLength)
         => value.Length <= maximumLength ? value : value[..maximumLength];
+
+    private static string? ResolvePrivateKeyPem(IConfiguration configuration)
+    {
+        var pem = configuration["CostShield:SigningPrivateKeyPem"];
+        var pemBase64 = configuration["CostShield:SigningPrivateKeyPemBase64"];
+
+        if (!string.IsNullOrWhiteSpace(pem) &&
+            !string.IsNullOrWhiteSpace(pemBase64))
+        {
+            throw new InvalidOperationException(
+                "Configure only one of CostShield:SigningPrivateKeyPem or CostShield:SigningPrivateKeyPemBase64.");
+        }
+
+        if (string.IsNullOrWhiteSpace(pemBase64))
+            return pem;
+
+        try
+        {
+            return Encoding.UTF8.GetString(Convert.FromBase64String(
+                pemBase64.Trim()));
+        }
+        catch (FormatException exception)
+        {
+            throw new InvalidOperationException(
+                "CostShield:SigningPrivateKeyPemBase64 is not valid base64.",
+                exception);
+        }
+    }
+
+    private static void EnsureProductionKeyIsSafe(RSA rsa)
+    {
+        if (rsa.KeySize < MinimumRsaKeySize)
+        {
+            throw new InvalidOperationException(
+                $"The CostShield RSA signing key must be at least {MinimumRsaKeySize} bits.");
+        }
+
+        try
+        {
+            if (rsa.ExportParameters(includePrivateParameters: true).D == null)
+            {
+                throw new InvalidOperationException(
+                    "The CostShield signing key must contain private key material.");
+            }
+        }
+        catch (CryptographicException exception)
+        {
+            throw new InvalidOperationException(
+                "The CostShield signing key must contain exportable private key material.",
+                exception);
+        }
+    }
+
+    private static bool IsValidKeyId(string keyId)
+        => keyId.Length is > 0 and <= 128 &&
+           keyId.All(character =>
+               char.IsAsciiLetterOrDigit(character) ||
+               character is '.' or '_' or '-');
 }
 
 public sealed record CostShieldTokenValidationResult(

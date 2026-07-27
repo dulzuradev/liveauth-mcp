@@ -390,6 +390,45 @@ public sealed class PublicCostShieldControllerTests
             .Should().Contain("action_rate_limit");
     }
 
+    [Fact]
+    public async Task Completion_BurstLimitRejectsExcessRequestsBeforeControllerWork()
+    {
+        using var factory = new LiveAuthWebApplicationFactory();
+        using var client = factory.CreateClient();
+        HttpResponseMessage? response = null;
+
+        for (var attempt = 0; attempt <= 30; attempt++)
+        {
+            response?.Dispose();
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                "/api/public/costshield/challenges/" +
+                "00000000000000000000000000000000/complete");
+            request.Headers.Add("X-LW-Public", "la_pk_rate_limit_test");
+            request.Content = JsonContent.Create(
+                new CompleteCostShieldChallengeRequest
+                {
+                    Environment = "TEST",
+                    Action = "ai.generate_image",
+                    Nonce = 0,
+                    DifficultyBits = 8,
+                    ExpiresAtUnix = DateTimeOffset.UtcNow
+                        .AddMinutes(1)
+                        .ToUnixTimeSeconds(),
+                    ConfigurationVersion = 1,
+                    Signature = new string('a', 64)
+                });
+            response = await client.SendAsync(request);
+        }
+
+        response.Should().NotBeNull();
+        response!.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        response.Headers.RetryAfter.Should().NotBeNull();
+        (await response.Content.ReadAsStringAsync())
+            .Should().Contain("rate_limit_exceeded");
+        response.Dispose();
+    }
+
     private async Task<CostShieldChallengeResponse> CreateChallengeAsync(
         string publicKey,
         string origin,

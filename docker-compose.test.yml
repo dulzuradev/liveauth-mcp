@@ -1,5 +1,5 @@
-# LiveAuth Test Environment (Home Directory)
-# Uses separate DB on port 5001, isolated from production
+# LiveAuth Test Environment
+# Uses a separate database and test-only credentials on port 5001.
 
 services:
   liveauth-test:
@@ -18,8 +18,8 @@ services:
       DB_PROVIDER: sqlite
       Admin__SkipPayment: "true"
       LiveAuth__DemoProjectId: "00000000-0000-0000-0000-000000000002"
-      LiveAuth__PowHmacSecret: "17b6b192e379f5689f87d99bf06510dc83e71de2d7429666bdb1c1437b6bd9e0"
-      Jwt__SigningKey: test-signing-key-not-for-production
+      LiveAuth__PowHmacSecret: "test-only-pow-hmac-secret-at-least-32-bytes"
+      Jwt__SigningKey: "test-only-jwt-signing-key-at-least-32-bytes"
       Jwt__Issuer: LiveAuthTest
       Jwt__Audience: LiveAuthTestUsers
     volumes:
