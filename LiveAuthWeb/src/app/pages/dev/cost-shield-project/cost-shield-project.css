@@ -387,6 +387,27 @@ td code {
   gap: 1rem;
 }
 
+/* Keep the action buttons visible while long forms scroll inside the viewport. */
+:host ::ng-deep .costshield-action-dialog {
+  display: flex;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  flex-direction: column;
+}
+
+:host ::ng-deep .costshield-action-dialog .p-dialog-header,
+:host ::ng-deep .costshield-action-dialog .p-dialog-footer {
+  flex: 0 0 auto;
+}
+
+:host ::ng-deep .costshield-action-dialog .p-dialog-content {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -463,6 +484,23 @@ td code {
 }
 
 @media (max-width: 560px) {
+  :host ::ng-deep .costshield-action-dialog {
+    width: calc(100vw - 1rem) !important;
+    max-width: calc(100vw - 1rem) !important;
+    max-height: calc(100vh - 1rem);
+    max-height: calc(100dvh - 1rem);
+  }
+
+  :host ::ng-deep .costshield-action-dialog .p-dialog-content {
+    padding-inline: 0.85rem;
+  }
+
+  :host ::ng-deep .costshield-action-dialog .p-dialog-footer {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+
   .metric-grid,
   .action-form {
     grid-template-columns: 1fr;

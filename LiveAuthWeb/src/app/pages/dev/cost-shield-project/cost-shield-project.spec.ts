@@ -159,4 +159,30 @@ describe('CostShieldProjectComponent', () => {
     expect(component.actionForm.environment).toBe('TEST');
     expect(component.actionForm.requireSingleUseToken).toBeTrue();
   });
+
+  it('keeps the action dialog footer inside the viewport', async () => {
+    component.openCreateAction();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const dialog = document.querySelector<HTMLElement>(
+      '.costshield-action-dialog'
+    );
+    const content = dialog?.querySelector<HTMLElement>('.p-dialog-content');
+    const footer = dialog?.querySelector<HTMLElement>('.p-dialog-footer');
+
+    expect(dialog).withContext('action dialog').not.toBeNull();
+    expect(content).withContext('action dialog content').not.toBeNull();
+    expect(footer).withContext('action dialog footer').not.toBeNull();
+
+    const dialogRect = dialog!.getBoundingClientRect();
+    const footerRect = footer!.getBoundingClientRect();
+
+    expect(getComputedStyle(dialog!).display).toBe('flex');
+    expect(getComputedStyle(content!).overflowY).toBe('auto');
+    expect(content!.scrollHeight).toBeGreaterThan(content!.clientHeight);
+    expect(dialogRect.top).toBeGreaterThanOrEqual(0);
+    expect(dialogRect.bottom).toBeLessThanOrEqual(window.innerHeight);
+    expect(footerRect.bottom).toBeLessThanOrEqual(window.innerHeight);
+  });
 });
