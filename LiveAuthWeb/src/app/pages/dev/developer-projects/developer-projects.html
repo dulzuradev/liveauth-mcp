@@ -1254,6 +1254,7 @@
             <i class="pi pi-shield me-1"></i>
             CostShield
           </p-tab>
+          <p-tab value="meter"><i class="pi pi-bolt me-1"></i>Meter</p-tab>
           <p-tab value="analytics">Analytics</p-tab>
           <p-tab value="usage">Usage</p-tab>
           <p-tab value="logs">Logs</p-tab>
@@ -1450,6 +1451,10 @@
         <!-- COSTSHIELD TAB -->
         <p-tabpanel value="costshield">
           <app-cost-shield-project [project]="selectedProject!"></app-cost-shield-project>
+        </p-tabpanel>
+
+        <p-tabpanel value="meter">
+          <app-meter-project [projectId]="selectedProject!.projectId" [publicKey]="selectedProject!.publicKey"></app-meter-project>
         </p-tabpanel>
 
         <!-- ANALYTICS TAB -->

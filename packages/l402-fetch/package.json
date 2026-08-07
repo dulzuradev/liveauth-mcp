@@ -1,0 +1,17 @@
+{
+  "name": "@liveauth/l402-fetch",
+  "version": "0.1.0",
+  "description": "Node-first fetch wrapper for LiveAuth Meter L402 gateways",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "engines": { "node": ">=18" },
+  "devDependencies": { "typescript": "^5.9.2" },
+  "license": "MIT"
+}

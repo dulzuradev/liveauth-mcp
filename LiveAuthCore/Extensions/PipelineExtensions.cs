@@ -389,6 +389,108 @@ public static class PipelineExtensions
             ON McpToolRevenueEvents (McpToolId, IdempotencyKey)
             WHERE IdempotencyKey IS NOT NULL"
         );
+
+        await RunMeterTableMigrationsAsync(connection);
+    }
+
+    private static async Task RunMeterTableMigrationsAsync(System.Data.Common.DbConnection connection)
+    {
+        await EnsureTableAsync(connection, "MerchantLightningConnections", @"
+            CREATE TABLE MerchantLightningConnections (
+                Id TEXT NOT NULL PRIMARY KEY, ProjectId TEXT NOT NULL,
+                ProviderType TEXT NOT NULL, DisplayName TEXT NOT NULL, RestUrl TEXT NOT NULL,
+                EncryptedTlsCertificate TEXT, EncryptedMacaroon TEXT NOT NULL,
+                SupportsPaymentLookup INTEGER NOT NULL, LastValidatedAt TEXT,
+                CreatedAt TEXT NOT NULL, UpdatedAt TEXT NOT NULL,
+                FOREIGN KEY (ProjectId) REFERENCES Projects (Id) ON DELETE CASCADE
+            )");
+
+        await EnsureTableAsync(connection, "MeterProjectSettings", @"
+            CREATE TABLE MeterProjectSettings (
+                Id TEXT NOT NULL PRIMARY KEY, ProjectId TEXT NOT NULL,
+                Enabled INTEGER NOT NULL, OriginBaseUrl TEXT, Environment TEXT NOT NULL,
+                PublicGatewayHostname TEXT, OriginTimeoutSeconds INTEGER NOT NULL,
+                MonthlyFreeRequestAllowance INTEGER NOT NULL, DefaultPriceSats INTEGER NOT NULL,
+                UnmatchedRouteBehavior TEXT NOT NULL, ReceiptSigningEnabled INTEGER NOT NULL,
+                WebhookUrl TEXT, LightningConnectionId TEXT, AllowPrivateOriginInTest INTEGER NOT NULL,
+                MaximumRequestBodyBytes INTEGER NOT NULL, MaximumResponseBodyBytes INTEGER NOT NULL,
+                CreatedAt TEXT NOT NULL, UpdatedAt TEXT NOT NULL,
+                FOREIGN KEY (ProjectId) REFERENCES Projects (Id) ON DELETE CASCADE,
+                FOREIGN KEY (LightningConnectionId) REFERENCES MerchantLightningConnections (Id) ON DELETE SET NULL
+            )");
+
+        await EnsureTableAsync(connection, "MeterRouteRules", @"
+            CREATE TABLE MeterRouteRules (
+                Id TEXT NOT NULL PRIMARY KEY, ProjectId TEXT NOT NULL,
+                HttpMethod TEXT NOT NULL, PathPattern TEXT NOT NULL, PriceSats INTEGER NOT NULL,
+                FreeRequestAllowance INTEGER NOT NULL, Enabled INTEGER NOT NULL, Priority INTEGER NOT NULL,
+                CredentialLifetimeSeconds INTEGER, MaximumCredentialUses INTEGER,
+                BindRequestBody INTEGER NOT NULL, CreatedAt TEXT NOT NULL, UpdatedAt TEXT NOT NULL,
+                FOREIGN KEY (ProjectId) REFERENCES Projects (Id) ON DELETE CASCADE
+            )");
+
+        await EnsureTableAsync(connection, "MeterPaymentChallenges", @"
+            CREATE TABLE MeterPaymentChallenges (
+                Id TEXT NOT NULL PRIMARY KEY, ProjectId TEXT NOT NULL, Environment TEXT NOT NULL,
+                RouteRuleId TEXT, HttpMethod TEXT NOT NULL, RequestedPath TEXT NOT NULL,
+                NormalizedRoute TEXT NOT NULL, PriceSats INTEGER NOT NULL, PaymentHash TEXT NOT NULL,
+                Invoice TEXT NOT NULL, MerchantLightningProviderId TEXT NOT NULL, CreatedAt TEXT NOT NULL,
+                ExpiresAt TEXT NOT NULL, PaidAt TEXT, CredentialExpiresAt TEXT NOT NULL,
+                MaximumUses INTEGER NOT NULL, RemainingUses INTEGER NOT NULL, Status TEXT NOT NULL,
+                RequestCorrelationId TEXT NOT NULL, ChallengeKey TEXT NOT NULL, CredentialNonce TEXT NOT NULL,
+                RequestBodyHash TEXT, Macaroon TEXT NOT NULL,
+                FOREIGN KEY (ProjectId) REFERENCES Projects (Id) ON DELETE CASCADE,
+                FOREIGN KEY (RouteRuleId) REFERENCES MeterRouteRules (Id) ON DELETE SET NULL,
+                FOREIGN KEY (MerchantLightningProviderId) REFERENCES MerchantLightningConnections (Id) ON DELETE RESTRICT
+            )");
+
+        await EnsureTableAsync(connection, "MeterAllowanceCounters", @"
+            CREATE TABLE MeterAllowanceCounters (
+                Id TEXT NOT NULL PRIMARY KEY, ProjectId TEXT NOT NULL, Environment TEXT NOT NULL,
+                MonthUtc TEXT NOT NULL, CallerKey TEXT NOT NULL, ScopeKey TEXT NOT NULL,
+                Used INTEGER NOT NULL, UpdatedAt TEXT NOT NULL
+            )");
+
+        await EnsureTableAsync(connection, "MeterUsageEvents", @"
+            CREATE TABLE MeterUsageEvents (
+                Id TEXT NOT NULL PRIMARY KEY, ProjectId TEXT NOT NULL, RouteRuleId TEXT,
+                ChallengeId TEXT, Environment TEXT NOT NULL, Kind TEXT NOT NULL, HttpMethod TEXT NOT NULL,
+                Path TEXT NOT NULL, NormalizedRoute TEXT NOT NULL, AmountSats INTEGER NOT NULL,
+                OriginStatusCode INTEGER, GatewayLatencyMilliseconds INTEGER NOT NULL,
+                OriginLatencyMilliseconds INTEGER, CorrelationId TEXT NOT NULL, CallerKey TEXT NOT NULL,
+                ErrorCode TEXT, CreatedAt TEXT NOT NULL
+            )");
+
+        await EnsureTableAsync(connection, "MeterReceipts", @"
+            CREATE TABLE MeterReceipts (
+                Id TEXT NOT NULL PRIMARY KEY, ProjectId TEXT NOT NULL, ChallengeId TEXT NOT NULL,
+                RequestCorrelationId TEXT NOT NULL, Version TEXT NOT NULL, CanonicalPayload TEXT NOT NULL,
+                Signature TEXT NOT NULL, SignatureAlgorithm TEXT NOT NULL, KeyId TEXT NOT NULL,
+                CreatedAt TEXT NOT NULL
+            )");
+
+        await EnsureIndexAsync(connection, "IX_MeterProjectSettings_ProjectId",
+            "CREATE UNIQUE INDEX IX_MeterProjectSettings_ProjectId ON MeterProjectSettings (ProjectId)");
+        await EnsureIndexAsync(connection, "IX_MeterProjectSettings_PublicGatewayHostname",
+            "CREATE UNIQUE INDEX IX_MeterProjectSettings_PublicGatewayHostname ON MeterProjectSettings (PublicGatewayHostname) WHERE PublicGatewayHostname IS NOT NULL");
+        await EnsureIndexAsync(connection, "IX_MerchantLightningConnections_ProjectId_ProviderType",
+            "CREATE INDEX IX_MerchantLightningConnections_ProjectId_ProviderType ON MerchantLightningConnections (ProjectId, ProviderType)");
+        await EnsureIndexAsync(connection, "IX_MeterRouteRules_ProjectId_HttpMethod_Priority_Enabled",
+            "CREATE INDEX IX_MeterRouteRules_ProjectId_HttpMethod_Priority_Enabled ON MeterRouteRules (ProjectId, HttpMethod, Priority, Enabled)");
+        await EnsureIndexAsync(connection, "IX_MeterPaymentChallenges_ChallengeKey",
+            "CREATE UNIQUE INDEX IX_MeterPaymentChallenges_ChallengeKey ON MeterPaymentChallenges (ChallengeKey)");
+        await EnsureIndexAsync(connection, "IX_MeterPaymentChallenges_PaymentHash",
+            "CREATE UNIQUE INDEX IX_MeterPaymentChallenges_PaymentHash ON MeterPaymentChallenges (PaymentHash)");
+        await EnsureIndexAsync(connection, "IX_MeterPaymentChallenges_ProjectId_Environment_Status_ExpiresAt",
+            "CREATE INDEX IX_MeterPaymentChallenges_ProjectId_Environment_Status_ExpiresAt ON MeterPaymentChallenges (ProjectId, Environment, Status, ExpiresAt)");
+        await EnsureIndexAsync(connection, "IX_MeterAllowanceCounters_Unique",
+            "CREATE UNIQUE INDEX IX_MeterAllowanceCounters_Unique ON MeterAllowanceCounters (ProjectId, Environment, MonthUtc, CallerKey, ScopeKey)");
+        await EnsureIndexAsync(connection, "IX_MeterUsageEvents_ProjectId_Environment_CreatedAt",
+            "CREATE INDEX IX_MeterUsageEvents_ProjectId_Environment_CreatedAt ON MeterUsageEvents (ProjectId, Environment, CreatedAt)");
+        await EnsureIndexAsync(connection, "IX_MeterReceipts_ProjectId_CreatedAt",
+            "CREATE INDEX IX_MeterReceipts_ProjectId_CreatedAt ON MeterReceipts (ProjectId, CreatedAt)");
+        await EnsureIndexAsync(connection, "IX_MeterReceipts_ChallengeId_RequestCorrelationId",
+            "CREATE UNIQUE INDEX IX_MeterReceipts_ChallengeId_RequestCorrelationId ON MeterReceipts (ChallengeId, RequestCorrelationId)");
     }
 
     private static async Task EnsureTableAsync(System.Data.Common.DbConnection connection, string tableName, string createSql)
@@ -635,6 +737,10 @@ public static class PipelineExtensions
         app.UseRouting();
         app.UseCors();
         app.UseRateLimiter();
+
+        // The public Meter gateway resolves its own project from the local gateway
+        // identifier or hostname. It must run before the general X-LW-Public guard.
+        app.UseMiddleware<MeterGatewayMiddleware>();
 
         // Custom auth middleware BEFORE ASP.NET authentication
         // This handles public endpoints (pow, auth) that need API key validation

@@ -55,6 +55,15 @@ public class LiveAuthDbContext : DbContext
     public DbSet<L402Bundle> L402Bundles => Set<L402Bundle>();
     public DbSet<L402Macaroon> L402Macaroons => Set<L402Macaroon>();
 
+    // LiveAuth Meter
+    public DbSet<MeterProjectSettings> MeterProjectSettings => Set<MeterProjectSettings>();
+    public DbSet<MeterRouteRule> MeterRouteRules => Set<MeterRouteRule>();
+    public DbSet<MerchantLightningConnection> MerchantLightningConnections => Set<MerchantLightningConnection>();
+    public DbSet<MeterPaymentChallenge> MeterPaymentChallenges => Set<MeterPaymentChallenge>();
+    public DbSet<MeterAllowanceCounter> MeterAllowanceCounters => Set<MeterAllowanceCounter>();
+    public DbSet<MeterUsageEvent> MeterUsageEvents => Set<MeterUsageEvent>();
+    public DbSet<MeterReceipt> MeterReceipts => Set<MeterReceipt>();
+
     // Nostr Agent Auth
     public DbSet<NostrAgentSession> NostrAgentSessions => Set<NostrAgentSession>();
 
@@ -323,5 +332,65 @@ public class LiveAuthDbContext : DbContext
             .HasIndex(e => new { e.McpToolId, e.IdempotencyKey })
             .IsUnique()
             .HasFilter("\"IdempotencyKey\" IS NOT NULL");
+
+        modelBuilder.Entity<MeterProjectSettings>(entity =>
+        {
+            entity.HasIndex(x => x.ProjectId).IsUnique();
+            entity.HasIndex(x => x.PublicGatewayHostname).IsUnique()
+                .HasFilter("\"PublicGatewayHostname\" IS NOT NULL");
+            entity.HasOne(x => x.Project).WithOne()
+                .HasForeignKey<MeterProjectSettings>(x => x.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.LightningConnection).WithMany()
+                .HasForeignKey(x => x.LightningConnectionId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<MeterRouteRule>(entity =>
+        {
+            entity.HasIndex(x => new { x.ProjectId, x.HttpMethod, x.Priority, x.Enabled });
+            entity.HasIndex(x => new { x.ProjectId, x.PathPattern });
+            entity.HasOne(x => x.Project).WithMany()
+                .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MerchantLightningConnection>(entity =>
+        {
+            entity.HasIndex(x => new { x.ProjectId, x.ProviderType });
+            entity.HasOne(x => x.Project).WithMany()
+                .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MeterPaymentChallenge>(entity =>
+        {
+            entity.HasIndex(x => x.ChallengeKey).IsUnique();
+            entity.HasIndex(x => x.PaymentHash).IsUnique();
+            entity.HasIndex(x => new { x.ProjectId, x.Environment, x.Status, x.ExpiresAt });
+            entity.HasOne(x => x.Project).WithMany()
+                .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.RouteRule).WithMany()
+                .HasForeignKey(x => x.RouteRuleId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(x => x.MerchantLightningProvider).WithMany()
+                .HasForeignKey(x => x.MerchantLightningProviderId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<MeterAllowanceCounter>(entity =>
+        {
+            entity.HasIndex(x => new { x.ProjectId, x.Environment, x.MonthUtc, x.CallerKey, x.ScopeKey })
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<MeterUsageEvent>(entity =>
+        {
+            entity.HasIndex(x => new { x.ProjectId, x.Environment, x.CreatedAt });
+            entity.HasIndex(x => new { x.ProjectId, x.RouteRuleId, x.CreatedAt });
+            entity.HasIndex(x => x.ChallengeId);
+        });
+
+        modelBuilder.Entity<MeterReceipt>(entity =>
+        {
+            entity.HasIndex(x => new { x.ProjectId, x.CreatedAt });
+            entity.HasIndex(x => new { x.ChallengeId, x.RequestCorrelationId }).IsUnique();
+        });
     }
 }

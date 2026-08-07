@@ -1,0 +1,6 @@
+{
+  "name": "liveauth-meter-sample-origin",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node server.mjs", "test": "node --test test.mjs" }
+}

@@ -47,6 +47,7 @@ import { Tab, TabList, TabPanel, TabPanels, Tabs } from 'primeng/tabs';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import {LocalTimePipe} from '../../../directives/local-time.pipe';
 import { CostShieldProjectComponent } from '../cost-shield-project/cost-shield-project';
+import { MeterProjectComponent } from '../meter-project/meter-project';
 
 
 //
@@ -110,6 +111,7 @@ export interface McpToolForm {
     ToggleSwitchModule,
     LocalTimePipe,
     CostShieldProjectComponent
+    ,MeterProjectComponent
   ],
   templateUrl: './developer-projects.html',
   styleUrls: ['./developer-projects.css']
@@ -286,7 +288,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   lightningFeeSettings: LightningFeeSettingsResponse | null = null;
 
   // Tabs
-  _projectDialogTab: 'overview' | 'costshield' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' = 'overview';
+  _projectDialogTab: 'overview' | 'costshield' | 'meter' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' = 'overview';
   timeRange: '1h' | '24h' | '7d' = '24h';
 
   private get windowHours(): number {
@@ -318,7 +320,7 @@ export class DeveloperProjectsComponent implements OnInit, OnDestroy {
   }
 
   // Called by (valueChange) on <p-tabs>
-  setProjectDialogTab(tab: 'overview' | 'costshield' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' | any) {
+  setProjectDialogTab(tab: 'overview' | 'costshield' | 'meter' | 'analytics' | 'usage' | 'logs' | 'keys' | 'billing' | 'webhooks' | any) {
     this._projectDialogTab = tab;
 
     if (!this.selectedProject) return;

@@ -2,6 +2,10 @@
 nuget/
 bin/
 obj/
+node_modules/
+dist/
+!LiveAuthCore/Migrations/
+!LiveAuthCore/Migrations/V20260806_AddLiveAuthMeter.sql
 # SSH Private Keys
 LiveAuthCore/Services/liveAuth_key
 LiveAuthCore/Services/liveAuth_key.pub

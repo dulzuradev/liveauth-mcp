@@ -27,6 +27,24 @@ public class WebhookService
         object payload,
         string? destinationUrl,
         CancellationToken ct = default)
+        => await EnqueueInternalAsync(project, eventType, payload, destinationUrl, null, ct);
+
+    public async Task<Guid?> EnqueueWithIdAsync(
+        Project project,
+        string eventType,
+        object payload,
+        string? destinationUrl,
+        Guid eventId,
+        CancellationToken ct = default)
+        => await EnqueueInternalAsync(project, eventType, payload, destinationUrl, eventId, ct);
+
+    private async Task<Guid?> EnqueueInternalAsync(
+        Project project,
+        string eventType,
+        object payload,
+        string? destinationUrl,
+        Guid? suppliedEventId,
+        CancellationToken ct)
     {
         var targetUrl = (string.IsNullOrWhiteSpace(destinationUrl)
             ? project.WebhookUrl
@@ -43,7 +61,7 @@ public class WebhookService
             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
         var now = DateTime.UtcNow;
-        var eventId = Guid.NewGuid();
+        var eventId = suppliedEventId ?? Guid.NewGuid();
 
         var evt = new WebhookEvent
         {

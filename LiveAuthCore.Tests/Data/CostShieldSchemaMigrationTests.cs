@@ -66,6 +66,23 @@ public sealed class CostShieldSchemaMigrationTests
             "IX_CostShieldAuthorizations_ProjectId_ChallengeId");
         authorizationIndexes.Should().Contain(
             "IX_CostShieldAuthorizations_ProjectId_ProtectedActionId_IssuedAt");
+
+        var meterTables = await ReadNamesAsync(connection,
+            "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'Meter%' ORDER BY name");
+        meterTables.Should().Contain(new[]
+        {
+            "MeterProjectSettings", "MeterRouteRules", "MeterPaymentChallenges",
+            "MeterAllowanceCounters", "MeterUsageEvents", "MeterReceipts"
+        });
+        var meterIndexes = await ReadNamesAsync(connection,
+            "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'IX_Meter%' ORDER BY name");
+        meterIndexes.Should().Contain(new[]
+        {
+            "IX_MeterProjectSettings_ProjectId",
+            "IX_MeterPaymentChallenges_ChallengeKey",
+            "IX_MeterAllowanceCounters_Unique",
+            "IX_MeterReceipts_ChallengeId_RequestCorrelationId"
+        });
     }
 
     private static async Task ExecuteAsync(SqliteConnection connection, string sql)

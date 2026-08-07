@@ -76,6 +76,41 @@ export interface ProjectSettingsResponse {
   mcpMaxCallsPerMinute: number;
 }
 
+export interface MeterLightningConnection {
+  id: string; providerType: string; displayName: string; restUrl: string;
+  hasTlsCertificate: boolean; hasMacaroon: boolean; supportsPaymentLookup: boolean;
+  lastValidatedAt: string | null;
+}
+export interface MeterSettings {
+  enabled: boolean; originBaseUrl: string | null; environment: 'TEST' | 'LIVE';
+  publicGatewayHostname: string | null; originTimeoutSeconds: number;
+  monthlyFreeRequestAllowance: number; defaultPriceSats: number;
+  unmatchedRouteBehavior: 'FREE' | 'BLOCK' | 'DEFAULT_PRICE';
+  receiptSigningEnabled: boolean; webhookUrl: string | null;
+  allowPrivateOriginInTest: boolean; maximumRequestBodyBytes: number;
+  maximumResponseBodyBytes: number; lightningConnection: MeterLightningConnection | null;
+}
+export interface MeterRouteRule {
+  id: string; httpMethod: string; pathPattern: string; priceSats: number;
+  freeRequestAllowance: number; enabled: boolean; priority: number;
+  credentialLifetimeSeconds: number | null; maximumCredentialUses: number | null;
+  bindRequestBody: boolean; createdAt: string; updatedAt: string;
+}
+export type UpsertMeterRouteRule = Omit<MeterRouteRule, 'id' | 'createdAt' | 'updatedAt'>;
+export interface MeterReceipt {
+  id: string; challengeId: string; requestCorrelationId: string; version: string;
+  canonicalPayload: string; signature: string; signatureAlgorithm: string;
+  keyId: string; signatureValid: boolean; createdAt: string;
+}
+export interface MeterAnalytics {
+  totalGatewayRequests: number; freeRequests: number; paidRequests: number;
+  paymentChallengesIssued: number; paymentConversionRate: number; revenueSats: number;
+  averageSatsPerPaidRequest: number; gatewayErrorRate: number; originErrorRate: number;
+  averageLatencyMilliseconds: number;
+  topRoutes: { route: string; requests: number; paidRequests: number; revenueSats: number }[];
+  recentPaidRequests: { createdAt: string; method: string; route: string; amountSats: number; originStatusCode: number | null }[];
+}
+
 export interface UpdateProjectSettingsRequest extends Omit<ProjectSettingsResponse,
   'mcpSatsPerCall' | 'mcpInvoiceCallCredits' | 'mcpMaxSatsPerDay' | 'mcpMaxCallsPerMinute'> {
   mcpSatsPerCall?: number;
@@ -810,5 +845,46 @@ export class DeveloperProjectsService {
       req,
       this.devAuth.authHeaders()
     );
+  }
+
+  getMeterSettings(projectId: string): Observable<MeterSettings> {
+    return this.http.get<MeterSettings>(`${this.baseUrl}/api/dev/projects/${projectId}/meter`, this.devAuth.authHeaders());
+  }
+  updateMeterSettings(projectId: string, request: MeterSettings): Observable<MeterSettings> {
+    const { lightningConnection, ...body } = request;
+    return this.http.put<MeterSettings>(`${this.baseUrl}/api/dev/projects/${projectId}/meter`, body, this.devAuth.authHeaders());
+  }
+  getMeterRoutes(projectId: string): Observable<MeterRouteRule[]> {
+    return this.http.get<MeterRouteRule[]>(`${this.baseUrl}/api/dev/projects/${projectId}/meter/routes`, this.devAuth.authHeaders());
+  }
+  createMeterRoute(projectId: string, request: UpsertMeterRouteRule): Observable<MeterRouteRule> {
+    return this.http.post<MeterRouteRule>(`${this.baseUrl}/api/dev/projects/${projectId}/meter/routes`, request, this.devAuth.authHeaders());
+  }
+  updateMeterRoute(projectId: string, routeId: string, request: UpsertMeterRouteRule): Observable<MeterRouteRule> {
+    return this.http.put<MeterRouteRule>(`${this.baseUrl}/api/dev/projects/${projectId}/meter/routes/${routeId}`, request, this.devAuth.authHeaders());
+  }
+  deleteMeterRoute(projectId: string, routeId: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/api/dev/projects/${projectId}/meter/routes/${routeId}`, this.devAuth.authHeaders());
+  }
+  updateMeterLightning(projectId: string, request: {
+    providerType: string; displayName: string; restUrl: string; tlsCertificate: string;
+    macaroon: string; supportsPaymentLookup: boolean;
+  }): Observable<MeterLightningConnection> {
+    return this.http.put<MeterLightningConnection>(`${this.baseUrl}/api/dev/projects/${projectId}/meter/lightning`, request, this.devAuth.authHeaders());
+  }
+  testMeterLightning(projectId: string): Observable<{ success: boolean; alias?: string; version?: string; error?: string }> {
+    return this.http.post<{ success: boolean; alias?: string; version?: string; error?: string }>(
+      `${this.baseUrl}/api/dev/projects/${projectId}/meter/lightning/test`, {}, this.devAuth.authHeaders());
+  }
+  getMeterReceipts(projectId: string): Observable<MeterReceipt[]> {
+    return this.http.get<MeterReceipt[]>(`${this.baseUrl}/api/dev/projects/${projectId}/meter/receipts`, this.devAuth.authHeaders());
+  }
+  getMeterAnalytics(projectId: string, windowHours = 24): Observable<MeterAnalytics> {
+    return this.http.get<MeterAnalytics>(`${this.baseUrl}/api/dev/projects/${projectId}/meter/analytics`, {
+      params: new HttpParams().set('windowHours', windowHours), ...this.devAuth.authHeaders()
+    });
+  }
+  testMeterWebhook(projectId: string): Observable<unknown> {
+    return this.http.post(`${this.baseUrl}/api/dev/projects/${projectId}/meter/webhooks/test`, {}, this.devAuth.authHeaders());
   }
 }

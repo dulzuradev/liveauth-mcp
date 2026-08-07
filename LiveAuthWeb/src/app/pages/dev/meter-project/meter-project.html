@@ -1,0 +1,38 @@
+<section class="meter" *ngIf="settings; else loadingState">
+  <header>
+    <div><h2><i class="pi pi-bolt"></i> LiveAuth Meter</h2><p>Bitcoin-native pay-per-use for this project's HTTP API or MCP server.</p></div>
+    <label class="switch"><input type="checkbox" [(ngModel)]="settings.enabled"><span>{{ settings.enabled ? 'Enabled' : 'Disabled' }}</span></label>
+  </header>
+
+  <div class="settlement-note"><strong>Non-custodial:</strong> LIVE payments settle directly to your connected Lightning node. LiveAuth never holds a merchant balance.</div>
+  <nav><button *ngFor="let item of ['overview','routes','origin','lightning','receipts','webhooks','settings']" (click)="select($any(item))" [class.active]="page === item">{{ item | titlecase }}</button></nav>
+  <p class="notice" *ngIf="notice">{{ notice }}</p><p class="error" *ngIf="error">{{ error }}</p>
+
+  <div *ngIf="page === 'overview'" class="panel">
+    <div class="metrics" *ngIf="analytics">
+      <article><b>{{ analytics.totalGatewayRequests | number }}</b><span>Gateway requests</span></article>
+      <article><b>{{ analytics.freeRequests | number }}</b><span>Free</span></article>
+      <article><b>{{ analytics.paidRequests | number }}</b><span>Paid</span></article>
+      <article><b>{{ analytics.paymentChallengesIssued | number }}</b><span>Challenges</span></article>
+      <article><b>{{ analytics.paymentConversionRate | number:'1.0-1' }}%</b><span>Conversion</span></article>
+      <article><b>{{ analytics.revenueSats | number }}</b><span>Revenue sats</span></article>
+      <article><b>{{ analytics.averageSatsPerPaidRequest | number:'1.0-1' }}</b><span>Avg sats / paid</span></article>
+      <article><b>{{ analytics.averageLatencyMilliseconds | number:'1.0-0' }} ms</b><span>Avg latency</span></article>
+    </div>
+    <h3>Top routes</h3><table><tr><th>Route</th><th>Requests</th><th>Paid</th><th>Sats</th></tr><tr *ngFor="let route of analytics?.topRoutes"><td><code>{{ route.route }}</code></td><td>{{ route.requests }}</td><td>{{ route.paidRequests }}</td><td>{{ route.revenueSats }}</td></tr></table>
+  </div>
+
+  <div *ngIf="page === 'routes'" class="panel split">
+    <div><h3>Pricing rules</h3><table><tr><th>Rule</th><th>Price</th><th>Free/month</th><th></th></tr><tr *ngFor="let route of routes"><td><code>{{ route.httpMethod }} {{ route.pathPattern }}</code><small>P{{ route.priority }} · {{ route.enabled ? 'enabled' : 'disabled' }}</small></td><td>{{ route.priceSats }} sats</td><td>{{ route.freeRequestAllowance }}</td><td><button (click)="editRoute(route)">Edit</button><button (click)="deleteRoute(route)">Delete</button></td></tr></table></div>
+    <form (ngSubmit)="saveRoute()"><h3>{{ editingRouteId ? 'Edit' : 'Add' }} rule</h3><label>Method<input [(ngModel)]="routeForm.httpMethod" name="method"></label><label>Path pattern<input [(ngModel)]="routeForm.pathPattern" name="path"></label><label>Price (sats)<input type="number" [(ngModel)]="routeForm.priceSats" name="price"></label><label>Free requests / month<input type="number" [(ngModel)]="routeForm.freeRequestAllowance" name="free"></label><label>Priority<input type="number" [(ngModel)]="routeForm.priority" name="priority"></label><label>Credential lifetime (seconds)<input type="number" [(ngModel)]="routeForm.credentialLifetimeSeconds" name="ttl"></label><label>Maximum uses<input type="number" [(ngModel)]="routeForm.maximumCredentialUses" name="uses"></label><label class="check"><input type="checkbox" [(ngModel)]="routeForm.bindRequestBody" name="bind"> Bind one-shot credential to body hash</label><label class="check"><input type="checkbox" [(ngModel)]="routeForm.enabled" name="enabled"> Enabled</label><button class="primary" type="submit">Save rule</button><p class="hint">Syntax: literal segments, <code>:name</code> for one segment, or terminal <code>*</code>.</p></form>
+  </div>
+
+  <form *ngIf="page === 'origin'" class="panel form" (ngSubmit)="saveSettings()"><h3>Origin</h3><label>Origin base URL<input [(ngModel)]="settings.originBaseUrl" name="origin" placeholder="https://api.example.com"></label><label>Gateway hostname<input [(ngModel)]="settings.publicGatewayHostname" name="host" placeholder="example.pay.liveauth.app"></label><label>Timeout seconds<input type="number" [(ngModel)]="settings.originTimeoutSeconds" name="timeout"></label><label class="check" *ngIf="settings.environment === 'TEST'"><input type="checkbox" [(ngModel)]="settings.allowPrivateOriginInTest" name="private"> Permit private/loopback TEST origin</label><p>Local gateway: <code>{{ localGateway }}/...</code></p><button class="primary" [disabled]="saving">Save origin</button></form>
+
+  <form *ngIf="page === 'lightning'" class="panel form" (ngSubmit)="saveLightning()"><h3>Merchant Lightning connection</h3><p>Invoice payments settle directly to this LND node. Use an invoice-only macaroon plus invoice lookup permission.</p><label>Name<input [(ngModel)]="lightning.displayName" name="lname"></label><label>LND REST URL<input [(ngModel)]="lightning.restUrl" name="lurl" placeholder="https://node.example.com:8080"></label><label>TLS certificate (PEM)<textarea [(ngModel)]="lightning.tlsCertificate" name="tls"></textarea></label><label>Macaroon<input type="password" [(ngModel)]="lightning.macaroon" name="macaroon" autocomplete="new-password"><small>Saved macaroon contents are never displayed. Leave blank to keep the current value.</small></label><div><button class="primary" [disabled]="saving">Save connection</button><button type="button" (click)="testLightning()">Test connection</button></div></form>
+
+  <div *ngIf="page === 'receipts'" class="panel"><h3>Signed receipts</h3><table><tr><th>Created</th><th>Receipt</th><th>Challenge</th><th>Signature</th></tr><tr *ngFor="let receipt of receipts"><td>{{ receipt.createdAt | date:'medium' }}</td><td><code>{{ receipt.id }}</code></td><td><code>{{ receipt.challengeId }}</code></td><td>{{ receipt.signatureValid ? 'Verified' : 'Invalid' }}</td></tr></table><p *ngIf="!receipts.length">No paid request receipts yet.</p></div>
+  <form *ngIf="page === 'webhooks'" class="panel form" (ngSubmit)="saveSettings()"><h3>Webhooks</h3><label>Meter webhook URL<input [(ngModel)]="settings.webhookUrl" name="webhook" placeholder="https://example.com/liveauth"></label><p><code>meter.payment.completed</code>, <code>meter.request.authorized</code>, <code>meter.request.denied</code>, <code>meter.origin.error</code></p><div><button class="primary">Save</button><button type="button" (click)="testWebhook()">Send test</button></div></form>
+  <form *ngIf="page === 'settings'" class="panel form" (ngSubmit)="saveSettings()"><h3>Meter settings</h3><label>Environment<select [(ngModel)]="settings.environment" name="environment"><option>TEST</option><option>LIVE</option></select></label><label>Unmatched routes<select [(ngModel)]="settings.unmatchedRouteBehavior" name="unmatched"><option>BLOCK</option><option>FREE</option><option>DEFAULT_PRICE</option></select></label><label>Default price (sats)<input type="number" [(ngModel)]="settings.defaultPriceSats" name="defaultPrice"></label><label>Project free requests / month<input type="number" [(ngModel)]="settings.monthlyFreeRequestAllowance" name="projectFree"></label><label class="check"><input type="checkbox" [(ngModel)]="settings.receiptSigningEnabled" name="receipts"> Sign paid-request receipts</label><button class="primary">Save settings</button></form>
+</section>
+<ng-template #loadingState><p>{{ loading ? 'Loading Meter…' : error }}</p></ng-template>
