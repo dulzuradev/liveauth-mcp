@@ -112,6 +112,8 @@ required_variables=(
     LiveAuth__PowHmacSecret
     LiveAuth__DemoProjectId
     CostShield__SigningPrivateKeyPemBase64
+    GitHub__ClientId
+    GitHub__ClientSecret
 )
 for variable in "${required_variables[@]}"; do
     if [[ -z "${!variable:-}" ]]; then

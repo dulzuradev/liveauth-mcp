@@ -45,7 +45,6 @@ public sealed class MeterProjectSettings
     public long MaximumResponseBodyBytes { get; set; } = 10 * 1024 * 1024;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-    public ICollection<MeterRouteRule> RouteRules { get; set; } = new List<MeterRouteRule>();
 }
 
 public sealed class MeterRouteRule
