@@ -5,6 +5,7 @@ using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Middleware;
 using LiveAuthCore.Services;
 using LiveAuthCore.Services.PermitSignal;
+using LiveAuthCore.Bitcoin.Services;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,6 +29,7 @@ public static class PipelineExtensions
             await SeedLightningFeeSettingsAsync(db, app.Configuration);
             await SeedFirstPartyMcpToolsAsync(db, app.Configuration);
             await scope.ServiceProvider.GetRequiredService<IPermitSignalBootstrapper>().SeedAsync();
+            await scope.ServiceProvider.GetRequiredService<IBitcoinGatewayBootstrapper>().SeedAsync();
             return;
         }
 
@@ -45,6 +47,7 @@ public static class PipelineExtensions
         await SeedLightningFeeSettingsAsync(db, app.Configuration);
         await SeedFirstPartyMcpToolsAsync(db, app.Configuration);
         await scope.ServiceProvider.GetRequiredService<IPermitSignalBootstrapper>().SeedAsync();
+        await scope.ServiceProvider.GetRequiredService<IBitcoinGatewayBootstrapper>().SeedAsync();
     }
 
     private static async Task RunColumnMigrationsAsync(System.Data.Common.DbConnection connection)
@@ -59,6 +62,7 @@ public static class PipelineExtensions
         await EnsureColumnAsync(connection, "LightningFeeSettings", "McpPaidToolMinimumFeeSats", "INTEGER NOT NULL DEFAULT 1");
 
         await RunTableMigrationsAsync(connection);
+        await EnsureColumnAsync(connection, "BitcoinGatewayOperations", "RequestId", "TEXT NOT NULL DEFAULT ''");
 
         await EnsureColumnAsync(connection, "AuthEvents", "ProtectedActionId", "TEXT");
         await EnsureColumnAsync(connection, "AuthEvents", "Environment", "TEXT");
@@ -156,6 +160,37 @@ public static class PipelineExtensions
 
     internal static async Task RunTableMigrationsAsync(System.Data.Common.DbConnection connection)
     {
+        await EnsureTableAsync(connection, "BitcoinGatewayOperations", @"
+            CREATE TABLE BitcoinGatewayOperations (
+                Id TEXT NOT NULL PRIMARY KEY,
+                ProjectId TEXT NOT NULL,
+                McpGateTokenId TEXT,
+                Operation TEXT NOT NULL,
+                IdempotencyKey TEXT NOT NULL,
+                RequestHash TEXT NOT NULL,
+                RequestId TEXT NOT NULL,
+                Txid TEXT,
+                Status TEXT NOT NULL DEFAULT 'Processing',
+                ErrorCode TEXT,
+                ResultJson TEXT,
+                RevenueEventId TEXT,
+                CreatedAt TEXT NOT NULL,
+                UpdatedAt TEXT NOT NULL
+            )"
+        );
+        await EnsureIndexAsync(connection, "IX_BitcoinGatewayOperations_ProjectId_Operation_IdempotencyKey", @"
+            CREATE UNIQUE INDEX IX_BitcoinGatewayOperations_ProjectId_Operation_IdempotencyKey
+            ON BitcoinGatewayOperations (ProjectId, Operation, IdempotencyKey)"
+        );
+        await EnsureIndexAsync(connection, "IX_BitcoinGatewayOperations_Txid_UpdatedAt", @"
+            CREATE INDEX IX_BitcoinGatewayOperations_Txid_UpdatedAt
+            ON BitcoinGatewayOperations (Txid, UpdatedAt)"
+        );
+        await EnsureIndexAsync(connection, "IX_BitcoinGatewayOperations_RevenueEventId", @"
+            CREATE INDEX IX_BitcoinGatewayOperations_RevenueEventId
+            ON BitcoinGatewayOperations (RevenueEventId)"
+        );
+
         await EnsureTableAsync(connection, "ProtectedActions", @"
             CREATE TABLE ProtectedActions (
                 Id TEXT NOT NULL PRIMARY KEY,

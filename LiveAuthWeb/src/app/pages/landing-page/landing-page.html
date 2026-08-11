@@ -8,6 +8,7 @@
 
   <nav class="la-nav" aria-label="Primary navigation">
     <a href="#how">How it works</a>
+    <a href="#bitcoin-gateway">Bitcoin Gateway</a>
     <a href="#dashboard">Dashboard</a>
     <a href="#docs">Docs</a>
     <a href="#pricing">Pricing</a>
@@ -109,6 +110,40 @@
     </div>
   </section>
 
+  <section id="bitcoin-gateway" class="section bitcoin-agent-band">
+    <div class="bitcoin-agent-copy">
+      <p class="eyebrow">LiveAuth Bitcoin Agent Gateway</p>
+      <h2>Bitcoin infrastructure built for AI agents.</h2>
+      <p>
+        Query Bitcoin fees, preflight transactions, broadcast to the network, and verify
+        confirmations through MCP. Pay per call in sats and receive signed LiveAuth
+        receipts for auditable agent actions.
+      </p>
+      <div class="hero-actions">
+        <a
+          mat-flat-button
+          class="primary"
+          href="https://docs.liveauth.app/#doc/BitcoinAgentGateway.md"
+          target="_blank"
+          rel="noopener">
+          Read Gateway docs
+        </a>
+        <a mat-stroked-button class="ghost" routerLink="/mcp-agents">Explore MCP</a>
+      </div>
+    </div>
+
+    <div class="bitcoin-feature-grid" aria-label="Bitcoin Agent Gateway features">
+      <span>No Bitcoin node required</span>
+      <span>Pay per call</span>
+      <span>MCP-native</span>
+      <span>Transaction preflight</span>
+      <span>Idempotent broadcasting</span>
+      <span>Signed receipts</span>
+      <span>No custody or keys</span>
+      <span>Bitcoin-native payments</span>
+    </div>
+  </section>
+
   <section class="section workflow">
     <div class="section-heading compact">
       <p class="eyebrow">Setup</p>
@@ -194,6 +229,16 @@
         <mat-icon>rocket_launch</mat-icon>
         <span>Quickstart</span>
         <strong>Protect the first login or API route.</strong>
+      </a>
+
+      <a
+        class="doc-card"
+        href="https://docs.liveauth.app/#doc/BitcoinAgentGateway.md"
+        target="_blank"
+        rel="noopener">
+        <mat-icon>currency_bitcoin</mat-icon>
+        <span>Bitcoin Gateway</span>
+        <strong>Give agents safe, metered access to Bitcoin infrastructure.</strong>
       </a>
 
       <a

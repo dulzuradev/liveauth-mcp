@@ -14,6 +14,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using System.Net;
 using System.Text;
+using LiveAuthCore.Bitcoin.Rpc;
+using LiveAuthCore.Tests.Bitcoin;
 
 
 /// <summary>
@@ -67,6 +69,10 @@ public class LiveAuthWebApplicationFactory : WebApplicationFactory<Program>
                 ["Resend:ApiKey"] = "test-resend-key",
                 ["Lnd:BaseUrl"] = "https://localhost:9739",
                 ["Lnd:Macaroon"] = "",
+                ["BitcoinGateway:Enabled"] = "true",
+                ["BitcoinGateway:Network"] = "regtest",
+                ["BitcoinGateway:RpcUser"] = "test-rpc-user",
+                ["BitcoinGateway:RpcPassword"] = "test-rpc-password",
             });
         });
 
@@ -108,6 +114,8 @@ public class LiveAuthWebApplicationFactory : WebApplicationFactory<Program>
             });
 
             services.RemoveAll<IHostedService>();
+            services.RemoveAll<IBitcoinNodeClient>();
+            services.AddSingleton<IBitcoinNodeClient, TestBitcoinNodeClient>();
             ConfigureExternalHttpFakes(services);
 
             services.AddAuthorization();

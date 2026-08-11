@@ -18,7 +18,10 @@ public class McpReceiptService
         _configuration = configuration;
     }
 
-    public McpSignedReceipt CreateReceipt(McpToolRevenueEvent revenueEvent, McpTool tool)
+    public McpSignedReceipt CreateReceipt(
+        McpToolRevenueEvent revenueEvent,
+        McpTool tool,
+        McpReceiptAttestation? attestation = null)
     {
         var body = new McpCallReceipt(
             ReceiptId: $"mcp_receipt_{revenueEvent.Id:N}",
@@ -38,7 +41,8 @@ public class McpReceiptService
             Status: revenueEvent.Status,
             IdempotencyKey: revenueEvent.IdempotencyKey,
             RequestId: revenueEvent.RequestId,
-            CreatedAt: DateTime.SpecifyKind(revenueEvent.CreatedAt, DateTimeKind.Utc)
+            CreatedAt: DateTime.SpecifyKind(revenueEvent.CreatedAt, DateTimeKind.Utc),
+            Attestation: attestation
         );
 
         var payload = CreatePayload(body);
@@ -78,6 +82,19 @@ public class McpReceiptService
             ["toolSlug"] = body.ToolSlug,
             ["version"] = ReceiptVersion
         };
+
+        if (body.Attestation != null)
+        {
+            payload["attestationClaims"] = body.Attestation.CanonicalClaims;
+            payload["attestationClaimsSha256"] = body.Attestation.ClaimsSha256;
+            payload["attestationKind"] = body.Attestation.Kind;
+            payload["attestationNetwork"] = body.Attestation.Network;
+            payload["attestationObservedAt"] = body.Attestation.ObservedAt.ToUniversalTime()
+                .ToString("O", CultureInfo.InvariantCulture);
+            payload["attestationOperation"] = body.Attestation.Operation;
+            payload["attestationSource"] = body.Attestation.Source;
+            payload["attestationSubjectId"] = body.Attestation.SubjectId;
+        }
 
         var json = JsonSerializer.Serialize(payload);
         return Base64UrlEncode(Encoding.UTF8.GetBytes(json));

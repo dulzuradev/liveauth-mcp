@@ -8,6 +8,9 @@ using LiveAuthCore.Services.CostShield;
 using LiveAuthCore.Services.Meter;
 using LiveAuthCore.Services.PermitSignal;
 using LiveAuthCore.Models.PermitSignal;
+using LiveAuthCore.Bitcoin.Configuration;
+using LiveAuthCore.Bitcoin.Rpc;
+using LiveAuthCore.Bitcoin.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
@@ -174,6 +177,28 @@ public static class ServiceCollectionExtensions
     {
         builder.Services.Configure<PermitSignalOptions>(
             builder.Configuration.GetSection(PermitSignalOptions.SectionName));
+        builder.Services.AddOptions<BitcoinGatewayOptions>()
+            .Bind(builder.Configuration.GetSection(BitcoinGatewayOptions.SectionName))
+            .Validate(options => !options.Enabled ||
+                (Uri.TryCreate(options.RpcUrl, UriKind.Absolute, out var uri) &&
+                 (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
+                 string.IsNullOrEmpty(uri.UserInfo)),
+                "BitcoinGateway:RpcUrl must be an HTTP(S) URL without embedded credentials.")
+            .Validate(options => !options.Enabled ||
+                !string.IsNullOrWhiteSpace(options.RpcCookieFile) ||
+                (!string.IsNullOrWhiteSpace(options.RpcUser) &&
+                 !string.IsNullOrWhiteSpace(options.RpcPassword)),
+                "An enabled Bitcoin Gateway requires RpcCookieFile or RpcUser and RpcPassword.")
+            .Validate(options => !options.Enabled ||
+                options.Network.Trim().ToLowerInvariant() is "main" or "mainnet" or
+                    "test" or "testnet" or "testnet3" or "regtest",
+                "BitcoinGateway:Network must be mainnet, testnet, or regtest.")
+            .Validate(options => options.MaxRawTransactionBytes is >= 100 and <= 4_000_000 &&
+                                 options.MaxAbsoluteFeeSats >= 0 &&
+                                 options.MaxFeeRateSatPerVbyte >= 0 &&
+                                 options.RpcTimeoutMs is >= 100 and <= 120_000,
+                "Bitcoin Gateway size, fee, or timeout safety configuration is outside supported bounds.")
+            .ValidateOnStart();
 
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
@@ -217,6 +242,7 @@ public static class ServiceCollectionExtensions
         builder.Services.AddScoped<SatsPrinterService>();
         builder.Services.AddScoped<AgentSatsService>();
         builder.Services.AddScoped<McpReceiptService>();
+        builder.Services.AddScoped<IMcpToolMeteringService, McpToolMeteringService>();
         builder.Services.AddScoped<IMeterSecretProtector, MeterSecretProtector>();
         builder.Services.AddScoped<IMeterSsrfGuard, MeterSsrfGuard>();
         builder.Services.AddScoped<IMeterRouteMatcher, MeterRouteMatcher>();
@@ -239,11 +265,18 @@ public static class ServiceCollectionExtensions
         builder.Services.AddScoped<IPermitSignalMeteringService, PermitSignalMeteringService>();
         builder.Services.AddScoped<IPermitSynchronizationService, PermitSynchronizationService>();
         builder.Services.AddScoped<IPermitSignalBootstrapper, PermitSignalBootstrapper>();
+        builder.Services.AddSingleton<BitcoinRpcCircuitBreaker>();
+        builder.Services.AddSingleton<IBitcoinNodeClient, BitcoinNodeRpcClient>();
+        builder.Services.AddSingleton<IBitcoinGatewayService, BitcoinGatewayService>();
+        builder.Services.AddSingleton<IBitcoinGatewayRateLimiter, BitcoinGatewayRateLimiter>();
+        builder.Services.AddScoped<IBitcoinGatewayExecutionService, BitcoinGatewayExecutionService>();
+        builder.Services.AddScoped<IBitcoinGatewayBootstrapper, BitcoinGatewayBootstrapper>();
         builder.Services.AddHttpClient<EmailService>();
 
         // Hosted services
         builder.Services.AddHostedService<DevLoginSessionCleanupService>();
         builder.Services.AddHostedService<PowNonceCleanupService>();
+        builder.Services.AddHostedService<BitcoinGatewayOperationCleanupService>();
         builder.Services.AddHostedService<PermitSynchronizationWorker>();
 
         // HTTP clients
@@ -256,6 +289,11 @@ public static class ServiceCollectionExtensions
         builder.Services.AddHttpClient("coinbase");
         builder.Services.AddHttpClient("github-oauth");
         builder.Services.AddHttpClient("github-api");
+        builder.Services.AddHttpClient("bitcoin-node", client =>
+        {
+            client.Timeout = Timeout.InfiniteTimeSpan;
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+        });
         builder.Services.AddHttpClient<BtcExchangeRateService>();
         builder.Services.AddScoped<BtcExchangeRateService>();
         builder.Services.AddHttpClient<AustinPermitAdapter>(client => ConfigurePermitSourceClient(client));
@@ -279,6 +317,20 @@ public static class ServiceCollectionExtensions
             {
                 context.HttpContext.Response.Headers.RetryAfter = "60";
                 context.HttpContext.Response.ContentType = "application/json";
+                if (context.HttpContext.Request.Path.StartsWithSegments("/api/bitcoin"))
+                {
+                    await context.HttpContext.Response.WriteAsJsonAsync(new
+                    {
+                        error = new
+                        {
+                            code = "LIVEAUTH_BITCOIN_RATE_LIMITED",
+                            message = "Bitcoin Gateway rate limit exceeded.",
+                            retryable = true,
+                            retryAfterSeconds = 60
+                        }
+                    }, cancellation);
+                    return;
+                }
                 await context.HttpContext.Response.WriteAsJsonAsync(new
                 {
                     error = "rate_limit_exceeded",
@@ -342,6 +394,20 @@ public static class ServiceCollectionExtensions
                     factory: _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = 60,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
+
+            options.AddPolicy("bitcoin-gateway", context =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: context.User.FindFirst("jti")?.Value ??
+                                  context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = Math.Clamp(builder.Configuration.GetValue(
+                            "BitcoinGateway:ReadRateLimitPerMinute", 60), 1, 10_000),
                         Window = TimeSpan.FromMinutes(1),
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                         QueueLimit = 0,

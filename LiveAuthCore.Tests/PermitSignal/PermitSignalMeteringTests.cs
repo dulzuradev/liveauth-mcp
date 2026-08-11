@@ -50,6 +50,27 @@ public sealed class PermitSignalMeteringTests
     }
 
     [Fact]
+    public async Task Cancelled_reservation_refunds_usage_and_is_not_charged()
+    {
+        await using var fixture = await MeterFixture.CreateAsync(maxBudget: 100);
+        var reserved = await fixture.SharedMeter.ReserveCallAsync(fixture.Principal,
+            fixture.Tool.Slug, 10, "broadcast-attempt", "trace-reserve", "Bitcoin Agent Gateway",
+            new Dictionary<string, object?> { ["phase"] = "preflight_accepted" }, default);
+
+        Assert.True(reserved.Authorized);
+        Assert.NotNull(reserved.ReservationId);
+        Assert.Equal("Reserved", (await fixture.Db.McpToolRevenueEvents.AsNoTracking().SingleAsync()).Status);
+
+        await fixture.SharedMeter.CancelReservationAsync(reserved.ReservationId!.Value,
+            "node_unavailable", default);
+
+        var token = await fixture.Db.McpGateTokens.AsNoTracking().SingleAsync();
+        Assert.Equal(0, token.CallsUsed);
+        Assert.Equal(0, token.SatsUsed);
+        Assert.Equal("Cancelled", (await fixture.Db.McpToolRevenueEvents.AsNoTracking().SingleAsync()).Status);
+    }
+
+    [Fact]
     public async Task Tool_price_configuration_seeds_registered_mcp_prices()
     {
         await using var fixture = await PermitSignalTestFixture.CreateAsync();
@@ -103,6 +124,7 @@ public sealed class PermitSignalMeteringTests
         private readonly PermitSignalTestFixture _fixture;
         public LiveAuthCore.Data.LiveAuthDbContext Db => _fixture.Db;
         public required PermitSignalMeteringService Service { get; init; }
+        public required McpToolMeteringService SharedMeter { get; init; }
         public required ClaimsPrincipal Principal { get; init; }
         public required McpTool Tool { get; init; }
 
@@ -131,15 +153,22 @@ public sealed class PermitSignalMeteringTests
             fixture.Db.AddRange(developer, project, session, token, tool);
             await fixture.Db.SaveChangesAsync();
             var configuration = Config();
-            var service = new PermitSignalMeteringService(fixture.Db,
+            var sharedMeter = new McpToolMeteringService(fixture.Db,
                 new LightningFeeSettingsService(fixture.Db, configuration), new McpReceiptService(configuration),
-                new WebhookService(fixture.Db), NullLogger<PermitSignalMeteringService>.Instance);
+                new WebhookService(fixture.Db), NullLogger<McpToolMeteringService>.Instance);
+            var service = new PermitSignalMeteringService(sharedMeter);
             var identity = new ClaimsIdentity(new[]
             {
                 new Claim("projectId", project.Id.ToString()), new Claim("jti", token.JwtId),
                 new Claim("sub", "test-agent"), new Claim(ClaimTypes.Role, "McpClient")
             }, "test");
-            return new MeterFixture(fixture) { Service = service, Principal = new ClaimsPrincipal(identity), Tool = tool };
+            return new MeterFixture(fixture)
+            {
+                Service = service,
+                SharedMeter = sharedMeter,
+                Principal = new ClaimsPrincipal(identity),
+                Tool = tool
+            };
         }
 
         public ValueTask DisposeAsync() => _fixture.DisposeAsync();

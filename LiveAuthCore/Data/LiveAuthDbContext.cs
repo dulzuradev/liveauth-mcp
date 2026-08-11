@@ -71,6 +71,9 @@ public class LiveAuthDbContext : DbContext
     public DbSet<PermitSource> PermitSources => Set<PermitSource>();
     public DbSet<PermitSyncState> PermitSyncStates => Set<PermitSyncState>();
 
+    // Bitcoin Agent Gateway (no raw transaction payloads are stored)
+    public DbSet<BitcoinGatewayOperation> BitcoinGatewayOperations => Set<BitcoinGatewayOperation>();
+
     // Nostr Agent Auth
     public DbSet<NostrAgentSession> NostrAgentSessions => Set<NostrAgentSession>();
 
@@ -339,6 +342,13 @@ public class LiveAuthDbContext : DbContext
             .HasIndex(e => new { e.McpToolId, e.IdempotencyKey })
             .IsUnique()
             .HasFilter("\"IdempotencyKey\" IS NOT NULL");
+
+        modelBuilder.Entity<BitcoinGatewayOperation>(entity =>
+        {
+            entity.HasIndex(item => new { item.ProjectId, item.Operation, item.IdempotencyKey }).IsUnique();
+            entity.HasIndex(item => new { item.Txid, item.UpdatedAt });
+            entity.HasIndex(item => item.RevenueEventId);
+        });
 
         modelBuilder.Entity<MeterProjectSettings>(entity =>
         {

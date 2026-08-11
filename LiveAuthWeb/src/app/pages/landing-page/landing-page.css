@@ -274,6 +274,49 @@ a {
   background: #f0f4f8;
 }
 
+.bitcoin-agent-band {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.9fr);
+  gap: clamp(28px, 6vw, 88px);
+  align-items: center;
+  color: #ffffff;
+  background: #111315;
+}
+
+.bitcoin-agent-copy h2,
+.bitcoin-agent-copy p {
+  color: #ffffff;
+}
+
+.bitcoin-agent-copy > p:not(.eyebrow) {
+  max-width: 700px;
+  margin: 18px 0 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 1.08rem;
+  line-height: 1.65;
+}
+
+.bitcoin-agent-band .ghost {
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.bitcoin-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bitcoin-feature-grid span {
+  min-height: 68px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 750;
+}
+
 .steps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -510,6 +553,7 @@ a {
   .docs-grid,
   .steps,
   .dashboard-band,
+  .bitcoin-agent-band,
   .code-panel {
     grid-template-columns: 1fr;
   }
@@ -549,6 +593,10 @@ a {
 
   .hero-points {
     display: grid;
+  }
+
+  .bitcoin-feature-grid {
+    grid-template-columns: 1fr;
   }
 
   .section,

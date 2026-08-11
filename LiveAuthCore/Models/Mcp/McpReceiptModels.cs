@@ -27,5 +27,17 @@ public record McpCallReceipt(
     string Status,
     string? IdempotencyKey,
     string? RequestId,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    McpReceiptAttestation? Attestation = null
+);
+
+public sealed record McpReceiptAttestation(
+    string Kind,
+    string Operation,
+    DateTime ObservedAt,
+    string Source,
+    string Network,
+    string? SubjectId,
+    string CanonicalClaims,
+    string ClaimsSha256
 );
