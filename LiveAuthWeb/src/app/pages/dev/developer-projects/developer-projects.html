@@ -1616,6 +1616,12 @@
           <p *ngIf="!apiKeys && !loadingKeys">No keys loaded yet.</p>
           <p *ngIf="loadingKeys">Loading keys...</p>
 
+          <div class="dashboard-table-empty" *ngIf="apiKeys && apiKeys.length === 0 && !loadingKeys">
+            <i class="pi pi-key"></i>
+            <h4>No API keys yet</h4>
+            <p>Create a key to authenticate this project's integrations.</p>
+          </div>
+
           <p-table *ngIf="apiKeys && apiKeys.length" [value]="apiKeys" [paginator]="true" [rows]="5">
             <ng-template pTemplate="header">
               <tr>
@@ -1761,7 +1767,11 @@
           </ng-container>
 
           <ng-template #noWebhooks>
-            <p *ngIf="!loadingWebhooks">No webhook events yet.</p>
+            <div class="dashboard-table-empty" *ngIf="!loadingWebhooks">
+              <i class="pi pi-send"></i>
+              <h4>No webhook events yet</h4>
+              <p>Delivery attempts will appear here after the project emits a webhook.</p>
+            </div>
             <p *ngIf="loadingWebhooks">Loading webhooks…</p>
           </ng-template>
         </p-tabpanel>

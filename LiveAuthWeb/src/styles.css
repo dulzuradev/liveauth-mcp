@@ -169,3 +169,73 @@ app-developer-projects .project-detail-page .developer-dashboard-tabs .p-tab:foc
     scrollbar-width: thin;
   }
 }
+
+/* PrimeNG defaults to its light preset unless the app adds the .dark class.
+   Keep project-detail content on the console's dark surface in either mode,
+   including tables rendered by nested components such as CostShield. */
+app-developer-projects .project-detail-page .developer-dashboard-tabs :is(.p-tabpanels, .p-tabpanel) {
+  background: transparent !important;
+  color: var(--text-primary, #f7f9fb) !important;
+}
+
+app-developer-projects .project-detail-page .developer-dashboard-tabs
+  :is(.p-datatable, .p-datatable-wrapper, .p-datatable-table-container, .p-datatable-table, .p-paginator) {
+  background: var(--card-bg, #151719) !important;
+  color: var(--text-primary, #f7f9fb) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+app-developer-projects .project-detail-page .developer-dashboard-tabs .p-datatable-thead > tr > th {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: rgba(255, 255, 255, 0.76) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+app-developer-projects .project-detail-page .developer-dashboard-tabs .p-datatable-tbody > tr,
+app-developer-projects .project-detail-page .developer-dashboard-tabs .p-datatable-tbody > tr > td {
+  background: var(--card-bg, #151719) !important;
+  color: var(--text-primary, #f7f9fb) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+app-developer-projects .project-detail-page .developer-dashboard-tabs .p-datatable-tbody > tr:hover > td {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+app-developer-projects .project-detail-page .developer-dashboard-tabs .p-paginator button {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+app-developer-projects .project-detail-page .developer-dashboard-tabs .p-paginator button:hover,
+app-developer-projects .project-detail-page .developer-dashboard-tabs .p-paginator button.p-paginator-page-selected {
+  background: rgba(245, 158, 11, 0.16) !important;
+  color: var(--btc-orange-dark, #fbbf24) !important;
+}
+
+app-developer-projects .project-detail-page .dashboard-table-empty {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 24px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-sm, 8px);
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.68);
+  text-align: center;
+}
+
+app-developer-projects .project-detail-page .dashboard-table-empty i {
+  color: var(--btc-orange-dark, #fbbf24);
+  font-size: 1.5rem;
+}
+
+app-developer-projects .project-detail-page .dashboard-table-empty h4,
+app-developer-projects .project-detail-page .dashboard-table-empty p {
+  margin: 0;
+}
+
+app-developer-projects .project-detail-page .dashboard-table-empty h4 {
+  color: var(--text-primary, #f7f9fb);
+}
