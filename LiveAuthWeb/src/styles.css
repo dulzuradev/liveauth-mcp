@@ -122,3 +122,50 @@ app-developer-projects .login-card .login-auth-tabs .p-tab:focus-visible {
 app-developer-projects .login-card .login-auth-tabs .p-tabpanels {
   padding-top: 22px !important;
 }
+
+/* Keep project dashboard tabs readable in dark mode, including touch devices
+   where the hover state cannot reveal an otherwise low-contrast tab. */
+app-developer-projects .project-detail-page .developer-dashboard-tabs .p-tablist-tab-list {
+  gap: 6px;
+  padding: 4px;
+  background: #0f0f0f !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: var(--radius-sm, 8px) !important;
+}
+
+app-developer-projects .project-detail-page .developer-dashboard-tabs .p-tab {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  color: rgba(255, 255, 255, 0.86) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+app-developer-projects .project-detail-page .developer-dashboard-tabs .p-tab:not(.p-tab-active):hover {
+  color: var(--text-primary, #f7f9fb) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+app-developer-projects .project-detail-page .developer-dashboard-tabs .p-tab.p-tab-active {
+  color: #090909 !important;
+  background: var(--btc-orange, #f59e0b) !important;
+  box-shadow: 0 8px 18px rgba(245, 158, 11, 0.2) !important;
+}
+
+app-developer-projects .project-detail-page .developer-dashboard-tabs .p-tab:focus-visible {
+  outline: 2px solid var(--btc-orange-dark, #fbbf24);
+  outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+  app-developer-projects .project-detail-page .developer-dashboard-tabs .p-tablist-tab-list {
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+}

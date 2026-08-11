@@ -1245,7 +1245,11 @@
       </div>
     </div>
 
-    <p-tabs *ngIf="selectedProject" [(value)]="_projectDialogTab" (valueChange)="setProjectDialogTab($event)">
+    <p-tabs
+      *ngIf="selectedProject"
+      [(value)]="_projectDialogTab"
+      (valueChange)="setProjectDialogTab($event)"
+      class="developer-dashboard-tabs">
 
       <div class="flex justify-content-between align-items-center mb-2">
         <p-tablist>
