@@ -239,3 +239,87 @@ app-developer-projects .project-detail-page .dashboard-table-empty p {
 app-developer-projects .project-detail-page .dashboard-table-empty h4 {
   color: var(--text-primary, #f7f9fb);
 }
+
+/* The MCP workspace sits outside the project-detail tabs, so PrimeNG's light
+   preset can otherwise wash out the selected tool's grids and tables. */
+app-developer-projects .mcp-revenue-section .mcp-settings-panel {
+  background: var(--card-bg, #151719) !important;
+  color: var(--text-primary, #f7f9fb) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+app-developer-projects .mcp-revenue-section :is(.overview-card, .usage-stats .stat) {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: var(--text-primary, #f7f9fb) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+app-developer-projects .mcp-revenue-section .mcp-setup-section {
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-sm, 8px);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text-primary, #f7f9fb);
+}
+
+app-developer-projects .mcp-revenue-section .mcp-empty-state {
+  display: grid;
+  min-height: 88px;
+  place-items: center;
+  padding: 20px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-sm, 8px);
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.68);
+  text-align: center;
+}
+
+app-developer-projects .mcp-revenue-section
+  :is(.p-datatable, .p-datatable-wrapper, .p-datatable-table-container, .p-datatable-table, .p-paginator) {
+  background: var(--card-bg, #151719) !important;
+  color: var(--text-primary, #f7f9fb) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+app-developer-projects .mcp-revenue-section .p-datatable-thead > tr > th {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: rgba(255, 255, 255, 0.76) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+app-developer-projects .mcp-revenue-section .p-datatable-tbody > tr,
+app-developer-projects .mcp-revenue-section .p-datatable-tbody > tr > td {
+  background: var(--card-bg, #151719) !important;
+  color: var(--text-primary, #f7f9fb) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+app-developer-projects .mcp-revenue-section .p-datatable-tbody > tr:hover > td {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+app-developer-projects .mcp-revenue-section .p-paginator button {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+app-developer-projects .mcp-revenue-section .p-paginator button:hover,
+app-developer-projects .mcp-revenue-section .p-paginator button.p-paginator-page-selected {
+  background: rgba(245, 158, 11, 0.16) !important;
+  color: var(--btc-orange-dark, #fbbf24) !important;
+}
+
+app-developer-projects .mcp-revenue-section .mcp-revenue-shell > * {
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  app-developer-projects .mcp-revenue-section :is(.mcp-revenue-shell, .project-overview-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  app-developer-projects .mcp-revenue-section .usage-stats.mcp-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
