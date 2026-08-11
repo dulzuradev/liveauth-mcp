@@ -33,6 +33,22 @@ export interface UpdateLightningFeeSettingsRequest {
   mcpPaidToolMinimumFeeSats: number;
 }
 
+export interface PermitSignalAdminOverview {
+  permitRecordsStored: number;
+  permitsAddedLast24Hours: number;
+  sources: Array<{
+    sourceIdentifier: string;
+    municipality: string;
+    state: string;
+    healthStatus: string;
+    lastSuccessfulSync?: string | null;
+    lastError?: string | null;
+    officialDatasetUrl: string;
+  }>;
+  tools: Array<{ name: string; slug: string; calls: number; satsGenerated: number }>;
+  topMunicipalities: Array<{ municipality: string; state: string; records: number }>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminAnalyticsService {
   private baseUrl = 'https://api.liveauth.app';
@@ -163,6 +179,21 @@ export class AdminAnalyticsService {
             : []
         }))
       );
+  }
+
+  getPermitSignal(): Observable<PermitSignalAdminOverview> {
+    return this.http.get<PermitSignalAdminOverview>(
+      `${this.baseUrl}/api/admin/permitsignal`,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  synchronizePermitSignal(source?: string): Observable<any[]> {
+    return this.http.post<any[]>(
+      `${this.baseUrl}/api/admin/permitsignal/sync`,
+      {},
+      { params: source ? { source } : {}, headers: this.getAuthHeaders() }
+    );
   }
 
   getProjects(windowHours = 24): Observable<AdminProjectUsageDto[]> {

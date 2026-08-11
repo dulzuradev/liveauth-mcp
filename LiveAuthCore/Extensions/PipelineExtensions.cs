@@ -4,6 +4,7 @@ using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Middleware;
 using LiveAuthCore.Services;
+using LiveAuthCore.Services.PermitSignal;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,6 +27,7 @@ public static class PipelineExtensions
         {
             await SeedLightningFeeSettingsAsync(db, app.Configuration);
             await SeedFirstPartyMcpToolsAsync(db, app.Configuration);
+            await scope.ServiceProvider.GetRequiredService<IPermitSignalBootstrapper>().SeedAsync();
             return;
         }
 
@@ -42,6 +44,7 @@ public static class PipelineExtensions
 
         await SeedLightningFeeSettingsAsync(db, app.Configuration);
         await SeedFirstPartyMcpToolsAsync(db, app.Configuration);
+        await scope.ServiceProvider.GetRequiredService<IPermitSignalBootstrapper>().SeedAsync();
     }
 
     private static async Task RunColumnMigrationsAsync(System.Data.Common.DbConnection connection)
@@ -391,6 +394,74 @@ public static class PipelineExtensions
         );
 
         await RunMeterTableMigrationsAsync(connection);
+        await RunPermitSignalTableMigrationsAsync(connection);
+    }
+
+    private static async Task RunPermitSignalTableMigrationsAsync(System.Data.Common.DbConnection connection)
+    {
+        await EnsureTableAsync(connection, "PermitSources", @"
+            CREATE TABLE PermitSources (
+                Id TEXT NOT NULL PRIMARY KEY, SourceIdentifier TEXT NOT NULL,
+                Municipality TEXT NOT NULL, State TEXT NOT NULL, AdapterType TEXT NOT NULL,
+                OfficialDatasetUrl TEXT NOT NULL, Enabled INTEGER NOT NULL DEFAULT 1,
+                HealthStatus TEXT NOT NULL, LastSuccessfulSync TEXT, LastError TEXT,
+                CreatedAt TEXT NOT NULL, UpdatedAt TEXT NOT NULL
+            )");
+
+        await EnsureTableAsync(connection, "PermitSyncStates", @"
+            CREATE TABLE PermitSyncStates (
+                Id TEXT NOT NULL PRIMARY KEY, PermitSourceId TEXT NOT NULL,
+                LastAttemptAt TEXT, LastSuccessfulSyncAt TEXT, SourceCursorUtc TEXT,
+                ContinuationToken TEXT, ConsecutiveFailures INTEGER NOT NULL DEFAULT 0,
+                RecordsProcessed INTEGER NOT NULL DEFAULT 0, LastError TEXT, UpdatedAt TEXT NOT NULL,
+                FOREIGN KEY (PermitSourceId) REFERENCES PermitSources (Id) ON DELETE CASCADE
+            )");
+
+        await EnsureTableAsync(connection, "PermitProjects", @"
+            CREATE TABLE PermitProjects (
+                Id TEXT NOT NULL PRIMARY KEY, PermitSourceId TEXT NOT NULL,
+                Source TEXT NOT NULL, SourceRecordId TEXT NOT NULL, Municipality TEXT NOT NULL,
+                State TEXT NOT NULL, Address TEXT NOT NULL, NormalizedAddress TEXT NOT NULL,
+                Latitude TEXT, Longitude TEXT, PermitNumber TEXT NOT NULL, PermitType TEXT,
+                PermitSubtype TEXT, Description TEXT, Status TEXT, ApplicationDate TEXT,
+                IssueDate TEXT, ExpirationDate TEXT, EstimatedProjectValue TEXT,
+                ContractorName TEXT, ContractorLicense TEXT, OwnerName TEXT,
+                ResidentialOrCommercial TEXT, WorkCategory TEXT NOT NULL, RawSourceUrl TEXT,
+                LastSourceUpdate TEXT, CreatedAt TEXT NOT NULL, UpdatedAt TEXT NOT NULL,
+                FOREIGN KEY (PermitSourceId) REFERENCES PermitSources (Id) ON DELETE CASCADE
+            )");
+
+        await EnsureTableAsync(connection, "PermitProjectCategories", @"
+            CREATE TABLE PermitProjectCategories (
+                PermitProjectId TEXT NOT NULL, Category TEXT NOT NULL,
+                PRIMARY KEY (PermitProjectId, Category),
+                FOREIGN KEY (PermitProjectId) REFERENCES PermitProjects (Id) ON DELETE CASCADE
+            )");
+
+        await EnsureIndexAsync(connection, "IX_PermitSources_SourceIdentifier",
+            "CREATE UNIQUE INDEX IX_PermitSources_SourceIdentifier ON PermitSources (SourceIdentifier)");
+        await EnsureIndexAsync(connection, "IX_PermitSources_State_Municipality",
+            "CREATE INDEX IX_PermitSources_State_Municipality ON PermitSources (State, Municipality)");
+        await EnsureIndexAsync(connection, "IX_PermitSyncStates_PermitSourceId",
+            "CREATE UNIQUE INDEX IX_PermitSyncStates_PermitSourceId ON PermitSyncStates (PermitSourceId)");
+        await EnsureIndexAsync(connection, "IX_PermitProjects_PermitSourceId_SourceRecordId",
+            "CREATE UNIQUE INDEX IX_PermitProjects_PermitSourceId_SourceRecordId ON PermitProjects (PermitSourceId, SourceRecordId)");
+        await EnsureIndexAsync(connection, "IX_PermitProjects_IssueDate",
+            "CREATE INDEX IX_PermitProjects_IssueDate ON PermitProjects (IssueDate)");
+        await EnsureIndexAsync(connection, "IX_PermitProjects_Municipality_State_IssueDate",
+            "CREATE INDEX IX_PermitProjects_Municipality_State_IssueDate ON PermitProjects (Municipality, State, IssueDate)");
+        await EnsureIndexAsync(connection, "IX_PermitProjects_EstimatedProjectValue",
+            "CREATE INDEX IX_PermitProjects_EstimatedProjectValue ON PermitProjects (EstimatedProjectValue)");
+        await EnsureIndexAsync(connection, "IX_PermitProjects_PermitType",
+            "CREATE INDEX IX_PermitProjects_PermitType ON PermitProjects (PermitType)");
+        await EnsureIndexAsync(connection, "IX_PermitProjects_ResidentialOrCommercial",
+            "CREATE INDEX IX_PermitProjects_ResidentialOrCommercial ON PermitProjects (ResidentialOrCommercial)");
+        await EnsureIndexAsync(connection, "IX_PermitProjects_ContractorName",
+            "CREATE INDEX IX_PermitProjects_ContractorName ON PermitProjects (ContractorName)");
+        await EnsureIndexAsync(connection, "IX_PermitProjects_NormalizedAddress",
+            "CREATE INDEX IX_PermitProjects_NormalizedAddress ON PermitProjects (NormalizedAddress)");
+        await EnsureIndexAsync(connection, "IX_PermitProjectCategories_Category_PermitProjectId",
+            "CREATE INDEX IX_PermitProjectCategories_Category_PermitProjectId ON PermitProjectCategories (Category, PermitProjectId)");
     }
 
     private static async Task RunMeterTableMigrationsAsync(System.Data.Common.DbConnection connection)

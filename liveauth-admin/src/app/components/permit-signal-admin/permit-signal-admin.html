@@ -1,0 +1,73 @@
+<main class="permit-shell">
+  <header class="page-header">
+    <div>
+      <span class="eyebrow">Construction intelligence</span>
+      <h1>PermitSignal</h1>
+      <p>Source health, normalized inventory, paid MCP calls, and sats generated.</p>
+    </div>
+    <div class="controls">
+      <button type="button" class="button secondary" routerLink="/admin">
+        <i class="pi pi-arrow-left"></i> Command center
+      </button>
+      <button type="button" class="button" [disabled]="loading" (click)="load()">
+        <i class="pi pi-refresh"></i> Refresh
+      </button>
+      <button type="button" class="button primary" [disabled]="syncing" (click)="sync()">
+        <i class="pi" [class.pi-database]="!syncing" [class.pi-spinner]="syncing" [class.pi-spin]="syncing"></i>
+        Sync all
+      </button>
+    </div>
+  </header>
+
+  <section *ngIf="loading && !overview" class="state">Loading PermitSignal…</section>
+  <section *ngIf="error" class="state error">{{ error }}</section>
+  <section *ngIf="syncMessage" class="state">{{ syncMessage }}</section>
+
+  <ng-container *ngIf="overview as data">
+    <section class="metrics">
+      <article><span>Permit records</span><strong>{{ data.permitRecordsStored | number }}</strong></article>
+      <article><span>Added in 24h</span><strong>{{ data.permitsAddedLast24Hours | number }}</strong></article>
+      <article><span>Sources</span><strong>{{ data.sources.length | number }}</strong></article>
+      <article><span>Paid calls</span><strong>{{ paidCalls | number }}</strong></article>
+      <article><span>Gross sats</span><strong>{{ grossSats | number }}</strong></article>
+    </section>
+
+    <section class="grid">
+      <article class="panel wide">
+        <header><h2>Municipal sources</h2><span>Incremental sync status</span></header>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Source</th><th>Status</th><th>Last sync</th><th>Error</th><th></th></tr></thead>
+            <tbody>
+              <tr *ngFor="let source of data.sources">
+                <td><strong>{{ source.municipality }}, {{ source.state }}</strong><a [href]="source.officialDatasetUrl" target="_blank" rel="noopener">{{ source.sourceIdentifier }}</a></td>
+                <td><span class="status" [ngClass]="statusClass(source.healthStatus)">{{ source.healthStatus }}</span></td>
+                <td>{{ source.lastSuccessfulSync ? (source.lastSuccessfulSync | date:'short') : 'Never' }}</td>
+                <td class="error-copy">{{ source.lastError || '—' }}</td>
+                <td><button type="button" class="link" [disabled]="syncing" (click)="sync(source.sourceIdentifier)">Sync</button></td>
+              </tr>
+              <tr *ngIf="data.sources.length === 0"><td colspan="5">No source has synchronized yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel">
+        <header><h2>Paid MCP tools</h2><span>All-time registered-tool revenue</span></header>
+        <div class="tool" *ngFor="let tool of data.tools">
+          <div><strong>{{ tool.name }}</strong><span>{{ tool.slug }}</span></div>
+          <div><strong>{{ tool.calls | number }} calls</strong><span>{{ tool.satsGenerated | number }} sats</span></div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <header><h2>Top municipalities</h2><span>Normalized record inventory</span></header>
+        <div class="tool" *ngFor="let municipality of data.topMunicipalities">
+          <div><strong>{{ municipality.municipality }}, {{ municipality.state }}</strong></div>
+          <div><strong>{{ municipality.records | number }}</strong><span>records</span></div>
+        </div>
+        <p *ngIf="data.topMunicipalities.length === 0" class="muted">No permit records stored.</p>
+      </article>
+    </section>
+  </ng-container>
+</main>

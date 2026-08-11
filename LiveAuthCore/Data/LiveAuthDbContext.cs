@@ -1,6 +1,7 @@
 using System.Text.Json;
 using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Data.Entities.Mcp;
+using LiveAuthCore.Data.Entities.PermitSignal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -63,6 +64,12 @@ public class LiveAuthDbContext : DbContext
     public DbSet<MeterAllowanceCounter> MeterAllowanceCounters => Set<MeterAllowanceCounter>();
     public DbSet<MeterUsageEvent> MeterUsageEvents => Set<MeterUsageEvent>();
     public DbSet<MeterReceipt> MeterReceipts => Set<MeterReceipt>();
+
+    // PermitSignal construction intelligence
+    public DbSet<PermitProject> PermitProjects => Set<PermitProject>();
+    public DbSet<PermitProjectCategory> PermitProjectCategories => Set<PermitProjectCategory>();
+    public DbSet<PermitSource> PermitSources => Set<PermitSource>();
+    public DbSet<PermitSyncState> PermitSyncStates => Set<PermitSyncState>();
 
     // Nostr Agent Auth
     public DbSet<NostrAgentSession> NostrAgentSessions => Set<NostrAgentSession>();
@@ -391,6 +398,47 @@ public class LiveAuthDbContext : DbContext
         {
             entity.HasIndex(x => new { x.ProjectId, x.CreatedAt });
             entity.HasIndex(x => new { x.ChallengeId, x.RequestCorrelationId }).IsUnique();
+        });
+
+        modelBuilder.Entity<PermitSource>(entity =>
+        {
+            entity.HasIndex(source => source.SourceIdentifier).IsUnique();
+            entity.HasIndex(source => new { source.State, source.Municipality });
+        });
+
+        modelBuilder.Entity<PermitSyncState>(entity =>
+        {
+            entity.HasIndex(state => state.PermitSourceId).IsUnique();
+            entity.HasOne(state => state.PermitSource).WithOne(source => source.SyncState)
+                .HasForeignKey<PermitSyncState>(state => state.PermitSourceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PermitProject>(entity =>
+        {
+            entity.HasIndex(project => new { project.PermitSourceId, project.SourceRecordId }).IsUnique();
+            entity.HasIndex(project => project.IssueDate);
+            entity.HasIndex(project => new { project.Municipality, project.State, project.IssueDate });
+            entity.HasIndex(project => project.EstimatedProjectValue);
+            entity.HasIndex(project => project.PermitType);
+            entity.HasIndex(project => project.ResidentialOrCommercial);
+            entity.HasIndex(project => project.ContractorName);
+            entity.HasIndex(project => project.NormalizedAddress);
+            entity.Property(project => project.EstimatedProjectValue).HasPrecision(18, 2);
+            entity.Property(project => project.Latitude).HasPrecision(10, 7);
+            entity.Property(project => project.Longitude).HasPrecision(10, 7);
+            entity.HasOne(project => project.PermitSource).WithMany(source => source.Projects)
+                .HasForeignKey(project => project.PermitSourceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PermitProjectCategory>(entity =>
+        {
+            entity.HasKey(category => new { category.PermitProjectId, category.Category });
+            entity.HasIndex(category => new { category.Category, category.PermitProjectId });
+            entity.HasOne(category => category.PermitProject).WithMany(project => project.Categories)
+                .HasForeignKey(category => category.PermitProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

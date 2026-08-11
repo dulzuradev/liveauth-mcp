@@ -4,6 +4,7 @@ import {AdminDashboardComponent} from './components/admin-dashboard-component/ad
 import {AdminTransactionsComponent} from './components/admin-transactions/admin-transactions';
 import {AdminUsersComponent} from './components/admin-users/admin-users';
 import {AdminAuthGuard} from './guards/admin-auth.guard';
+import {PermitSignalAdminComponent} from './components/permit-signal-admin/permit-signal-admin';
 
 export const routes: Routes = [
   {
@@ -33,6 +34,11 @@ export const routes: Routes = [
   {
     path: 'users/:id',
     component: AdminUsersComponent,
+    canActivate: [AdminAuthGuard]
+  },
+  {
+    path: 'permit-signal',
+    component: PermitSignalAdminComponent,
     canActivate: [AdminAuthGuard]
   },
   {

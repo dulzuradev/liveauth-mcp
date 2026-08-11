@@ -6,6 +6,8 @@ using LiveAuthCore.Data;
 using LiveAuthCore.Services;
 using LiveAuthCore.Services.CostShield;
 using LiveAuthCore.Services.Meter;
+using LiveAuthCore.Services.PermitSignal;
+using LiveAuthCore.Models.PermitSignal;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
@@ -170,6 +172,9 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static WebApplicationBuilder AddLiveAuthServices(this WebApplicationBuilder builder)
     {
+        builder.Services.Configure<PermitSignalOptions>(
+            builder.Configuration.GetSection(PermitSignalOptions.SectionName));
+
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders =
@@ -227,11 +232,19 @@ public static class ServiceCollectionExtensions
         builder.Services.AddScoped<ICostShieldVerificationService, CostShieldVerificationService>();
         builder.Services.AddScoped<ICostShieldAnalyticsService, CostShieldAnalyticsService>();
         builder.Services.AddScoped<IGitHubOAuthClient, GitHubOAuthClient>();
+        builder.Services.AddSingleton<IAddressNormalizer, AddressNormalizer>();
+        builder.Services.AddSingleton<IPermitCategoryClassifier, PermitCategoryClassifier>();
+        builder.Services.AddSingleton<IOpportunityScoringService, OpportunityScoringService>();
+        builder.Services.AddScoped<IPermitQueryService, PermitQueryService>();
+        builder.Services.AddScoped<IPermitSignalMeteringService, PermitSignalMeteringService>();
+        builder.Services.AddScoped<IPermitSynchronizationService, PermitSynchronizationService>();
+        builder.Services.AddScoped<IPermitSignalBootstrapper, PermitSignalBootstrapper>();
         builder.Services.AddHttpClient<EmailService>();
 
         // Hosted services
         builder.Services.AddHostedService<DevLoginSessionCleanupService>();
         builder.Services.AddHostedService<PowNonceCleanupService>();
+        builder.Services.AddHostedService<PermitSynchronizationWorker>();
 
         // HTTP clients
         builder.Services.AddHttpClient("webhooks", client =>
@@ -245,6 +258,12 @@ public static class ServiceCollectionExtensions
         builder.Services.AddHttpClient("github-api");
         builder.Services.AddHttpClient<BtcExchangeRateService>();
         builder.Services.AddScoped<BtcExchangeRateService>();
+        builder.Services.AddHttpClient<AustinPermitAdapter>(client => ConfigurePermitSourceClient(client));
+        builder.Services.AddHttpClient<SanFranciscoPermitAdapter>(client => ConfigurePermitSourceClient(client));
+        builder.Services.AddHttpClient<SeattlePermitAdapter>(client => ConfigurePermitSourceClient(client));
+        builder.Services.AddTransient<IPermitSourceAdapter>(provider => provider.GetRequiredService<AustinPermitAdapter>());
+        builder.Services.AddTransient<IPermitSourceAdapter>(provider => provider.GetRequiredService<SanFranciscoPermitAdapter>());
+        builder.Services.AddTransient<IPermitSourceAdapter>(provider => provider.GetRequiredService<SeattlePermitAdapter>());
 
         // Standard ASP.NET Core
         builder.Services.AddHttpContextAccessor();
@@ -315,12 +334,32 @@ public static class ServiceCollectionExtensions
                         QueueLimit = 0,
                         AutoReplenishment = true
                     }));
+
+            options.AddPolicy("permitsignal", context =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: context.User.FindFirst("jti")?.Value ??
+                                  context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 60,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
         });
 
         // Webhook delivery worker
         builder.Services.AddWebhookDeliveryWorker();
 
         return builder;
+    }
+
+    private static void ConfigurePermitSourceClient(HttpClient client)
+    {
+        client.Timeout = TimeSpan.FromSeconds(30);
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("PermitSignal/1.0 (+https://liveauth.app)");
+        client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
     }
 
     /// <summary>
