@@ -1,9 +1,12 @@
 *.nuget
 nuget/
+packages/
 bin/
 obj/
 node_modules/
 dist/
+# NuGet restore cache (auto-populated by dotnet restore)
+LiveAuthCore/.nuget/
 !LiveAuthCore/Migrations/
 !LiveAuthCore/Migrations/V20260806_AddLiveAuthMeter.sql
 # SSH Private Keys
