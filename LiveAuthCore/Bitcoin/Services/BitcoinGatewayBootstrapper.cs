@@ -55,7 +55,8 @@ public sealed class BitcoinGatewayBootstrapper : IBitcoinGatewayBootstrapper
             Tool("00000000-0000-0000-0000-000000000014", "Bitcoin Transaction Status",
                 BitcoinGatewayTools.TransactionStatus,
                 "Observe whether a Bitcoin transaction is in the node mempool, confirmed, or not found.",
-                _options.Tools.TransactionStatus.PriceSats, projectId)
+                _options.Tools.TransactionStatus.PriceSats, projectId),
+            AnonymousTool()
         };
 
         foreach (var configured in tools)
@@ -70,13 +71,40 @@ public sealed class BitcoinGatewayBootstrapper : IBitcoinGatewayBootstrapper
             existing.Name = configured.Name;
             existing.Description = configured.Description;
             existing.DefaultCostSats = configured.DefaultCostSats;
-            existing.MinCostSats = configured.DefaultCostSats;
-            existing.MaxCostSats = configured.DefaultCostSats;
+            existing.MinCostSats = configured.MinCostSats;
+            existing.MaxCostSats = configured.MaxCostSats;
             existing.Status = "Active";
             existing.UpdatedAt = DateTime.UtcNow;
         }
         await _db.SaveChangesAsync(ct);
     }
+
+    /// <summary>
+    /// System fallback tool used by <c>McpGateController.Charge</c> when a charge
+    /// arrives without a <c>toolName</c>. Routes unattributed charges through the
+    /// revenue event pipeline so they still pay the platform fee.
+    /// Fixed Guid (<c>00000000-0000-0000-0000-000000000001</c>) so the controller
+    /// can look it up by slug; <c>Visibility=Internal</c> keeps it out of public
+    /// catalog listings; <c>MaxCostSats=0</c> disables the upper bound so callers
+    /// can charge any positive amount up to their daily budget.
+    /// </summary>
+    private static McpTool AnonymousTool()
+        => new()
+        {
+            Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+            ProjectId = null,
+            Name = "Anonymous Agent Call",
+            Slug = "anonymous-agent-call",
+            Description = "System fallback for MCP charges that omit toolName. Captures revenue events for unattributed calls so they don't bypass the platform fee pipeline.",
+            Category = "system",
+            Status = "Active",
+            Visibility = "Internal",
+            DefaultCostSats = 1,
+            MinCostSats = 1,
+            MaxCostSats = 0,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
 
     private static McpTool Tool(
         string id,

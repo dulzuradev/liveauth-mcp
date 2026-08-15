@@ -200,7 +200,7 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
     }
 
     [Fact]
-    public async Task Charge_WithoutToolOrCost_FallsBackToProjectGlobalPrice()
+    public async Task Charge_WithoutToolName_RoutesThroughAnonymousTool_WritesRevenueEvent()
     {
         var seed = await SeedChargeStateAsync(mcpSatsPerCall: 4);
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/mcp/charge")
@@ -216,13 +216,64 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         body.Should().NotBeNull();
         body!.Status.Should().Be("ok");
         body.CallsUsed.Should().Be(1);
-        body.SatsUsed.Should().Be(4);
-        body.RevenueEventId.Should().BeNull();
-        body.Receipt.Should().BeNull();
+        // Anonymous tool DefaultCostSats is 1; req.CallCostSats is null so it wins
+        // over the project's McpSatsPerCall=4 default.
+        body.SatsUsed.Should().Be(1);
+        // The whole point of the fix: revenue events MUST be written for unattributed charges.
+        body.RevenueEventId.Should().NotBeNull();
+        body.GrossSats.Should().Be(1);
+        body.PlatformFeeSats.Should().Be(1);
+        body.NetSats.Should().Be(0);
+        body.FeeBasisPoints.Should().Be(500);
+        body.ToolId.Should().NotBeNull();
+        body.ToolName.Should().Be("Anonymous Agent Call");
+        body.ToolSlug.Should().Be("anonymous-agent-call");
+        body.Receipt.Should().NotBeNull();
+        body.Receipt!.Body.ToolSlug.Should().Be("anonymous-agent-call");
+        body.Receipt.Body.ToolName.Should().Be("Anonymous Agent Call");
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        var anonymousTool = db.McpTools.Single(t => t.Slug == "anonymous-agent-call");
+        anonymousTool.Visibility.Should().Be("Internal");
+        var revenueEvent = await db.McpToolRevenueEvents.FindAsync(body.RevenueEventId);
+        revenueEvent.Should().NotBeNull();
+        revenueEvent!.McpToolId.Should().Be(anonymousTool.Id);
+        revenueEvent.PayingProjectId.Should().Be(seed.ProjectId);
+        revenueEvent.GrossSats.Should().Be(1);
+        revenueEvent.PlatformFeeSats.Should().Be(1);
+        revenueEvent.NetSats.Should().Be(0);
+        revenueEvent.Status.Should().Be("Charged");
+        // No attribution to the project-specific test tool — the charge is anonymous.
         db.McpToolRevenueEvents.Count(e => e.McpToolId == seed.ToolId).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Charge_WithoutToolName_AppliesPlatformFee_ForLargerAmounts()
+    {
+        var seed = await SeedChargeStateAsync();
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/mcp/charge")
+        {
+            Content = JsonContent.Create(new { callCostSats = 10 })
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", seed.Jwt);
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<McpChargeResponseBody>();
+        body.Should().NotBeNull();
+        body!.Status.Should().Be("ok");
+        body.CallsUsed.Should().Be(1);
+        body.SatsUsed.Should().Be(10);
+        // Anonymous tool MaxCostSats=0 means no upper bound — any positive amount
+        // up to the daily budget is accepted. 5% fee = 1 sat on a 10-sat gross.
+        body.GrossSats.Should().Be(10);
+        body.PlatformFeeSats.Should().Be(1);
+        body.NetSats.Should().Be(9);
+        body.FeeBasisPoints.Should().Be(500);
+        body.RevenueEventId.Should().NotBeNull();
+        body.ToolSlug.Should().Be("anonymous-agent-call");
     }
 
     [Fact]
@@ -301,7 +352,7 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
     }
 
     [Fact]
-    public async Task ChargeTool_PreservesGenericChargeEndpoint()
+    public async Task Charge_WithExplicitCost_NoToolName_RoutesThroughAnonymousTool()
     {
         var seed = await SeedChargeStateAsync();
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/mcp/charge")
@@ -317,8 +368,15 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         body!.Status.Should().Be("ok");
         body.CallsUsed.Should().Be(1);
         body.SatsUsed.Should().Be(2);
-        body.RevenueEventId.Should().BeNull();
-        body.Receipt.Should().BeNull();
+        // Charges without a toolName now route through the anonymous system tool,
+        // so they produce a revenue event + signed receipt instead of silently
+        // decrementing budget.
+        body.RevenueEventId.Should().NotBeNull();
+        body.Receipt.Should().NotBeNull();
+        body.ToolSlug.Should().Be("anonymous-agent-call");
+        body.GrossSats.Should().Be(2);
+        body.PlatformFeeSats.Should().Be(1);
+        body.NetSats.Should().Be(1);
     }
 
     private static void VerifyReceiptSignature(McpSignedReceiptResponse receipt)

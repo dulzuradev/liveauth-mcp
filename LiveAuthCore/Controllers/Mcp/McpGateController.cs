@@ -18,6 +18,13 @@ namespace LiveAuthCore.Controllers.Mcp;
 [AllowAnonymous] // Secured by PublicKeyAuthMiddleware (X-LW-Public)
 public class McpGateController : ControllerBase
 {
+    /// <summary>
+    /// Slug of the system anonymous <see cref="McpTool"/> seeded by
+    /// <c>BitcoinGatewayBootstrapper</c>. Used by <see cref="Charge"/> when a
+    /// caller omits <c>toolName</c>, so the charge is attributed to a real
+    /// <see cref="McpTool"/> and the revenue event pipeline fires.
+    /// </summary>
+    private const string AnonymousToolSlug = "anonymous-agent-call";
     private readonly LiveAuthDbContext _db;
     private readonly LightningService _lightning;
     private readonly LightningService _jwt;
@@ -632,17 +639,32 @@ public class McpGateController : ControllerBase
         if (toolResult.Tool != null)
             return await ChargeResolvedToolAsync(toolResult.Tool, req, context, ct);
 
-        var mcpConfig = GetMcpConfig(context.Project);
-        var callCostSats = req.CallCostSats ?? mcpConfig.SatsPerCall;
-        if (callCostSats <= 0) return BadRequest("callCostSats must be positive");
+        // toolName omitted entirely → route through the system anonymous tool so
+        // the charge is attributed and the platform fee pipeline fires. The anonymous
+        // tool has Visibility="Internal" so it's hidden from public catalog listings
+        // but still produces a McpToolRevenueEvent with proper fee math + receipt.
+        var anonymousTool = await _db.McpTools
+            .Where(t => t.Slug == AnonymousToolSlug && t.RemovedAt == null)
+            .FirstOrDefaultAsync(ct);
 
-        var budgetResult = ApplyBudgetCharge(context.GateToken, context.Project, callCostSats);
-        if (budgetResult.Status != "ok")
+        if (anonymousTool == null)
+        {
+            // Bootstrapper hasn't run (DB schema not migrated yet, or first-party
+            // tools were wiped). Preserve legacy budget-only behavior so we don't
+            // break in-progress callers; surface as ERROR so it's visible in logs.
+            _logger.LogError(
+                "Anonymous MCP tool missing from registry; charge will bypass revenue event write. projectId={ProjectId}",
+                context.Project.Id);
+            var mcpConfig = GetMcpConfig(context.Project);
+            var callCostSats = req.CallCostSats ?? mcpConfig.SatsPerCall;
+            if (callCostSats <= 0) return BadRequest("callCostSats must be positive");
+            var budgetResult = ApplyBudgetCharge(context.GateToken, context.Project, callCostSats);
+            if (budgetResult.Status != "ok") return Ok(budgetResult);
+            await _db.SaveChangesAsync(ct);
             return Ok(budgetResult);
-        
-        await _db.SaveChangesAsync(ct);
+        }
 
-        return Ok(budgetResult);
+        return await ChargeResolvedToolAsync(anonymousTool, req, context, ct);
     }
 
     [HttpPost("tools/{toolId:guid}/charge")]
