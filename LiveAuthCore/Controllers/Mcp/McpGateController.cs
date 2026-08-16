@@ -801,6 +801,41 @@ public class McpGateController : ControllerBase
             ToolSlug: tool.Slug));
     }
 
+        [HttpGet("tools")]
+    public async Task<IActionResult> ListTools(CancellationToken ct)
+    {
+        // X-LW-Public auth via PublicKeyAuthMiddleware. PublicKeyAuthMiddleware
+        // writes 401 missing_api_key before we get here if the header is absent,
+        // so GetProject() is guaranteed to be non-null when we reach this line.
+        var project = GetProject();
+        if (project == null) return Unauthorized();
+        if (!project.IsActive) return Forbid();
+
+        // Catalog = tools marked Public (cross-project discovery) OR tools owned
+        // by the calling project. Internal tools (e.g. 'anonymous-agent-call')
+        // and removed tools are filtered out. Inactive tools are also excluded
+        // so callers don't see rows that would deny charges.
+        var tools = await _db.McpTools
+            .AsNoTracking()
+            .Where(t => t.RemovedAt == null)
+            .Where(t => t.Status == "Active")
+            .Where(t => t.Visibility == "Public" || t.ProjectId == project.Id)
+            .OrderBy(t => t.Name)
+            .Select(t => new McpCatalogToolDto(
+                t.Id,
+                t.Name,
+                t.Slug,
+                t.Description,
+                t.Category,
+                t.DefaultCostSats,
+                t.MinCostSats,
+                t.MaxCostSats,
+                t.Visibility))
+            .ToListAsync(ct);
+
+        return Ok(new McpCatalogResponse(tools, tools.Count));
+    }
+
     [HttpGet("usage")]
     [Authorize]
     public async Task<IActionResult> GetUsage(CancellationToken ct)
