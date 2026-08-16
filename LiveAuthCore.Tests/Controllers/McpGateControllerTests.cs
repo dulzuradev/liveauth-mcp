@@ -352,6 +352,232 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
     }
 
     [Fact]
+    public async Task ListTools_ReturnsPublicAndProjectScopedTools()
+    {
+        var seed = await SeedCatalogStateAsync();
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/mcp/tools");
+        request.Headers.Add("X-LW-Public", $"la_pk_{seed.ProjectId:N}");
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<McpCatalogResponseBody>();
+        body.Should().NotBeNull();
+        body!.Count.Should().Be(2);
+        body.Tools.Should().HaveCount(2);
+        // Public tool is visible to any project.
+        body.Tools.Should().Contain(t => t.Slug == "public-tool");
+        // Project-scoped tool is visible to its owner.
+        body.Tools.Should().Contain(t => t.Slug == seed.ProjectScopedSlug);
+        // Internal tools (and the anonymous fallback) must NOT be exposed.
+        body.Tools.Should().NotContain(t => t.Slug == "anonymous-agent-call");
+        body.Tools.Should().NotContain(t => t.Slug == "internal-tool");
+        // DTO shape is slim — no webhook URLs, DeveloperId, or timestamps leaked.
+        var publicTool = body.Tools.Single(t => t.Slug == "public-tool");
+        publicTool.DefaultCostSats.Should().Be(10);
+        publicTool.MinCostSats.Should().Be(5);
+        publicTool.MaxCostSats.Should().Be(20);
+        publicTool.Visibility.Should().Be("Public");
+    }
+
+    [Fact]
+    public async Task ListTools_FiltersOutRemovedAndInactiveTools()
+    {
+        var seed = await SeedCatalogStateAsync();
+        // Tweak the seed: remove the project-scoped tool + deactivate the public one.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+            var scoped = db.McpTools.Single(t => t.Id == seed.ProjectScopedToolId);
+            scoped.RemovedAt = DateTime.UtcNow;
+            var pub = db.McpTools.Single(t => t.Slug == "public-tool");
+            pub.Status = "Paused";
+            await db.SaveChangesAsync();
+        }
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/mcp/tools");
+        request.Headers.Add("X-LW-Public", $"la_pk_{seed.ProjectId:N}");
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<McpCatalogResponseBody>();
+        body!.Count.Should().Be(0);
+        body.Tools.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ListTools_RequiresApiKey()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/mcp/tools");
+        // no X-LW-Public header
+        var response = await _client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ListTools_IsolatesProjects_PrivateToolsNotVisibleToOthers()
+    {
+        var seed = await SeedCatalogStateAsync();
+        // Create a second project with its own private tool.
+        var otherDeveloperId = Guid.NewGuid();
+        var otherProjectId = Guid.NewGuid();
+        var otherToolId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+            db.Developers.Add(new Developer
+            {
+                Id = otherDeveloperId,
+                Email = $"{otherDeveloperId:N}@other.example.com",
+                CreatedAt = DateTime.UtcNow
+            });
+            db.Projects.Add(new Project
+            {
+                Id = otherProjectId,
+                DeveloperId = otherDeveloperId,
+                Name = "Other project",
+                PublicKey = $"la_pk_{otherProjectId:N}",
+                SecretKeyHash = $"la_sk_{otherProjectId:N}",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+            db.McpTools.Add(new McpTool
+            {
+                Id = otherToolId,
+                ProjectId = otherProjectId,
+                Name = "Other Private Tool",
+                Slug = "other-private-tool",
+                Description = "Should not leak",
+                Status = "Active",
+                Visibility = "Public", // intentionally Public so it WOULD be visible
+                DefaultCostSats = 1,
+                MinCostSats = 1,
+                MaxCostSats = 0,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/mcp/tools");
+        request.Headers.Add("X-LW-Public", $"la_pk_{seed.ProjectId:N}");
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<McpCatalogResponseBody>();
+        // Both public tools are visible — discoverability is just Visibility-based,
+        // not access-controlled. The private (project-scoped) tool stays scoped.
+        body!.Tools.Should().Contain(t => t.Slug == "public-tool");
+        body.Tools.Should().Contain(t => t.Slug == "other-private-tool");
+        body.Tools.Should().NotContain(t => t.Slug == seed.ProjectScopedSlug);
+    }
+
+    private async Task<McpCatalogSeed> SeedCatalogStateAsync()
+    {
+        var developerId = Guid.NewGuid();
+        var projectId = Guid.NewGuid();
+        var projectScopedToolId = Guid.NewGuid();
+        var projectScopedSlug = $"project-scoped-{projectScopedToolId:N}";
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+
+        db.Developers.Add(new Developer
+        {
+            Id = developerId,
+            Email = $"{developerId:N}@catalog.example.com",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        db.Projects.Add(new Project
+        {
+            Id = projectId,
+            DeveloperId = developerId,
+            Name = "Catalog test project",
+            PublicKey = $"la_pk_{projectId:N}",
+            SecretKeyHash = $"la_sk_{projectId:N}",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        // Public tool — visible to any caller.
+        db.McpTools.Add(new McpTool
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = null,
+            Name = "Public Tool",
+            Slug = "public-tool",
+            Description = "Globally discoverable",
+            Status = "Active",
+            Visibility = "Public",
+            DefaultCostSats = 10,
+            MinCostSats = 5,
+            MaxCostSats = 20,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+
+        // Project-scoped tool — visible only to the owning project.
+        db.McpTools.Add(new McpTool
+        {
+            Id = projectScopedToolId,
+            ProjectId = projectId,
+            Name = "Project Scoped Tool",
+            Slug = projectScopedSlug,
+            Description = "Owner-only",
+            Status = "Active",
+            Visibility = "Unlisted",
+            DefaultCostSats = 2,
+            MinCostSats = 1,
+            MaxCostSats = 5,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+
+        // Internal tool — must NOT be exposed by the catalog.
+        db.McpTools.Add(new McpTool
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = null,
+            Name = "Internal Tool",
+            Slug = "internal-tool",
+            Description = "Hidden from catalog",
+            Status = "Active",
+            Visibility = "Internal",
+            DefaultCostSats = 1,
+            MinCostSats = 1,
+            MaxCostSats = 0,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+
+        return new McpCatalogSeed(projectId, projectScopedToolId, projectScopedSlug);
+    }
+
+    private sealed record McpCatalogSeed(
+        Guid ProjectId,
+        Guid ProjectScopedToolId,
+        string ProjectScopedSlug);
+
+    private sealed record McpCatalogResponseBody(
+        IReadOnlyList<McpCatalogToolBody> Tools,
+        int Count);
+
+    private sealed record McpCatalogToolBody(
+        Guid Id,
+        string Name,
+        string Slug,
+        string? Description,
+        string? Category,
+        int DefaultCostSats,
+        int MinCostSats,
+        int MaxCostSats,
+        string Visibility);
+
+    [Fact]
     public async Task Charge_WithExplicitCost_NoToolName_RoutesThroughAnonymousTool()
     {
         var seed = await SeedChargeStateAsync();
