@@ -339,7 +339,7 @@ public class LiveAuthDbContext : DbContext
             .HasIndex(e => e.McpGateTokenId);
 
         modelBuilder.Entity<McpToolRevenueEvent>()
-            .HasIndex(e => new { e.McpToolId, e.IdempotencyKey })
+            .HasIndex(e => new { e.McpToolId, e.PayingProjectId, e.IdempotencyKey })
             .IsUnique()
             .HasFilter("\"IdempotencyKey\" IS NOT NULL");
 

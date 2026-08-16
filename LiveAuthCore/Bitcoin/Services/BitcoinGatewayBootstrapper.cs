@@ -70,10 +70,13 @@ public sealed class BitcoinGatewayBootstrapper : IBitcoinGatewayBootstrapper
             existing.ProjectId = configured.ProjectId;
             existing.Name = configured.Name;
             existing.Description = configured.Description;
+            existing.Category = configured.Category;
             existing.DefaultCostSats = configured.DefaultCostSats;
             existing.MinCostSats = configured.MinCostSats;
             existing.MaxCostSats = configured.MaxCostSats;
             existing.Status = "Active";
+            existing.Visibility = configured.Visibility;
+            existing.RemovedAt = null;
             existing.UpdatedAt = DateTime.UtcNow;
         }
         await _db.SaveChangesAsync(ct);

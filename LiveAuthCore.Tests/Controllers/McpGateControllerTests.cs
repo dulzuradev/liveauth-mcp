@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
+using LiveAuthCore.Bitcoin.Services;
 using LiveAuthCore.Data;
 using LiveAuthCore.Data.Entities;
 using LiveAuthCore.Data.Entities.Mcp;
@@ -216,14 +217,13 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         body.Should().NotBeNull();
         body!.Status.Should().Be("ok");
         body.CallsUsed.Should().Be(1);
-        // Anonymous tool DefaultCostSats is 1; req.CallCostSats is null so it wins
-        // over the project's McpSatsPerCall=4 default.
-        body.SatsUsed.Should().Be(1);
+        // Attribution must not change the legacy project-level default price.
+        body.SatsUsed.Should().Be(4);
         // The whole point of the fix: revenue events MUST be written for unattributed charges.
         body.RevenueEventId.Should().NotBeNull();
-        body.GrossSats.Should().Be(1);
+        body.GrossSats.Should().Be(4);
         body.PlatformFeeSats.Should().Be(1);
-        body.NetSats.Should().Be(0);
+        body.NetSats.Should().Be(3);
         body.FeeBasisPoints.Should().Be(500);
         body.ToolId.Should().NotBeNull();
         body.ToolName.Should().Be("Anonymous Agent Call");
@@ -240,9 +240,9 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         revenueEvent.Should().NotBeNull();
         revenueEvent!.McpToolId.Should().Be(anonymousTool.Id);
         revenueEvent.PayingProjectId.Should().Be(seed.ProjectId);
-        revenueEvent.GrossSats.Should().Be(1);
+        revenueEvent.GrossSats.Should().Be(4);
         revenueEvent.PlatformFeeSats.Should().Be(1);
-        revenueEvent.NetSats.Should().Be(0);
+        revenueEvent.NetSats.Should().Be(3);
         revenueEvent.Status.Should().Be("Charged");
         // No attribution to the project-specific test tool — the charge is anonymous.
         db.McpToolRevenueEvents.Count(e => e.McpToolId == seed.ToolId).Should().Be(0);
@@ -274,6 +274,95 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         body.FeeBasisPoints.Should().Be(500);
         body.RevenueEventId.Should().NotBeNull();
         body.ToolSlug.Should().Be("anonymous-agent-call");
+    }
+
+    [Fact]
+    public async Task Charge_WithoutToolName_ScopesIdempotencyPerProject()
+    {
+        var firstProject = await SeedChargeStateAsync();
+        var secondProject = await SeedChargeStateAsync();
+        var idempotencyKey = $"shared-anonymous-{Guid.NewGuid():N}";
+        var payload = new { callCostSats = 2, idempotencyKey };
+
+        var first = await SendGenericChargeAsync(firstProject, payload);
+        var second = await SendGenericChargeAsync(secondProject, payload);
+
+        first.Status.Should().Be("ok");
+        second.Status.Should().Be("ok");
+        first.RevenueEventId.Should().NotBeNull();
+        second.RevenueEventId.Should().NotBeNull();
+        var firstRevenueEventId = first.RevenueEventId.GetValueOrDefault();
+        var secondRevenueEventId = second.RevenueEventId.GetValueOrDefault();
+        firstRevenueEventId.Should().NotBe(Guid.Empty);
+        secondRevenueEventId.Should().NotBe(Guid.Empty);
+        secondRevenueEventId.Should().NotBe(firstRevenueEventId);
+        first.Receipt!.Body.PayingProjectId.Should().Be(firstProject.ProjectId);
+        second.Receipt!.Body.PayingProjectId.Should().Be(secondProject.ProjectId);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        var anonymousToolId = db.McpTools.Single(t => t.Slug == "anonymous-agent-call").Id;
+        db.McpToolRevenueEvents.Count(e =>
+                e.McpToolId == anonymousToolId && e.IdempotencyKey == idempotencyKey)
+            .Should().Be(2);
+        db.McpGateTokens.Single(t => t.Id == firstProject.TokenId).CallsUsed.Should().Be(1);
+        db.McpGateTokens.Single(t => t.Id == secondProject.TokenId).CallsUsed.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Charge_WithoutToolName_FailsClosed_WhenAnonymousToolIsUnavailable()
+    {
+        var seed = await SeedChargeStateAsync();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+            db.McpTools.Single(t => t.Slug == "anonymous-agent-call").RemovedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/mcp/charge")
+            {
+                Content = JsonContent.Create(new { })
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", seed.Jwt);
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+            var token = db.McpGateTokens.Single(t => t.Id == seed.TokenId);
+            token.CallsUsed.Should().Be(0);
+            token.SatsUsed.Should().Be(0);
+            db.McpToolRevenueEvents.Count(e => e.PayingProjectId == seed.ProjectId).Should().Be(0);
+        }
+        finally
+        {
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+            db.McpTools.Single(t => t.Slug == "anonymous-agent-call").RemovedAt = null;
+            await db.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task BitcoinBootstrap_RestoresAnonymousSystemTool()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
+        var anonymousTool = db.McpTools.Single(t => t.Slug == "anonymous-agent-call");
+        anonymousTool.RemovedAt = DateTime.UtcNow;
+        anonymousTool.Status = "Paused";
+        anonymousTool.Visibility = "Public";
+        await db.SaveChangesAsync();
+
+        await scope.ServiceProvider.GetRequiredService<IBitcoinGatewayBootstrapper>().SeedAsync();
+
+        anonymousTool.RemovedAt.Should().BeNull();
+        anonymousTool.Status.Should().Be("Active");
+        anonymousTool.Visibility.Should().Be("Internal");
     }
 
     [Fact]
@@ -364,17 +453,16 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await response.Content.ReadFromJsonAsync<McpCatalogResponseBody>();
         body.Should().NotBeNull();
-        body!.Count.Should().Be(2);
-        body.Tools.Should().HaveCount(2);
+        body!.Count.Should().Be(body.Tools.Count);
         // Public tool is visible to any project.
-        body.Tools.Should().Contain(t => t.Slug == "public-tool");
+        body.Tools.Should().Contain(t => t.Slug == seed.PublicToolSlug);
         // Project-scoped tool is visible to its owner.
         body.Tools.Should().Contain(t => t.Slug == seed.ProjectScopedSlug);
         // Internal tools (and the anonymous fallback) must NOT be exposed.
         body.Tools.Should().NotContain(t => t.Slug == "anonymous-agent-call");
-        body.Tools.Should().NotContain(t => t.Slug == "internal-tool");
+        body.Tools.Should().NotContain(t => t.Slug == seed.InternalToolSlug);
         // DTO shape is slim — no webhook URLs, DeveloperId, or timestamps leaked.
-        var publicTool = body.Tools.Single(t => t.Slug == "public-tool");
+        var publicTool = body.Tools.Single(t => t.Id == seed.PublicToolId);
         publicTool.DefaultCostSats.Should().Be(10);
         publicTool.MinCostSats.Should().Be(5);
         publicTool.MaxCostSats.Should().Be(20);
@@ -391,7 +479,7 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
             var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
             var scoped = db.McpTools.Single(t => t.Id == seed.ProjectScopedToolId);
             scoped.RemovedAt = DateTime.UtcNow;
-            var pub = db.McpTools.Single(t => t.Slug == "public-tool");
+            var pub = db.McpTools.Single(t => t.Id == seed.PublicToolId);
             pub.Status = "Paused";
             await db.SaveChangesAsync();
         }
@@ -402,8 +490,9 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await response.Content.ReadFromJsonAsync<McpCatalogResponseBody>();
-        body!.Count.Should().Be(0);
-        body.Tools.Should().BeEmpty();
+        body!.Count.Should().Be(body.Tools.Count);
+        body.Tools.Should().NotContain(t => t.Id == seed.ProjectScopedToolId);
+        body.Tools.Should().NotContain(t => t.Id == seed.PublicToolId);
     }
 
     [Fact]
@@ -423,6 +512,7 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         var otherDeveloperId = Guid.NewGuid();
         var otherProjectId = Guid.NewGuid();
         var otherToolId = Guid.NewGuid();
+        var otherToolSlug = $"other-private-{otherToolId:N}";
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
@@ -440,6 +530,7 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
                 PublicKey = $"la_pk_{otherProjectId:N}",
                 SecretKeyHash = $"la_sk_{otherProjectId:N}",
                 IsActive = true,
+                Environment = "LIVE",
                 CreatedAt = DateTime.UtcNow
             });
             db.McpTools.Add(new McpTool
@@ -447,10 +538,10 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
                 Id = otherToolId,
                 ProjectId = otherProjectId,
                 Name = "Other Private Tool",
-                Slug = "other-private-tool",
+                Slug = otherToolSlug,
                 Description = "Should not leak",
                 Status = "Active",
-                Visibility = "Public", // intentionally Public so it WOULD be visible
+                Visibility = "Unlisted",
                 DefaultCostSats = 1,
                 MinCostSats = 1,
                 MaxCostSats = 0,
@@ -466,19 +557,21 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await response.Content.ReadFromJsonAsync<McpCatalogResponseBody>();
-        // Both public tools are visible — discoverability is just Visibility-based,
-        // not access-controlled. The private (project-scoped) tool stays scoped.
-        body!.Tools.Should().Contain(t => t.Slug == "public-tool");
-        body.Tools.Should().Contain(t => t.Slug == "other-private-tool");
-        body.Tools.Should().NotContain(t => t.Slug == seed.ProjectScopedSlug);
+        body!.Tools.Should().Contain(t => t.Slug == seed.PublicToolSlug);
+        body.Tools.Should().Contain(t => t.Slug == seed.ProjectScopedSlug);
+        body.Tools.Should().NotContain(t => t.Slug == otherToolSlug);
     }
 
     private async Task<McpCatalogSeed> SeedCatalogStateAsync()
     {
         var developerId = Guid.NewGuid();
         var projectId = Guid.NewGuid();
+        var publicToolId = Guid.NewGuid();
+        var publicToolSlug = $"public-tool-{publicToolId:N}";
         var projectScopedToolId = Guid.NewGuid();
         var projectScopedSlug = $"project-scoped-{projectScopedToolId:N}";
+        var internalToolId = Guid.NewGuid();
+        var internalToolSlug = $"internal-tool-{internalToolId:N}";
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LiveAuthDbContext>();
@@ -498,16 +591,17 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
             PublicKey = $"la_pk_{projectId:N}",
             SecretKeyHash = $"la_sk_{projectId:N}",
             IsActive = true,
+            Environment = "LIVE",
             CreatedAt = DateTime.UtcNow
         });
 
         // Public tool — visible to any caller.
         db.McpTools.Add(new McpTool
         {
-            Id = Guid.NewGuid(),
+            Id = publicToolId,
             ProjectId = null,
             Name = "Public Tool",
-            Slug = "public-tool",
+            Slug = publicToolSlug,
             Description = "Globally discoverable",
             Status = "Active",
             Visibility = "Public",
@@ -538,10 +632,10 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
         // Internal tool — must NOT be exposed by the catalog.
         db.McpTools.Add(new McpTool
         {
-            Id = Guid.NewGuid(),
+            Id = internalToolId,
             ProjectId = null,
             Name = "Internal Tool",
-            Slug = "internal-tool",
+            Slug = internalToolSlug,
             Description = "Hidden from catalog",
             Status = "Active",
             Visibility = "Internal",
@@ -554,13 +648,22 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
 
         await db.SaveChangesAsync();
 
-        return new McpCatalogSeed(projectId, projectScopedToolId, projectScopedSlug);
+        return new McpCatalogSeed(
+            projectId,
+            publicToolId,
+            publicToolSlug,
+            projectScopedToolId,
+            projectScopedSlug,
+            internalToolSlug);
     }
 
     private sealed record McpCatalogSeed(
         Guid ProjectId,
+        Guid PublicToolId,
+        string PublicToolSlug,
         Guid ProjectScopedToolId,
-        string ProjectScopedSlug);
+        string ProjectScopedSlug,
+        string InternalToolSlug);
 
     private sealed record McpCatalogResponseBody(
         IReadOnlyList<McpCatalogToolBody> Tools,
@@ -646,6 +749,19 @@ public class McpGateControllerTests : IClassFixture<LiveAuthWebApplicationFactor
     private async Task<McpChargeResponseBody> SendToolChargeAsync(TestChargeSeed seed, object payload)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, $"/api/mcp/tools/{seed.ToolId}/charge")
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", seed.Jwt);
+
+        var response = await _client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        return (await response.Content.ReadFromJsonAsync<McpChargeResponseBody>())!;
+    }
+
+    private async Task<McpChargeResponseBody> SendGenericChargeAsync(TestChargeSeed seed, object payload)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/mcp/charge")
         {
             Content = JsonContent.Create(payload)
         };

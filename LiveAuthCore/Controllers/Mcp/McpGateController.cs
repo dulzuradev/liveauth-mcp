@@ -649,22 +649,17 @@ public class McpGateController : ControllerBase
 
         if (anonymousTool == null)
         {
-            // Bootstrapper hasn't run (DB schema not migrated yet, or first-party
-            // tools were wiped). Preserve legacy budget-only behavior so we don't
-            // break in-progress callers; surface as ERROR so it's visible in logs.
             _logger.LogError(
-                "Anonymous MCP tool missing from registry; charge will bypass revenue event write. projectId={ProjectId}",
+                "Anonymous MCP tool missing from registry; rejecting unattributed charge. projectId={ProjectId}",
                 context.Project.Id);
-            var mcpConfig = GetMcpConfig(context.Project);
-            var callCostSats = req.CallCostSats ?? mcpConfig.SatsPerCall;
-            if (callCostSats <= 0) return BadRequest("callCostSats must be positive");
-            var budgetResult = ApplyBudgetCharge(context.GateToken, context.Project, callCostSats);
-            if (budgetResult.Status != "ok") return Ok(budgetResult);
-            await _db.SaveChangesAsync(ct);
-            return Ok(budgetResult);
+            return Problem(
+                statusCode: StatusCodes.Status503ServiceUnavailable,
+                title: "MCP charge attribution unavailable",
+                detail: "The system attribution tool is unavailable; no budget was consumed.");
         }
 
-        return await ChargeResolvedToolAsync(anonymousTool, req, context, ct);
+        var anonymousDefaultCostSats = GetMcpConfig(context.Project).SatsPerCall;
+        return await ChargeResolvedToolAsync(anonymousTool, req, context, ct, anonymousDefaultCostSats);
     }
 
     [HttpPost("tools/{toolId:guid}/charge")]
@@ -689,11 +684,12 @@ public class McpGateController : ControllerBase
         McpTool tool,
         McpChargeRequest req,
         McpChargeContext context,
-        CancellationToken ct)
+        CancellationToken ct,
+        int? defaultCostSats = null)
     {
         var gateToken = context.GateToken;
         var project = context.Project;
-        var callCostSats = req.CallCostSats ?? Math.Clamp(tool.DefaultCostSats, 1, int.MaxValue);
+        var callCostSats = req.CallCostSats ?? defaultCostSats ?? Math.Clamp(tool.DefaultCostSats, 1, int.MaxValue);
 
         if (!string.Equals(tool.Status, "Active", StringComparison.OrdinalIgnoreCase))
         {
@@ -721,7 +717,9 @@ public class McpGateController : ControllerBase
         if (idempotencyKey != null)
         {
             var existing = await _db.McpToolRevenueEvents
-                .Where(e => e.McpToolId == tool.Id && e.IdempotencyKey == idempotencyKey)
+                .Where(e => e.McpToolId == tool.Id &&
+                            e.PayingProjectId == project.Id &&
+                            e.IdempotencyKey == idempotencyKey)
                 .FirstOrDefaultAsync(ct);
 
             if (existing != null)
@@ -801,13 +799,10 @@ public class McpGateController : ControllerBase
             ToolSlug: tool.Slug));
     }
 
-        [HttpGet("tools")]
+    [HttpGet("tools")]
     public async Task<IActionResult> ListTools(CancellationToken ct)
     {
-        // X-LW-Public auth via PublicKeyAuthMiddleware. PublicKeyAuthMiddleware
-        // writes 401 missing_api_key before we get here if the header is absent,
-        // so GetProject() is guaranteed to be non-null when we reach this line.
-        var project = GetProject();
+        var project = await GetCatalogProjectAsync(ct);
         if (project == null) return Unauthorized();
         if (!project.IsActive) return Forbid();
 
@@ -819,6 +814,7 @@ public class McpGateController : ControllerBase
             .AsNoTracking()
             .Where(t => t.RemovedAt == null)
             .Where(t => t.Status == "Active")
+            .Where(t => t.Visibility != "Internal")
             .Where(t => t.Visibility == "Public" || t.ProjectId == project.Id)
             .OrderBy(t => t.Name)
             .Select(t => new McpCatalogToolDto(
@@ -834,6 +830,22 @@ public class McpGateController : ControllerBase
             .ToListAsync(ct);
 
         return Ok(new McpCatalogResponse(tools, tools.Count));
+    }
+
+    private async Task<Project?> GetCatalogProjectAsync(CancellationToken ct)
+    {
+        if (HttpContext.Items.TryGetValue("LW_Project", out var value) && value is Project project)
+            return project;
+
+        if (!Request.Headers.TryGetValue("X-LW-Public", out var values))
+            return null;
+
+        var publicKey = values.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(publicKey))
+            return null;
+
+        var auth = await _apiKeyService.AuthenticatePublicKeyAsync(publicKey, ct);
+        return auth.Status == ApiKeyAuthStatus.Ok ? auth.Project : null;
     }
 
     [HttpGet("usage")]

@@ -422,9 +422,10 @@ public static class PipelineExtensions
             ON McpToolRevenueEvents (McpGateTokenId)"
         );
 
-        await EnsureIndexAsync(connection, "IX_McpToolRevenueEvents_McpToolId_IdempotencyKey", @"
-            CREATE UNIQUE INDEX IX_McpToolRevenueEvents_McpToolId_IdempotencyKey
-            ON McpToolRevenueEvents (McpToolId, IdempotencyKey)
+        await DropIndexAsync(connection, "IX_McpToolRevenueEvents_McpToolId_IdempotencyKey");
+        await EnsureIndexAsync(connection, "IX_McpToolRevenueEvents_McpToolId_PayingProjectId_IdempotencyKey", @"
+            CREATE UNIQUE INDEX IX_McpToolRevenueEvents_McpToolId_PayingProjectId_IdempotencyKey
+            ON McpToolRevenueEvents (McpToolId, PayingProjectId, IdempotencyKey)
             WHERE IdempotencyKey IS NOT NULL"
         );
 
@@ -623,6 +624,13 @@ public static class PipelineExtensions
         using var create = connection.CreateCommand();
         create.CommandText = createSql;
         await create.ExecuteNonQueryAsync();
+    }
+
+    private static async Task DropIndexAsync(System.Data.Common.DbConnection connection, string indexName)
+    {
+        using var drop = connection.CreateCommand();
+        drop.CommandText = $"DROP INDEX IF EXISTS {indexName}";
+        await drop.ExecuteNonQueryAsync();
     }
 
     private static async Task SeedLightningFeeSettingsAsync(LiveAuthDbContext db, IConfiguration configuration)
