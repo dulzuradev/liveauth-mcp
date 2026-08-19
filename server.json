@@ -1,17 +1,26 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.dulzuradev/liveauth-mcp",
-  "description": "MCP server for LiveAuth: PoW + Lightning auth, L402 bundles, and paid MCP tool receipts.",
+  "title": "LiveAuth MCP Server",
+  "description": "Runtime PoW, Lightning, L402, metering, and paid tool access for MCP clients.",
+  "websiteUrl": "https://liveauth.app/integrations/goose",
   "repository": {
     "url": "https://github.com/dulzuradev/liveauth-mcp",
     "source": "github"
   },
-  "version": "1.0.8",
+  "version": "1.1.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@liveauth-labs/mcp-server",
-      "version": "1.0.8",
+      "version": "1.1.0",
+      "runtimeHint": "npx",
+      "runtimeArguments": [
+        {
+          "type": "positional",
+          "value": "-y"
+        }
+      ],
       "transport": {
         "type": "stdio"
       },
@@ -21,6 +30,7 @@
           "isRequired": false,
           "format": "string",
           "isSecret": false,
+          "placeholder": "la_pk_…",
           "name": "LIVEAUTH_API_KEY"
         },
         {
@@ -28,13 +38,15 @@
           "isRequired": false,
           "format": "string",
           "isSecret": false,
+          "default": "https://api.liveauth.app",
           "name": "LIVEAUTH_API_BASE"
         },
         {
-          "description": "Force demo mode even with a key set. Defaults to false.",
+          "description": "Use the legacy locally simulated Lightning demo. Defaults to false.",
           "isRequired": false,
           "format": "boolean",
           "isSecret": false,
+          "default": "false",
           "name": "LIVEAUTH_DEMO"
         }
       ]

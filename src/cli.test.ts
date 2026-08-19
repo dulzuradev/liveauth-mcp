@@ -55,10 +55,26 @@ describe('LiveAuth stdio MCP server tools', () => {
 
       const confirm = result.tools.find((tool) => tool.name === 'liveauth_mcp_confirm');
       expect(confirm?.inputSchema.properties).toHaveProperty('macaroon');
+      expect(result.tools.find((tool) => tool.name === 'liveauth_mcp_start')?._meta).toMatchObject({
+        ui: { resourceUri: 'ui://liveauth/lightning-payment' },
+      });
+
+      const resources = await client.listResources();
+      expect(resources.resources).toContainEqual(expect.objectContaining({
+        uri: 'ui://liveauth/lightning-payment',
+        mimeType: 'text/html;profile=mcp-app',
+      }));
+
+      const resource = await client.readResource({ uri: 'ui://liveauth/lightning-payment' });
+      expect(resource.contents[0]).toMatchObject({
+        uri: 'ui://liveauth/lightning-payment',
+        mimeType: 'text/html;profile=mcp-app',
+      });
+      expect(resource.contents[0]?.text).toContain("request('ui/initialize'");
     });
   });
 
-  it('runs the no-config demo flow across start, lnurl, status, confirm, charge, usage, and refresh', async () => {
+  it('preserves the explicit legacy demo flow across all tools', async () => {
     const fetchImpl = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
       expect(url).toBe(`${API_BASE}/api/public/auth/demo/start`);
@@ -153,6 +169,140 @@ describe('LiveAuth stdio MCP server tools', () => {
     );
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts without credentials and auto-solves the real anonymous PoW flow', async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      requests.push({ url, init });
+
+      if (url.endsWith('/api/mcp/start')) {
+        return jsonResponse({
+          quoteId: 'quote-pow',
+          powChallenge: {
+            projectId: 'demo-project',
+            projectPublicKey: 'la_pk_demo',
+            challengeHex: 'challenge',
+            targetHex: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+            difficultyBits: 0,
+            expiresAtUnix: 1_900_000_000,
+            signature: 'signed-challenge',
+          },
+          invoice: null,
+          authHint: null,
+        });
+      }
+
+      if (url.endsWith('/api/mcp/confirm')) {
+        return jsonResponse({
+          jwt: 'jwt-from-anonymous-pow',
+          expiresIn: 600,
+          remainingBudgetSats: 25,
+          paymentStatus: 'paid',
+          refreshToken: 'secret-refresh-token',
+        });
+      }
+
+      return jsonResponse({ error_description: `Unexpected URL ${url}` }, { status: 500 });
+    });
+
+    await withMcpClient({ apiBase: API_BASE, apiKey: '', demo: false, fetch: fetchImpl }, async (client) => {
+      const start = parseToolJson(await client.callTool({ name: 'liveauth_mcp_start', arguments: {} }));
+      expect(start).toMatchObject({ quoteId: 'quote-pow', powChallenge: { projectPublicKey: 'la_pk_demo' } });
+      expect(start._instructions).toContain('quoteId only');
+
+      const confirm = parseToolJson(await client.callTool({
+        name: 'liveauth_mcp_confirm',
+        arguments: { quoteId: start.quoteId },
+      }));
+      expect(confirm).toMatchObject({ jwt: 'jwt-from-anonymous-pow', refreshToken: 'secret-refresh-token' });
+    });
+
+    expect(requests.map((request) => request.url)).toEqual([
+      `${API_BASE}/api/mcp/start`,
+      `${API_BASE}/api/mcp/confirm`,
+    ]);
+    expect(requests[0]?.init?.headers).not.toHaveProperty('X-LW-Public');
+    expect(requests[1]?.init?.headers).not.toHaveProperty('X-LW-Public');
+    expect(JSON.parse(String(requests[1]?.init?.body))).toMatchObject({
+      quoteId: 'quote-pow',
+      challengeHex: 'challenge',
+      nonce: 0,
+      difficultyBits: 0,
+      expiresAtUnix: 1_900_000_000,
+      sig: 'signed-challenge',
+    });
+  });
+
+  it('still rejects JWT-required operations when credentials are missing', async () => {
+    const fetchImpl = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+      expect(init?.headers).not.toHaveProperty('Authorization');
+      expect(init?.headers).not.toHaveProperty('X-LW-Public');
+      return jsonResponse({ error_description: 'A confirmed LiveAuth session JWT is required.' }, { status: 401 });
+    });
+
+    await withMcpClient({ apiBase: API_BASE, apiKey: '', demo: false, fetch: fetchImpl }, async (client) => {
+      const result = await client.callTool({ name: 'liveauth_mcp_charge', arguments: { callCostSats: 1 } });
+      expect(result.isError).toBe(true);
+      expect(result.content?.[0]?.text).toContain('session JWT is required');
+    });
+  });
+
+  it('returns portable Lightning fields, QR image content, and settlement state', async () => {
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith('/api/mcp/start')) {
+        return jsonResponse({
+          quoteId: 'quote-lightning',
+          powChallenge: null,
+          invoice: {
+            bolt11: 'lnbc1portableinvoice',
+            amountSats: 21,
+            expiresAtUnix: 1_900_000_000,
+            paymentHash: 'payment-hash',
+          },
+          authHint: null,
+        });
+      }
+      if (url.endsWith('/api/mcp/status/quote-lightning')) {
+        return jsonResponse({
+          quoteId: 'quote-lightning',
+          status: 'confirmed',
+          paymentStatus: 'paid',
+          expiresAt: '2030-03-17T17:46:40.000Z',
+        });
+      }
+      return jsonResponse({ error_description: `Unexpected URL ${url}` }, { status: 500 });
+    });
+
+    await withMcpClient(
+      { apiBase: API_BASE, apiKey: '', demo: false, fetch: fetchImpl, now: () => 1_800_000_000_000 },
+      async (client) => {
+        const startResult = await client.callTool({
+          name: 'liveauth_mcp_start',
+          arguments: { forceLightning: true },
+        });
+        expect(startResult.structuredContent).toMatchObject({
+          quoteId: 'quote-lightning',
+          lightning: {
+            invoice: 'lnbc1portableinvoice',
+            lightningUri: 'lightning:lnbc1portableinvoice',
+            amountSats: 21,
+            expiresAt: '2030-03-17T17:46:40.000Z',
+            status: 'pending',
+          },
+        });
+        expect(startResult.content).toContainEqual(expect.objectContaining({ type: 'image', mimeType: 'image/png' }));
+
+        const statusResult = await client.callTool({
+          name: 'liveauth_mcp_status',
+          arguments: { quoteId: 'quote-lightning' },
+        });
+        expect(statusResult.structuredContent).toMatchObject({ lightning: { status: 'paid', amountSats: 21 } });
+        expect(statusResult.content?.filter((item) => item.type === 'image')).toHaveLength(0);
+      }
+    );
   });
 
   it('forwards production MCP tool calls with project headers, cached JWT, and L402 macaroon', async () => {

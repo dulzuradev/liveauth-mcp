@@ -18,7 +18,7 @@ This MCP server lets any AI agent authenticate against your API using **proof-of
 npx @liveauth-labs/mcp-server
 ```
 
-Runs in demo mode (real Lightning invoice, simulated confirmation). Drop in your `LIVEAUTH_API_KEY` to go live.
+Without configuration, the server uses LiveAuth's anonymous demo project and the real PoW flow. Add `LIVEAUTH_API_KEY` only when you need a specific project's policy, pricing, or attribution.
 
 ---
 
@@ -40,13 +40,13 @@ Full parameter and response schemas are in the [Tool Reference](#tool-reference)
 
 ## 5-Minute Quick Start
 
-### Option 1 — Demo Mode (no account, no key)
+### Option 1 — Credential-free PoW (no account, no key, no wallet)
 
 ```bash
 npx @liveauth-labs/mcp-server
 ```
 
-Returns a real Lightning invoice (so you can see the payment flow) but confirmation is simulated. Free, no signup.
+In an MCP client, call `liveauth_mcp_start`, then call `liveauth_mcp_confirm` with only the returned `quoteId`. The package reuses its existing PoW solver locally and the LiveAuth API verifies the signed challenge before issuing a short-lived session JWT.
 
 ### Option 2 — Production Mode
 
@@ -104,6 +104,81 @@ Or use directly with npx:
 ```bash
 npx @liveauth-labs/mcp-server
 ```
+
+## Goose
+
+LiveAuth for Goose uses the same standards-based stdio MCP server as every other client—there is no Goose wrapper, daemon, or duplicate authentication runtime.
+
+[Install in Goose](goose://extension?cmd=npx&arg=-y&arg=%40liveauth-labs%2Fmcp-server&timeout=300&id=liveauth&name=LiveAuth&description=Give+Goose+agents+authenticated+access+to+metered+and+paid+capabilities+through+LiveAuth.)
+
+Or print the official deep link and current fallbacks:
+
+```bash
+npx @liveauth-labs/mcp-server setup goose
+```
+
+For a one-off Goose CLI session:
+
+```bash
+goose session --with-extension "liveauth:npx -y @liveauth-labs/mcp-server"
+```
+
+Manual Goose stdio configuration, when the deep link is unavailable:
+
+```yaml
+extensions:
+  liveauth:
+    type: stdio
+    name: LiveAuth
+    enabled: true
+    cmd: npx
+    args: ["-y", "@liveauth-labs/mcp-server"]
+    env_keys: []
+    envs: {}
+    timeout: 300
+```
+
+Do not edit an existing Goose config destructively. Prefer the deep link or `goose configure`; if you add project configuration later, enter it through Goose's extension secret settings rather than shared plaintext YAML.
+
+### Goose quick test
+
+Ask Goose:
+
+> Use LiveAuth to start the default authentication flow. Confirm the returned quote, then show my LiveAuth usage.
+
+The initial flow uses the anonymous demo project's PoW challenge and does not require a wallet. A project public key is optional:
+
+| Variable | When to set it |
+|---|---|
+| `LIVEAUTH_API_KEY` | Project-specific policy, pricing, and attribution. |
+| `LIVEAUTH_API_BASE` | A self-hosted LiveAuth API instead of `https://api.liveauth.app`. |
+| `LIVEAUTH_DEMO=true` | Explicitly opt into the older locally simulated Lightning demo. |
+
+When a paid flow is requested, tool results retain the existing invoice fields and also include portable structured data:
+
+```json
+{
+  "lightning": {
+    "invoice": "lnbc...",
+    "lightningUri": "lightning:lnbc...",
+    "amountSats": 21,
+    "expiresAt": "2030-03-17T17:46:40.000Z",
+    "status": "pending"
+  }
+}
+```
+
+Clients with MCP Apps support can render the included QR, Open Wallet action, expiration, and live paid/pending/expired state. Other clients receive the JSON and QR image content as ordinary MCP results.
+
+### Goose troubleshooting
+
+- If the link does not open, run `npx @liveauth-labs/mcp-server setup goose` and use its one-session or manual fallback.
+- If `npx` is unavailable, install a current Node.js release (Node 18 or newer).
+- If a supplied project key is rejected, remove it to verify the anonymous PoW flow; invalid and revoked keys intentionally do not fall back to demo.
+- If a Lightning invoice expires, call `liveauth_mcp_start` again to obtain a fresh quote.
+- Keep refresh tokens and any non-public credentials out of logs and plaintext configuration.
+
+LiveAuth lets agents acquire authorization at runtime instead of requiring every tool to be provisioned with permanent credentials in advance.
 
 ## SDK Usage
 
@@ -295,7 +370,7 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-**Demo Mode:** If you omit `LIVEAUTH_API_KEY` or set `LIVEAUTH_DEMO=true`, the server uses the public demo auth endpoint and returns a 3-sat Lightning invoice preview. Confirmation is simulated by this MCP wrapper, so it is useful for testing without an account.
+**Credential-free mode:** If you omit `LIVEAUTH_API_KEY`, the server calls the normal MCP endpoints without a project header. LiveAuth binds its configured anonymous demo project, returns a signed PoW challenge, and preserves normal verification, JWT, rate-limit, and metering boundaries. `LIVEAUTH_DEMO=true` remains an explicit opt-in to the older locally simulated Lightning preview.
 
 **Other env vars:**
 
@@ -303,7 +378,7 @@ Add to your `claude_desktop_config.json`:
 |---|---|---|
 | `LIVEAUTH_API_KEY` | _(unset)_ | Your LiveAuth project public key (`la_pk_…`). |
 | `LIVEAUTH_API_BASE` | `https://api.liveauth.app` | Override for self-hosted LiveAuth. |
-| `LIVEAUTH_DEMO` | `false` | Force demo mode even with a key set. |
+| `LIVEAUTH_DEMO` | `false` | Explicitly use the legacy locally simulated Lightning demo. |
 
 ### Other MCP Clients
 
@@ -354,6 +429,14 @@ Start a new LiveAuth MCP session. Returns a PoW challenge by default, or a Light
     "amountSats": 50,
     "expiresAtUnix": 1234567890,
     "paymentHash": "abc123..."
+  },
+  "lightning": {
+    "invoice": "lnbc...",
+    "lightningUri": "lightning:lnbc...",
+    "amountSats": 50,
+    "expiresAt": "2009-02-13T23:31:30.000Z",
+    "expiresAtUnix": 1234567890,
+    "status": "pending"
   }
 }
 ```
@@ -370,17 +453,19 @@ Start a new LiveAuth MCP session. Returns a PoW challenge by default, or a Light
 
 ### `liveauth_mcp_confirm`
 
-Submit the solved proof-of-work challenge, poll a Lightning payment, or present an L402 macaroon to receive a JWT authentication token.
+Submit a solved proof-of-work challenge, let the package solve its cached challenge, poll a Lightning payment, or present an L402 macaroon to receive a JWT authentication token.
 
 **Parameters:**
 - `quoteId` (string): The quoteId from the start response
-- `challengeHex` (string, PoW only): The challenge hex from the start response
-- `nonce` (number, PoW only): The nonce that solves the PoW challenge
-- `hashHex` (string, PoW only): The resulting hash (sha256 of `projectPublicKey:challengeHex:nonce`)
-- `expiresAtUnix` (number, PoW only): Expiration timestamp from the challenge
-- `difficultyBits` (number, PoW only): Difficulty bits from the challenge
-- `signature` (string, PoW only): Signature from the challenge
+- `challengeHex` (string, optional, PoW only): The challenge hex from the start response
+- `nonce` (number, optional, PoW only): The nonce that solves the PoW challenge
+- `hashHex` (string, optional, PoW only): The resulting hash (sha256 of `projectPublicKey:challengeHex:nonce`)
+- `expiresAtUnix` (number, optional, PoW only): Expiration timestamp from the challenge
+- `difficultyBits` (number, optional, PoW only): Difficulty bits from the challenge
+- `signature` (string, optional, PoW only): Signature from the challenge
 - `macaroon` (string, L402 only): Bundle macaroon returned from the L402 bundle claim flow
+
+When the challenge came from this MCP server, calling confirm with `quoteId` alone reuses the package's existing PoW solver. Explicit solution fields remain supported for compatibility.
 
 **Returns:**
 ```json
@@ -392,7 +477,7 @@ Submit the solved proof-of-work challenge, poll a Lightning payment, or present 
 }
 ```
 
-**Note:** Save the `refreshToken`! Use `liveauth_mcp_refresh` to get a new JWT without re-authenticating.
+**Note:** Store the `refreshToken` securely. It is returned in MCP tool data but never written to stderr or application logs. Use `liveauth_mcp_refresh` to get a new JWT without re-authenticating.
 
 ### `liveauth_mcp_charge`
 
@@ -500,10 +585,8 @@ Refresh the JWT token without re-authenticating. Use the refreshToken returned f
 ### PoW Authentication
 
 1. Call `liveauth_mcp_start` to get a PoW challenge and quoteId
-2. Solve the PoW challenge:
-   - Compute `hash = sha256(projectPublicKey:challengeHex:nonce)`
-   - Find a nonce where hash < targetHex
-3. Call `liveauth_mcp_confirm` with the solution to receive a JWT
+2. Call `liveauth_mcp_confirm` with the quoteId; the MCP server solves its cached challenge with the existing package solver
+3. Advanced clients may still submit an explicit solution (`hash = sha256(projectPublicKey:challengeHex:nonce)` where `hash < targetHex`)
 4. Use the JWT in `Authorization: Bearer <token>` header for API requests
 5. After each generic API call, call `liveauth_mcp_charge` with a call cost, or omit it to use the project global MCP price
 6. For monetized MCP tools, wrap handlers with `createMcpGate({ toolId })` or `createMcpGate({ toolName })` so each call creates a revenue event and signed receipt
