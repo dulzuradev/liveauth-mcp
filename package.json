@@ -1,6 +1,6 @@
 {
   "name": "@liveauth-labs/mcp-server",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "mcpName": "io.github.dulzuradev/liveauth-mcp",
   "description": "LiveAuth MCP server for runtime PoW, Lightning, L402, metering, and paid tool access",
   "type": "module",
