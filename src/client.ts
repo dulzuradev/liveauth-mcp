@@ -110,7 +110,8 @@ export class LiveAuthMcpClient {
       throw new LiveAuthMcpError('This LiveAuth MCP session does not include a PoW challenge');
     }
 
-    return solvePow(session.powChallenge, this.publicKey);
+    // API public keys can alias the same project; PoW uses its canonical key.
+    return solvePow(session.powChallenge);
   }
 
   async confirm(session = this.requireSession(), options: McpConfirmOptions = {}): Promise<McpConfirmResponse> {

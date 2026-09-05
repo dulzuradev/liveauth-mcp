@@ -206,6 +206,10 @@ console.log(token.jwt);
 
 The client stores confirmed JWTs, refreshes them before expiry when a refresh token is returned, and exposes the current token through `liveauth.token`. Call `liveauth.destroy()` when your app is shutting down to clear token state and refresh timers.
 
+For PoW, `config.publicKey` is the credential sent in `X-LW-Public`. It may be either the project's primary public key or an active API public key belonging to that project. The API returns the canonical project key in `session.powChallenge.projectPublicKey`; the solver hashes that returned key, and confirmation still sends the configured credential. These two key strings can legitimately differ, so comparing them for equality is not a project-isolation check.
+
+Use sessions from your trusted LiveAuth API endpoint. The server binds the quote and signed challenge to the resolved project and issues a JWT with `projectId` and `authType`. For diagnostics, compare the JWT's `projectId` with the expected project ID from your console, without logging the token. Decoding claims alone does not verify a JWT signature.
+
 To require a real paid invoice:
 
 ```ts
