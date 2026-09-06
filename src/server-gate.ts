@@ -1,4 +1,4 @@
-import { BudgetExceededError, LiveAuthMcpError, UnauthorizedError } from './errors.js';
+import { ChargeDeniedError, ToolExecutionError, LiveAuthMcpError, UnauthorizedError } from './errors.js';
 import { cleanBaseUrl, projectHeaders, requestJson, requireFetch } from './http.js';
 import type {
   GateToolOptions,
@@ -73,12 +73,22 @@ export class LiveAuthMcpServerGate {
       ...(options.metadata ? { metadata: options.metadata } : {}),
     };
 
-    const response = await requestJson<McpChargeResponse>(this.fetchImpl, endpoint, {
-      method: 'POST',
-      headers: projectHeaders(this.publicKey, jwt),
-      body: JSON.stringify(body)
-    });
-
+    let response: McpChargeResponse;
+    try {
+      response = await requestJson<McpChargeResponse>(this.fetchImpl, endpoint, {
+        method: 'POST',
+        headers: projectHeaders(this.publicKey, jwt),
+        body: JSON.stringify(body)
+      });
+    } catch (error) {
+      // Structured HTTP denials use the same result contract as HTTP 200 denials.
+      if (error instanceof LiveAuthMcpError && error.details && typeof error.details === 'object' &&
+          'status' in error.details && error.details.status === 'deny') {
+        response = error.details as McpChargeResponse;
+      } else {
+        throw error;
+      }
+    }
     return { ...response, ok: response.status === 'ok' };
   }
 
@@ -93,7 +103,7 @@ export class LiveAuthMcpServerGate {
     const charge = await this.charge(jwt, options.costSats ?? this.defaultCostSats, options);
 
     if (!charge.ok) {
-      throw new BudgetExceededError('LiveAuth MCP budget denied this tool call', charge);
+      throw new ChargeDeniedError(charge);
     }
 
     const liveAuth = {
@@ -102,10 +112,11 @@ export class LiveAuthMcpServerGate {
       charge
     };
 
-    return handler(input, {
-      ...context,
-      liveAuth
-    });
+    try {
+      return await handler(input, { ...context, liveAuth });
+    } catch (cause) {
+      throw new ToolExecutionError(cause, charge, options.idempotencyKey);
+    }
   }
 
   async invoke<TInput, TResult, TContext extends object = Record<string, never>>(

@@ -150,7 +150,9 @@ export interface McpCallReceipt {
   netSats: number;
   feeBasisPoints: number;
   status: string;
+  /** Caller-controlled stable retry key; independent of the server request ID. */
   idempotencyKey?: string | null;
+  /** LiveAuth server HTTP request identifier for the original charge. */
   requestId?: string | null;
   createdAt: string;
 }
@@ -172,6 +174,7 @@ export interface GateToolOptions {
   validateFirst?: boolean;
   toolName?: string;
   toolMethodName?: string;
+  /** Stable retry key. No separate client request ID is sent by this SDK. */
   idempotencyKey?: string;
   agentId?: string;
   metadata?: Record<string, unknown>;
