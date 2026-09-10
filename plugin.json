@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "liveauth-mcp",
+  "description": "Authentication, pay-per-call metering, budgets, and signed receipts for AI agents and MCP tools using proof-of-work or Lightning.",
+  "version": "1.2.0",
+  "author": {
+    "name": "LiveAuth"
+  }
+}
