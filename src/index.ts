@@ -15,3 +15,7 @@ export function createMcpClient(config: LiveAuthMcpClientConfig): LiveAuthMcpCli
 export function createMcpGate(config: LiveAuthMcpServerGateConfig): LiveAuthMcpServerGate {
   return new LiveAuthMcpServerGate(config);
 }
+
+export { toMcpPaymentResult } from './payment-result.js';
+export { PaidOperationReplayError } from './errors.js';
+export { requestHash, mcpIdempotencyKey } from './server-gate.js';

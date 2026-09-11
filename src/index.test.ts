@@ -1,3 +1,4 @@
+import { requestHash } from './server-gate.js';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fetch from 'node-fetch';
 import {
@@ -314,6 +315,7 @@ describe('LiveAuth MCP SDK helpers', () => {
         method: 'POST',
         headers: expect.objectContaining({ 'X-LW-Public': 'la_pk_test' }),
         body: JSON.stringify({
+          requestHash: requestHash({ url: 'https://example.com' }),
           callCostSats: 5,
           toolMethodName: 'web_fetch',
           idempotencyKey: 'call-123',
@@ -369,6 +371,7 @@ describe('LiveAuth MCP SDK helpers', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
+          requestHash: requestHash({ query: 'test' }),
           toolName: 'paid-research-tool',
           toolMethodName: 'search',
           idempotencyKey: 'call-by-tool-name',

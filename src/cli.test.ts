@@ -47,6 +47,7 @@ describe('LiveAuth stdio MCP server tools', () => {
         'liveauth_mcp_charge',
         'liveauth_mcp_confirm',
         'liveauth_mcp_lnurl',
+        'liveauth_mcp_payment_confirm',
         'liveauth_mcp_refresh',
         'liveauth_mcp_start',
         'liveauth_mcp_status',
@@ -423,5 +424,34 @@ describe('LiveAuth stdio MCP server tools', () => {
       Authorization: 'Bearer jwt-from-l402',
     });
     expect(requests[3]?.init?.headers).toMatchObject({ Authorization: 'Bearer jwt-from-l402' });
+  });
+});
+
+describe('caller-funded MCP protocol', () => {
+  it('keeps discovery usable and returns a payment challenge, confirmation and retry as tool results', async () => {
+    let settled = false;
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/start')) return jsonResponse({ quoteId: 'caller-auth', authHint: 'l402_bundle' });
+      if (url.endsWith('/api/mcp/confirm')) return jsonResponse({jwt:'caller-jwt',expiresIn:600,remainingBudgetSats:10000});
+      if (url.endsWith('/capabilities')) return jsonResponse({callerFunding:true});
+      expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer caller-jwt');
+      if(url.endsWith('/payments/payment-id/confirm')) {settled=true;return jsonResponse({status:'paid',paymentId:'payment-id',callerBalanceSats:2});}
+      if(url.endsWith('/charge')) return jsonResponse(settled
+        ? {status:'ok',fundingMode:'caller',grossSats:2,netSats:2,revenueEventId:'revenue',callsUsed:1,satsUsed:2}
+        : {status:'deny',fundingMode:'caller',reason:'payment_required',callsUsed:0,satsUsed:0,payment:{paymentId:'payment-id',amountSats:2,method:'lightning',invoice:'ln-test'}}, {status:settled?200:402});
+      throw new Error('Unexpected request');
+    });
+    await withMcpClient({apiBase:API_BASE,apiKey:'la_pk_provider',fetch:fetchImpl},async client=>{
+      expect((await client.listTools()).tools.some(t=>t.name==='liveauth_mcp_payment_confirm')).toBe(true);
+      await client.callTool({name:'liveauth_mcp_start',arguments:{forceL402:true}});
+      await client.callTool({name:'liveauth_mcp_confirm',arguments:{quoteId:'caller-auth',macaroon:'auth-only-test'}});
+      const call={name:'liveauth_mcp_charge',arguments:{toolName:'inspect',fundingMode:'caller',idempotencyKey:'operation',requestHash:'a'.repeat(64)}};
+      const denied=await client.callTool(call);expect(denied.isError).toBe(true);
+      expect(parseToolJson(denied)).toMatchObject({reason:'payment_required',payment:{amountSats:2}});
+      expect((await client.listTools()).tools.length).toBeGreaterThan(0);
+      expect(parseToolJson(await client.callTool({name:'liveauth_mcp_payment_confirm',arguments:{paymentId:'payment-id'}}))).toMatchObject({status:'paid'});
+      expect(parseToolJson(await client.callTool(call))).toMatchObject({status:'ok',netSats:2,revenueEventId:'revenue'});
+    });
   });
 });

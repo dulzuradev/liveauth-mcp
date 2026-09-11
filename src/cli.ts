@@ -18,10 +18,11 @@ import {
   toToolResult,
   withLightningDetails,
 } from './lightning.js';
+import { LiveAuthMcpServerGate } from './server-gate.js';
 import { solvePow } from './pow.js';
 import type { PowChallenge } from './types.js';
 
-const PACKAGE_VERSION = '1.1.0';
+const PACKAGE_VERSION = '1.3.0';
 
 interface DemoSession {
   quoteId: string;
@@ -175,15 +176,23 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'liveauth_mcp_charge',
-    description: 'Meter usage after an authenticated call. A confirmed session JWT is required.',
+    description: 'Authorize a paid operation before execution. Caller funding returns a structured Lightning payment challenge. Retry with the same idempotencyKey and requestHash after confirmation.',
     inputSchema: {
       type: 'object',
       properties: {
         callCostSats: { type: 'number', description: 'Optional call cost in sats; omit to use project or tool pricing' },
-        toolName: { type: 'string', description: 'Optional registered MCP tool slug or name for pricing and attribution' },
+        toolName: { type: 'string', description: 'Registered tool slug or name' },
+        fundingMode: { type: 'string', enum: ['caller', 'provider'] },
+        idempotencyKey: { type: 'string', description: 'Stable logical operation ID, reused on retries' },
+        requestHash: { type: 'string', description: 'SHA-256 of canonical tool arguments' },
       },
       required: [],
     },
+  },
+  {
+    name: 'liveauth_mcp_payment_confirm',
+    description: 'Confirm a caller payment using the current authenticated session. Returns paid, pending or expired; then retry the original tool call with the same operation ID.',
+    inputSchema: { type: 'object', properties: { paymentId: { type: 'string' } }, required: ['paymentId'] },
   },
   {
     name: 'liveauth_mcp_usage',
@@ -406,7 +415,9 @@ export function createLiveAuthMcpServer(config: LiveAuthMcpServerConfig = {}): S
         }
 
         case 'liveauth_mcp_charge': {
-          const { callCostSats, toolName } = args as { callCostSats?: number; toolName?: string };
+          const { callCostSats, toolName, fundingMode, idempotencyKey, requestHash } = args as {
+            callCostSats?: number; toolName?: string; fundingMode?: string; idempotencyKey?: string; requestHash?: string;
+          };
           const demoCostSats = callCostSats ?? 1;
           if (demo) {
             if (!cachedJwt) return errorResult('Demo session is not confirmed. Call liveauth_mcp_confirm before charging.');
@@ -418,22 +429,22 @@ export function createLiveAuthMcpServer(config: LiveAuthMcpServerConfig = {}): S
             return toToolResult({ status: 'ok', callsUsed: demoCallsUsed, satsUsed: demoSatsUsed, _demo: true });
           }
 
-          const headers = getAuthHeaders(apiKey, demo);
-          if (cachedJwt) headers.Authorization = `Bearer ${cachedJwt}`;
-          const response = await fetchImpl(`${apiBase}/api/mcp/charge`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              ...(callCostSats === undefined ? {} : { callCostSats }),
-              ...(toolName ? { toolName } : {}),
-            }),
+          if (!cachedJwt) return errorResult('A confirmed LiveAuth session JWT is required.');
+          const gate = new LiveAuthMcpServerGate({ publicKey: apiKey || 'anonymous', baseUrl: apiBase,
+            toolName, fundingMode: fundingMode as 'caller' | 'provider' | undefined,
+            fetch: (input, init) => { const headers = { ...(init?.headers as Record<string, string>) }; if (!apiKey) delete headers['X-LW-Public']; return fetchImpl(String(input), { method: init?.method, headers, ...(typeof init?.body === 'string' ? { body: init.body } : {}) }) as Promise<Response>; } });
+          const result = await gate.charge(cachedJwt, callCostSats, { idempotencyKey, requestHash });
+          return { ...await toToolResult({ ...result }), ...(result.ok ? {} : { isError: true }) };
+        }
+
+        case 'liveauth_mcp_payment_confirm': {
+          if (!cachedJwt || demo) return errorResult('An authenticated LiveAuth caller session is required.');
+          const { paymentId } = args as { paymentId: string };
+          const response = await fetchImpl(`${apiBase}/api/mcp/payments/${encodeURIComponent(paymentId)}/confirm`, {
+            method: 'POST', headers: { ...getAuthHeaders(apiKey, demo), Authorization: `Bearer ${cachedJwt}` }, body: '{}'
           });
-          if (!response.ok) throw await readApiError(response as Response, `Charge failed: ${response.statusText}`);
-          const result = await response.json() as McpChargeResponse;
-          if (result.status === 'deny') {
-            return errorResult(`Budget exceeded! Calls used: ${result.callsUsed}, sats used: ${result.satsUsed}.`);
-          }
-          return toToolResult(result);
+          if (!response.ok) throw await readApiError(response as Response, 'Payment confirmation failed');
+          return toToolResult(await response.json() as Record<string, unknown>);
         }
 
         case 'liveauth_mcp_usage': {

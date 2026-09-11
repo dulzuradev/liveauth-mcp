@@ -16,7 +16,23 @@ export interface LiveAuthMcpClientConfig {
   onRefreshError?: (error: unknown) => void;
 }
 
+export type FundingMode = 'caller' | 'provider';
+export interface McpPaymentRequired {
+  paymentId: string;
+  method: 'lightning';
+  amountSats: number;
+  creditSats: number;
+  invoice: string;
+  expiresAt: string;
+  confirmPath: string;
+  retryIdempotencyKey: string;
+}
+
 export interface LiveAuthMcpServerGateConfig {
+  /** Caller mode fails closed against older backends. Otherwise use registered tool configuration. */
+  fundingMode?: FundingMode;
+  /** Server-only credential for explicitly subsidized project deposits. Never send to callers. */
+  providerSecret?: string;
   publicKey: string;
   baseUrl?: string;
   toolId?: string;
@@ -103,10 +119,16 @@ export interface McpUsageResponse {
   maxCallsPerMinute: number;
   expiresAt: string;
   dayWindowStart?: string | null;
+  callerBalanceSats?: number;
 }
 
 export interface McpChargeResponse {
   status: 'ok' | 'deny' | 'error' | string;
+  fundingMode?: FundingMode;
+  duplicate?: boolean;
+  callerBalanceSats?: number;
+  remainingBudgetSats?: number;
+  payment?: McpPaymentRequired | null;
   callsUsed: number;
   satsUsed: number;
   grossSats?: number | null;
@@ -135,6 +157,11 @@ export interface McpSignedReceipt {
 }
 
 export interface McpCallReceipt {
+  fundingMode?: FundingMode;
+  providerProjectId?: string | null;
+  requestHash?: string | null;
+  fundingAllocationsJson?: string | null;
+  fundingEnvironment?: string | null;
   receiptId: string;
   revenueEventId: string;
   mcpToolId: string;
@@ -170,6 +197,7 @@ export interface LnurlInvoiceResponse {
 }
 
 export interface GateToolOptions {
+  requestHash?: string;
   costSats?: number;
   validateFirst?: boolean;
   toolName?: string;

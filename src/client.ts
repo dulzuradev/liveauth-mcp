@@ -190,6 +190,12 @@ export class LiveAuthMcpClient {
     return result;
   }
 
+  async confirmPayment(paymentId: string, jwt = this.requireJwt()): Promise<{ status: string; paymentId: string; callerBalanceSats: number }> {
+    return requestJson(this.fetchImpl, `${this.baseUrl}/api/mcp/payments/${encodeURIComponent(paymentId)}/confirm`, {
+      method: 'POST', headers: projectHeaders(this.publicKey, jwt), body: '{}'
+    });
+  }
+
   async getStatus(quoteId = this.requireSession().quoteId): Promise<McpStatusResponse> {
     return requestJson<McpStatusResponse>(this.fetchImpl, `${this.baseUrl}/api/mcp/status/${quoteId}`, {
       method: 'GET',

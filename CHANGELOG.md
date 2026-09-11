@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0 — Unreleased
+
+- Add caller funding to the existing gate, capability negotiation, canonical request binding and MCP-safe payment results.
+- Add `confirmPayment`, `liveauth_mcp_payment_confirm`, payment types and structured CLI challenges.
+- Prevent re-execution on a duplicate charge; return the original payment status/receipt.
+- Keep explicit provider funding and add a server-only spending credential for provider deposits.
+- Add SQLite-backed backend and SDK/stdio/InvokeWorks tests and a complete local TEST smoke.
+- Requires the LiveAuthCore caller-funding rollout first. See [migration and verification](CALLER-FUNDING.md).
+- InvokeWorks packages/liveauth consumes `@liveauth-labs/mcp-server` **1.3.0**. No npm publication or deployment has been performed.
+
+
 ## 1.2.0 — Unreleased
 
 - Add `ChargeDeniedError` with reason/code and tool identity. It remains a

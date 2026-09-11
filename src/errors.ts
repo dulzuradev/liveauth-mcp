@@ -44,10 +44,15 @@ export class ChargeDeniedError extends BudgetExceededError {
       tool_not_found: 'LiveAuth MCP tool was not found',
       budget_exceeded: 'LiveAuth MCP budget was exceeded',
       rate_limited: 'LiveAuth MCP rate limit was exceeded',
+      payment_required: 'Caller payment required before tool execution',
+      payment_expired: 'Caller payment invoice expired',
+      idempotency_conflict: 'Retry key was used for different tool arguments or price',
+      price_mismatch: 'Tool price does not match the registered price',
+      provider_authorization_required: 'Provider spending authorization required',
     };
     super(messages[reason] ?? 'LiveAuth MCP denied this tool call', charge, {
       code: reason,
-      status: reason === 'budget_exceeded' ? 402 : reason === 'rate_limited' ? 429 : reason === 'tool_not_found' ? 404 : 403,
+      status: reason === 'budget_exceeded' || reason === 'payment_required' ? 402 : reason === 'rate_limited' ? 429 : reason === 'tool_not_found' ? 404 : 403,
     });
     this.name = 'ChargeDeniedError';
     this.reason = reason;
@@ -68,5 +73,14 @@ export class ToolExecutionError extends LiveAuthMcpError {
     this.charge = charge;
     this.idempotencyKey = idempotencyKey;
     Object.defineProperty(this, 'cause', { value: cause, enumerable: false });
+  }
+}
+
+/** Payment is already recorded; no new execution permission is issued. */
+export class PaidOperationReplayError extends LiveAuthMcpError {
+  constructor(readonly charge: McpChargeResult) {
+    super('This paid operation was already authorized; retry will not execute it again',
+      { code: 'operation_already_authorized', details: charge });
+    this.name = 'PaidOperationReplayError';
   }
 }

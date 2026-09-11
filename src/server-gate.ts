@@ -1,4 +1,5 @@
-import { ChargeDeniedError, ToolExecutionError, LiveAuthMcpError, UnauthorizedError } from './errors.js';
+import { createHash } from 'node:crypto';
+import { PaidOperationReplayError, ChargeDeniedError, ToolExecutionError, LiveAuthMcpError, UnauthorizedError } from './errors.js';
 import { cleanBaseUrl, projectHeaders, requestJson, requireFetch } from './http.js';
 import type {
   GateToolOptions,
@@ -11,6 +12,8 @@ import type {
 
 export class LiveAuthMcpServerGate {
   readonly publicKey: string;
+  readonly fundingMode?: LiveAuthMcpServerGateConfig['fundingMode'];
+  private readonly providerSecret?: string;
   readonly baseUrl: string;
   readonly toolId?: string;
   readonly toolName?: string;
@@ -24,6 +27,8 @@ export class LiveAuthMcpServerGate {
     }
 
     this.publicKey = config.publicKey;
+    this.fundingMode = config.fundingMode;
+    this.providerSecret = config.providerSecret;
     this.baseUrl = cleanBaseUrl(config.baseUrl);
     this.toolId = config.toolId;
     this.toolName = config.toolName;
@@ -59,12 +64,23 @@ export class LiveAuthMcpServerGate {
       throw new UnauthorizedError('Missing LiveAuth MCP JWT');
     }
 
+    if (this.fundingMode === 'caller') {
+      const capabilities = await requestJson<{ callerFunding?: boolean }>(this.fetchImpl, `${this.baseUrl}/api/mcp/capabilities`, {
+        method: 'GET', headers: projectHeaders(this.publicKey, jwt)
+      });
+      if (capabilities.callerFunding !== true) throw new LiveAuthMcpError('Caller funding unavailable', { code: 'caller_funding_unavailable' });
+    }
     const endpoint = this.toolId
       ? `${this.baseUrl}/api/mcp/tools/${encodeURIComponent(this.toolId)}/charge`
       : `${this.baseUrl}/api/mcp/charge`;
 
     const toolName = options.toolName ?? this.toolName;
+    if (this.fundingMode === 'caller' && (!options.idempotencyKey || !options.requestHash)) {
+      throw new LiveAuthMcpError('Caller-funded calls require an idempotency key and request binding', { code: 'request_binding_required' });
+    }
     const body = {
+      ...(this.fundingMode ? { fundingMode: this.fundingMode } : {}),
+      ...(options.requestHash ? { requestHash: options.requestHash } : {}),
       ...(callCostSats === undefined ? {} : { callCostSats }),
       ...(!this.toolId && toolName ? { toolName } : {}),
       ...(options.toolMethodName ? { toolMethodName: options.toolMethodName } : {}),
@@ -77,7 +93,8 @@ export class LiveAuthMcpServerGate {
     try {
       response = await requestJson<McpChargeResponse>(this.fetchImpl, endpoint, {
         method: 'POST',
-        headers: projectHeaders(this.publicKey, jwt),
+        headers: { ...projectHeaders(this.publicKey, jwt),
+          ...(this.providerSecret && this.fundingMode !== 'caller' ? { 'X-LW-Secret': this.providerSecret } : {}) },
         body: JSON.stringify(body)
       });
     } catch (error) {
@@ -89,6 +106,9 @@ export class LiveAuthMcpServerGate {
         throw error;
       }
     }
+    if (this.fundingMode === 'caller' && response.fundingMode !== 'caller') {
+      throw new LiveAuthMcpError('Backend does not support caller funding; execution refused', { code: 'caller_funding_unavailable' });
+    }
     return { ...response, ok: response.status === 'ok' };
   }
 
@@ -99,12 +119,15 @@ export class LiveAuthMcpServerGate {
     context: TContext,
     options: GateToolOptions = {}
   ): Promise<TResult> {
+    options = { ...options, requestHash: requestHash(input) };
     const usage = options.validateFirst === false ? undefined : await this.validateSession(jwt);
     const charge = await this.charge(jwt, options.costSats ?? this.defaultCostSats, options);
 
     if (!charge.ok) {
       throw new ChargeDeniedError(charge);
     }
+
+    if (charge.duplicate) throw new PaidOperationReplayError(charge);
 
     const liveAuth = {
       jwt,
@@ -145,4 +168,24 @@ export function withLiveAuthToolGate<TInput, TResult, TContext extends object = 
 
     return gate.gateTool(jwt, input, handler, context, options);
   };
+}
+
+/** Canonical JSON binds the paid operation to its validated arguments. */
+export function requestHash(value: unknown): string {
+  const canonical = (item: unknown): string => {
+    if (item === null || typeof item !== 'object') return JSON.stringify(item) ?? 'null';
+    if (Array.isArray(item)) return '[' + item.map(canonical).join(',') + ']';
+    return '{' + Object.keys(item).filter(key => (item as Record<string, unknown>)[key] !== undefined)
+      .sort().map(key => JSON.stringify(key) + ':' + canonical((item as Record<string, unknown>)[key])).join(',') + '}';
+  };
+  return createHash('sha256').update(canonical(value)).digest('hex');
+}
+
+/** Preserve JSON-RPC identity on transport retries; explicit keys also span new RPC IDs. */
+export function mcpIdempotencyKey(explicit: string | null | undefined, rpcId: string | number): string {
+  if (explicit !== undefined && explicit !== null) {
+    if (!/^[a-zA-Z0-9._-]{1,128}$/.test(explicit)) throw new LiveAuthMcpError('Invalid x-request-id', { code: 'invalid_idempotency_key' });
+    return explicit;
+  }
+  return 'mcp-' + requestHash(rpcId);
 }

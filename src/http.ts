@@ -31,7 +31,7 @@ export async function readJson<T>(response: Response): Promise<T> {
   try {
     return JSON.parse(text) as T;
   } catch {
-    throw new LiveAuthMcpError(`LiveAuth MCP returned non-JSON response: ${text.slice(0, 120)}`, {
+    throw new LiveAuthMcpError('LiveAuth MCP returned a non-JSON response', {
       status: response.status
     });
   }
