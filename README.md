@@ -110,6 +110,38 @@ Or use directly with npx:
 npx @liveauth-labs/mcp-server
 ```
 
+## Stdio verification (including MCPVault)
+
+Configure the command as `npx` and arguments as `["-y", "@liveauth-labs/mcp-server"]`.
+No environment variables are required for `initialize`, `notifications/initialized`,
+or `tools/list`. Keep stdin open throughout the session. Startup diagnostics go to
+stderr; stdout is reserved for MCP messages when running without CLI arguments.
+Do not pass `--help` or `setup goose` to a verifier: those commands intentionally exit.
+
+`LIVEAUTH_API_KEY` optionally selects a project's public key, and `LIVEAUTH_API_BASE`
+defaults to `https://api.liveauth.app`. Leave `LIVEAUTH_DEMO` unset for verification;
+the legacy simulated mode is not needed. Authentication and payment requirements
+remain enforced when tools are called. A safe offline discovery test can set
+`LIVEAUTH_API_BASE=http://127.0.0.1:1`, leave the key unset, and only initialize and
+list tools; those operations do not contact the API.
+
+Run `npm run test:package` to build and pack the project, install the tarball into a
+temporary directory, and test the direct entry point and npm bin with an MCP client.
+The test includes paths with spaces and reserved characters and verifies that an
+unauthenticated charge is rejected.
+
+Version **1.3.1** fixes the 1.3.0 entry-point detection bug that could exit with
+code 0 when invoked through an npm bin symlink or from a path containing spaces
+or URL-reserved characters. For a reproducible verification, use
+`npx -y @liveauth-labs/mcp-server@1.3.1`. A successful local handshake does not
+establish that MCPVault's own retest passes; the separately reported exit 134
+has not been reproduced.
+
+For an unexplained exit (especially code 134), retain complete stderr from process
+launch, the exit code and signal, resolved package version, Node/npm versions,
+OS/architecture, exact argv, working directory, and stdin/handshake timing. A
+deprecation warning alone does not establish the cause of an abort.
+
 ## Goose
 
 LiveAuth for Goose uses the same standards-based stdio MCP server as every other client—there is no Goose wrapper, daemon, or duplicate authentication runtime.

@@ -1,6 +1,6 @@
 {
   "name": "@liveauth-labs/mcp-server",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "mcpName": "io.github.dulzuradev/liveauth-mcp",
   "description": "LiveAuth MCP server for runtime PoW, Lightning, L402, metering, and paid tool access",
   "type": "module",
@@ -41,7 +41,8 @@
     "prepare": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:package": "node --test test/packaged-stdio.mjs"
   },
   "keywords": [
     "mcp",

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1 — 2026-10-06
+
+- Fix CLI entry-point detection for npm bin symlinks and URL-encoded paths.
+- Add clean-package stdio lifecycle regression tests and verification documentation.
+- Preserve authentication and payment enforcement; the separate reported exit 134 remains unconfirmed.
+
 ## 1.3.0 — Unreleased
 
 - Add caller funding to the existing gate, capability negotiation, canonical request binding and MCP-safe payment results.

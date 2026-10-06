@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -22,7 +24,7 @@ import { LiveAuthMcpServerGate } from './server-gate.js';
 import { solvePow } from './pow.js';
 import type { PowChallenge } from './types.js';
 
-const PACKAGE_VERSION = '1.3.0';
+const PACKAGE_VERSION = '1.3.1';
 
 interface DemoSession {
   quoteId: string;
@@ -576,7 +578,17 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
   return 2;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+function isCliEntryPoint(): boolean {
+  if (!process.argv[1]) return false;
+  try {
+    // npm bins are symlinks; module URLs also encode spaces and reserved characters.
+    return import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isCliEntryPoint()) {
   runCli().then((code) => {
     process.exitCode = code;
   }).catch((error) => {
