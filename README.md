@@ -4,6 +4,7 @@
 
 
 [![npm version](https://img.shields.io/npm/v/@liveauth-labs/mcp-server.svg)](https://www.npmjs.com/package/@liveauth-labs/mcp-server) [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![L402](https://img.shields.io/badge/auth-L402-F7931A.svg)](#l402-bundle-flow) [![MCP](https://img.shields.io/badge/protocol-MCP-7C3AED.svg)](https://modelcontextprotocol.io)
+[![M8ven Score](https://m8ven.ai/badge/mcp/dulzuradev-liveauth-mcp-19nh2p?v=0308c75d9eb5f79ed57eaa38fa443a8c)](https://m8ven.ai/mcp/dulzuradev-liveauth-mcp-19nh2p)
 
 > **Authentication, pay-per-call metering, and signed receipts for AI agents and MCP tools: Bitcoin-native, Lightning-backed, and L402 compatible.**
 
