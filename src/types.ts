@@ -154,6 +154,26 @@ export interface McpSignedReceipt {
   signatureAlgorithm: 'HMAC-SHA256' | string;
   keyId: string;
   body: McpCallReceipt;
+  presentationDataAuthenticated?: false;
+}
+
+export interface ReceiptVerificationKey {
+  keyId: string;
+  algorithm: string;
+  publicKey: string;
+  status: 'active' | 'retired' | string;
+  validFrom?: string | null;
+  retiredAt?: string | null;
+}
+
+export interface ReceiptKeySet {
+  version: 'receipt-key-set-v1' | string;
+  keys: ReceiptVerificationKey[];
+}
+
+export interface VerifiedReceipt {
+  payload: Record<string, unknown>;
+  key: ReceiptVerificationKey;
 }
 
 export interface McpCallReceipt {
