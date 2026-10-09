@@ -3,6 +3,7 @@ export * from './errors.js';
 export * from './pow.js';
 export * from './client.js';
 export * from './server-gate.js';
+export * from './receipt-verifier.js';
 
 import { LiveAuthMcpClient } from './client.js';
 import { LiveAuthMcpServerGate } from './server-gate.js';
